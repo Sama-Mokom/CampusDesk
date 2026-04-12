@@ -5,6 +5,8 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -22,6 +24,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'role'
     ];
 
     /**
@@ -39,11 +42,30 @@ class User extends Authenticatable
      *
      * @return array<string, string>
      */
+    public function studentProfile(): HasOne
+    {
+        return $this->HasOne(StudentProfile::class);
+    }
+    public function staffProfile(): HasOne
+    {
+        return $this->hasOne(StaffProfile::class);
+    }
+
+     public function requests(): HasMany
+    {
+        return $this->hasMany(Request::class, 'student_id');
+    }
+
+     public function notifications(): HasMany
+    {
+        return $this->hasMany(Notification::class);
+    }
     protected function casts(): array
     {
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'role' => 'string',
         ];
     }
 }
