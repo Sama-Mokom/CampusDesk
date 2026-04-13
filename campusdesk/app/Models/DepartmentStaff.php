@@ -17,4 +17,5 @@ class DepartmentStaff extends Model
     {
         return $this->belongsTo(Department::class);
     }
+    protected $table = 'department_staff';
 }
