@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\Request as DocumentRequest;
 use App\Http\Requests\UpdateStageStatusRequest as ResolveStageRequest;
 use Illuminate\Support\Facades\DB;
+use App\Models\StatusHistory;
 
 class RequestStageController extends Controller
 {
@@ -82,7 +83,7 @@ $claimed = RequestStage::where('id', $stage->id)
 ]);
 
 abort_if($claimed === 0, 409, 'Stage already claimed. ');
-$docRequest->statusHistories()->create([
+$docRequest->StatusHistory()->create([
     'old_status' => 'pending',
     'new_status' => 'in_review',
     'changed_by' => Auth::id(),

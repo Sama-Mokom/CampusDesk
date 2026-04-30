@@ -21,4 +21,7 @@ class StatusHistory extends Model
         return $this->belongsTo(RequestStage::class);
     }
     protected $table = 'status_history';
+     protected $fillable = [
+        'new_status'
+    ];
 }

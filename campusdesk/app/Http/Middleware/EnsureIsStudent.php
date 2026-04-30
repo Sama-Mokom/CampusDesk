@@ -17,7 +17,7 @@ class EnsureIsStudent
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (! Gate::allows('is_student')){
+        if (!Gate::allows('is_student')){
             return response()->json(['message' => 'Unauthorized'], 403);
         }
         return $next($request);

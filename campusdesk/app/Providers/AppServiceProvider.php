@@ -22,9 +22,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        Gate::define('is-student', fn(User $user) => $user->role === 'student');
-        Gate::define('is-staff', fn(User $user) => $user->role === 'staff');
-        Gate::define('is-dept-admin', fn(User $user) => 
+        Gate::define('is_student', fn(User $user) => $user->role === 'student');
+        Gate::define('is_staff', fn(User $user) => $user->role === 'staff');
+        Gate::define('is_dept-admin', fn(User $user) => 
         $user->role === 'staff' && $user->staffProfile?->admin_level === 'dept_admin');
         Gate::define('is-super-admin', fn(User $user) => 
         $user->role === 'staff' && $user->staffProfile?->admin_level === 'super_admin');

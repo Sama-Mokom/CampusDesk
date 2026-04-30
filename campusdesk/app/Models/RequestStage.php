@@ -26,4 +26,8 @@ class RequestStage extends Model
     {
         return $this->hasMany(StatusHistory::class);
     }
+    protected $fillable = [
+        'department_id',
+        'sequence_order',
+    ];
 }

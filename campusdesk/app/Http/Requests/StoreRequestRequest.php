@@ -13,10 +13,7 @@ class StoreRequestRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        if (Gate::allows('is-student')) {
-            return true;
-    }
-        return false;
+        return $this->user()->role === 'student';
     }
 
     /**
@@ -27,12 +24,10 @@ class StoreRequestRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'student_id' => 'required|integer|max:10',
             'request_type_id' => 'required|integer|max:10',
             'description' => 'string|max:255',
             'status' => 'rule::enum(status)',
             'is_reopened' => 'boolean',
-            'created_at' => 'required|date',
             'attachments' => 'file|mimes:pdf,docx|max:5120'
             //
         ];

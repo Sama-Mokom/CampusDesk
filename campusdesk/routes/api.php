@@ -30,3 +30,4 @@ Route::middleware(['auth:sanctum', 'dept_admin'])->group(function () {
 Route::middleware(['auth:sanctum', 'super_admin'])->group(function () {
     // super_admin-only routes go here
 });
+require __DIR__.'/auth.php';

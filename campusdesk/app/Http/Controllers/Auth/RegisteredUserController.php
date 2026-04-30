@@ -39,9 +39,10 @@ class RegisteredUserController extends Controller
             'password' => Hash::make($request->string('password')),
             'role' => 'student',
         ]);
-
+         
+        // dd($request->all());
          $student = StudentProfile::create([
-            'user_id' => $request->user_id,
+            'user_id' => $user->id,
             'faculty_id' => $request->faculty_id,
             'department_id' => $request->department_id,
             'programme_id' => $request->programme_id,

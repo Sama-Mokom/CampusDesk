@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Models\Request as DocumentRequest;
+use App\Models\StatusHistory;
 
 class Request extends Model
 {
@@ -26,8 +27,11 @@ class Request extends Model
     {
         return $this->hasMany(Attachment::class);
     }
-      public function statusHistories(): HasMany
+      public function statusHistory(): HasMany
     {
         return $this->hasMany(StatusHistory::class);
     }
+    protected $fillable = [
+        'request_type_id'
+    ];
 }

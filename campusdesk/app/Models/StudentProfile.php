@@ -27,5 +27,14 @@ class StudentProfile extends Model
     {
         return $this->belongsTo(Programme::class);
     }
-    protected $fillable = ['user_id'];
+    protected $fillable = [
+        'user_id', 
+        'faculty_id',
+        'department_id',
+        'programme_id',
+        'matricule',
+        'level',
+        'status',
+        ];
+    
 }

@@ -55,13 +55,29 @@ class RequestController extends Controller
 }
         }
         $type = RequestType::findOrFail($request->request_type_id);
-        foreach ($type->default_department_sequence as $index => $deptid){
-            $userRequest->stages()->create([
-                'department_id' => $deptid,
-                'sequence_order' => $index + 1,
-                'status' => 'pending',
-            ]);
-        }
+        // dump($type);
+        
+       
+        //    foreach ($type->default_department_sequence as $index => $deptid){
+        //     $stages = collect($type->default_department_sequence)->map(fn($deptid, $index) =>[
+        //         'department_id' => $deptid,
+        //         'sequence_order' => $index + 1,
+        //         'status' => 'pending',
+        //         'created_at' => now(),
+        //         'updated_at' => now()
+        //     ])->toArray();
+        //     dd($stages);
+        //     $userRequest->requestStages()->createMany($stages);
+        //     dump($userRequest->requestStages);
+        // }
+
+        foreach ($type->default_department_sequence as $index => $deptid) {
+        $userRequest->requestStages()->create([
+        'department_id' => $deptid,
+        'sequence_order' => $index + 1,
+        'status' => 'pending',
+    ]);
+}
         $userRequest->statusHistory()->create([
             'new_status' => 'pending',
             'old_status' => null,
@@ -69,7 +85,7 @@ class RequestController extends Controller
             'note' => 'Request submitted by student.',
         ]);
 
-        return $userRequest->load(['stages', 'statusHistory']);
+        return $userRequest->load(['requestStages', 'statusHistory']);
     });
     }
 
