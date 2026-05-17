@@ -88,13 +88,6 @@ $claimed = RequestStage::where('id', $stage->id)
 ]);
 
 abort_if($claimed === 0, 409, 'Stage already claimed. ');
-$docRequest->statusHistories()->create([
-    'old_status' => 'pending',
-    'new_status' => 'in_review',
-    'changed_by' => Auth::id(),
-    'request_stage_id' => $stage->id,
-    'note' => null,
-]);
 
 $docRequest->update(['status' => 'in_review']);
 
@@ -117,13 +110,6 @@ public function resolve(ResolveStageRequest $formRequest, DocumentRequest $docRe
             'status' => $status,
             'staff_note' => $formRequest->validated()['staff_note']?? null,
         ]);
-        $docRequest->statusHistories()->create([
-            'old_status' => 'in_review',
-            'new_status' => $status,
-            'changed_by' => Auth::id(),
-            'request_stage_id' => $stage->id,
-            'note' => $formRequest->validated()['staff_note'] ?? null,
-           ]);
         if ($status ==='approved') {
             $this->handleApproval($docRequest,$stage);
         } else {
@@ -142,12 +128,6 @@ private function handleApproval(DocumentRequest $docRequest, RequestStage $stage
     $docRequest->update([
         'status' => $isFinalStage ? 'ready' : 'forwarded',
     ]);
-    dump([
-    'request_id' => $docRequest->id,
-    'stage_sequence_order' => $stage->sequence_order,
-    'is_final' => $isFinalStage,
-    'docRequest_status' => $docRequest->status,
-]);
 }
 
 

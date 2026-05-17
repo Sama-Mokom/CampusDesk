@@ -22,6 +22,10 @@ class StatusHistory extends Model
     }
     protected $table = 'status_history';
      protected $fillable = [
-        'new_status'
+        'new_status',
+        'old_status',
+        'changed_by',
+        'request_id',
+        'note',
     ];
 }

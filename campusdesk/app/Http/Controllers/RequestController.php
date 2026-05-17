@@ -6,7 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use App\Models\RequestType;
-use App\Models\StatusHistory;
+use App\Models\StatusHistory as statusHistories;
 use App\Models\RequestStage;
 use App\Models\Request as UserRequest;
 use App\Http\Requests\StoreRequestRequest;
@@ -55,21 +55,6 @@ class RequestController extends Controller
 }
         }
         $type = RequestType::findOrFail($request->request_type_id);
-        // dump($type);
-        
-       
-        //    foreach ($type->default_department_sequence as $index => $deptid){
-        //     $stages = collect($type->default_department_sequence)->map(fn($deptid, $index) =>[
-        //         'department_id' => $deptid,
-        //         'sequence_order' => $index + 1,
-        //         'status' => 'pending',
-        //         'created_at' => now(),
-        //         'updated_at' => now()
-        //     ])->toArray();
-        //     dd($stages);
-        //     $userRequest->requestStages()->createMany($stages);
-        //     dump($userRequest->requestStages);
-        // }
 
         foreach ($type->default_department_sequence as $index => $deptid) {
         $userRequest->requestStages()->create([
@@ -78,14 +63,14 @@ class RequestController extends Controller
         'status' => 'pending',
     ]);
 }
-        $userRequest->statusHistory()->create([
+        $userRequest->statusHistories()->create([
             'new_status' => 'pending',
             'old_status' => null,
             'changed_by' => Auth::id(),
             'note' => 'Request submitted by student.',
         ]);
 
-        return $userRequest->load(['requestStages', 'statusHistory']);
+        return $userRequest->load(['requestStages', 'statusHistories']);
     });
     }
 
