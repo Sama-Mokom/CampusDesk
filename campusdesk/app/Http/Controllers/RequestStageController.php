@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\Request as DocumentRequest;
 use App\Http\Requests\UpdateStageStatusRequest as ResolveStageRequest;
 use Illuminate\Support\Facades\DB;
-use App\Models\StatusHistory;
+use App\Models\StatusHistory as statusHistories;
 
 class RequestStageController extends Controller
 {
@@ -71,7 +71,12 @@ public function claim(Request $request, DocumentRequest $docRequest, RequestStag
 abort_if($stage->request_id != $docRequest->id, 404);
 
 $staff = $request->user()->staffProfile;
+// dump([
+//     'stage_department_id' => $stage_id->department_id,
+//     'user_department_ids' => $staff->departments->pluck('id')->toArray(),
+// ]);
 $belongsToDept = $staff->departments->contains('id', $stage->department_id);
+// dump($staff);
 abort_unless($belongsToDept, 403);
 
 $claimed = RequestStage::where('id', $stage->id)
@@ -83,7 +88,7 @@ $claimed = RequestStage::where('id', $stage->id)
 ]);
 
 abort_if($claimed === 0, 409, 'Stage already claimed. ');
-$docRequest->StatusHistory()->create([
+$docRequest->statusHistories()->create([
     'old_status' => 'pending',
     'new_status' => 'in_review',
     'changed_by' => Auth::id(),
@@ -98,6 +103,7 @@ return response()->json(['message' => 'Stage claimed'], 200);
 
 public function resolve(ResolveStageRequest $formRequest, DocumentRequest $docRequest, RequestStage $stage)
 {
+    
       abort_if($stage->request_id !== $docRequest->id, 404);
 
       abort_unless($stage->handled_by === $formRequest->user()->id, 403);
@@ -136,6 +142,12 @@ private function handleApproval(DocumentRequest $docRequest, RequestStage $stage
     $docRequest->update([
         'status' => $isFinalStage ? 'ready' : 'forwarded',
     ]);
+    dump([
+    'request_id' => $docRequest->id,
+    'stage_sequence_order' => $stage->sequence_order,
+    'is_final' => $isFinalStage,
+    'docRequest_status' => $docRequest->status,
+]);
 }
 
 

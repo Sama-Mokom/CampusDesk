@@ -27,11 +27,13 @@ class Request extends Model
     {
         return $this->hasMany(Attachment::class);
     }
-      public function statusHistory(): HasMany
+      public function statusHistories(): HasMany
     {
         return $this->hasMany(StatusHistory::class);
     }
     protected $fillable = [
-        'request_type_id'
+        'request_type_id',
+        'description',
+        'status',
     ];
 }

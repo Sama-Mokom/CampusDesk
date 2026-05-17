@@ -13,7 +13,7 @@ class UpdateStageStatusRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        if (Gate::allows('is-staff')) {
+        if (Gate::allows('is_staff')) {
             return true;
     }
         return false;
@@ -28,8 +28,8 @@ class UpdateStageStatusRequest extends FormRequest
     {
         return [
             //
-            'status' => 'required|rule::enum(status)',
-            'staff_note' => 'string|max:255'
+           'status'     => ['required', 'in:approved,rejected'],
+           'staff_note' => ['nullable', 'string', 'max:1000', 'required_if:status,rejected'],
         ];
     }
 }

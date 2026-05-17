@@ -18,13 +18,15 @@ Route::middleware(['auth:sanctum', 'student'])->group(function () {
 Route::middleware(['auth:sanctum', 'staff'])->group(function () {
     // staff-only routes go here
     Route::get('/requests/{request}/stages', [RequestStageController::class, 'index']);
-    Route::prefix('requests/{request}/stages/{stage}')->group(function (){
-        Route::post('claim', [RequestStageController::class, 'claim']);
-        Route::patch('resolve', [RequestStageController::class, 'resolve']);
-    });
+    // Route::prefix('requests/{request}/stages/{stage}')->group(function (){
+    //     Route::post('claim', [RequestStageController::class, 'claim']);
+    //     Route::patch('resolve', [RequestStageController::class, 'resolve']);
+    // });
+    Route::post('requests/{docRequest}/stages/{stage}/claim', [RequestStageController::class, 'claim']);
+    Route::patch('requests/{docRequest}/stages/{stage}/resolve', [RequestStageController::class, 'resolve']);
 });
 Route::middleware(['auth:sanctum', 'dept_admin'])->group(function () {
-    // staff-only routes go here
+    // dept_admin routes go here
 });
 
 Route::middleware(['auth:sanctum', 'super_admin'])->group(function () {
