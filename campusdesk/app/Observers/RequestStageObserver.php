@@ -3,6 +3,9 @@
 namespace App\Observers;
 
 use App\Models\RequestStage;
+use App\Models\User;
+use App\Jobs\SendRequestStatusNotification;
+use App\Models\Request as DocumentRequest;
 
 class RequestStageObserver
 {
@@ -28,6 +31,10 @@ class RequestStageObserver
             'request_stage_id' => $stage->id,
             'note' => $stage->staff_note ?? null,
            ]);
+           $request = DocumentRequest::with('requestType')->find($stage->request_id);
+           $user = User::find($request->student_id);
+
+           SendRequestStatusNotification::dispatch($user, $request, $stage->status);
         }
     }
 
