@@ -2,12 +2,15 @@
 
 namespace App\Providers;
 
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Support\Facades\RateLimiter;
 use App\Observers\RequestStageObserver;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Gate;
 use App\Models\User;
 use App\Models\RequestStage;
+use Illuminate\Http\Request;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -36,5 +39,14 @@ class AppServiceProvider extends ServiceProvider
         });
 
         RequestStage::observe(RequestStageObserver::class);
+
+        // RateLimiter::for('auth', function (Request $request) {
+        // return Limit::perMinute(5)->by($request->user()?->id ?: $request->ip());
+        //  });
+        // RateLimiter::for('api', function (Request $request) {
+        // return $request->user()
+        // ? Limit::perMinute(20)->by($request->user()->id)
+        // : Limit::perMinute(10)->by($request->ip());
+        // });
     }
 }

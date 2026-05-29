@@ -8,20 +8,18 @@ use App\Http\Controllers\RequestController;
 Route::middleware(['auth:sanctum'])->get('/user', function (Request $request) {
     return $request->user();
 });
-Route::middleware(['auth:sanctum', 'student'])->group(function () {
-    // student-only routes go here
+Route::middleware(['auth:sanctum', 'student', 'throttle:60,1'])->group(function () {
     Route::get('/requests', [RequestController::class, 'index']);
-    Route::post('/requests', [RequestController::class, 'store']);
     Route::get('/request/{requests}', [RequestController::class, 'show']);
 });
 
-Route::middleware(['auth:sanctum', 'staff'])->group(function () {
+Route::middleware(['auth:sanctum', 'student', 'throttle:10,1'])->group(function () {
+    Route::post('/requests', [RequestController::class, 'store']);
+});
+
+Route::middleware(['auth:sanctum', 'staff', 'throttle:60,1'])->group(function () {
     // staff-only routes go here
     Route::get('/requests/{request}/stages', [RequestStageController::class, 'index']);
-    // Route::prefix('requests/{request}/stages/{stage}')->group(function (){
-    //     Route::post('claim', [RequestStageController::class, 'claim']);
-    //     Route::patch('resolve', [RequestStageController::class, 'resolve']);
-    // });
     Route::post('requests/{docRequest}/stages/{stage}/claim', [RequestStageController::class, 'claim']);
     Route::patch('requests/{docRequest}/stages/{stage}/resolve', [RequestStageController::class, 'resolve']);
 });
