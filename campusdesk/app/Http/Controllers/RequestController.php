@@ -46,6 +46,7 @@ class RequestController extends Controller
             'request_type_id' => $request->request_type_id,
             'description' => $request->description,
             'status' => 'pending',
+            'is_reopened' => false,
         ]);
         if ($request->hasFile('attachments')) {
             foreach ($request->file('attachments', []) as $file) {

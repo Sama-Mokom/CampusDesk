@@ -35,5 +35,13 @@ class Request extends Model
         'request_type_id',
         'description',
         'status',
+        'is_reopened',
     ];
+
+     protected function casts(): array
+    {
+        return [
+            'is_reopened' => 'boolean',
+        ];
+    }
 }
