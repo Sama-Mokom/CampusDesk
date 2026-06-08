@@ -10,6 +10,8 @@ use App\Models\StatusHistory as statusHistories;
 use App\Models\RequestStage;
 use App\Models\Request as UserRequest;
 use App\Http\Requests\StoreRequestRequest;
+use App\Http\Resources\RequestStageResource;
+use App\Http\Resources\RequestResource;
 
 class RequestController extends Controller
 {
@@ -19,7 +21,9 @@ class RequestController extends Controller
     public function index()
     {
         //Scope to the authenticated user only. Meaning only that users requests will be returned
-        return Auth::user()->requests()->latest()->get();
+        return RequestResource::collection(
+           Auth::user()->requests()->latest()->get()
+        );
     }
 
     /**
@@ -70,7 +74,10 @@ class RequestController extends Controller
             'note' => 'Request submitted by student.',
         ]);
 
-        return $userRequest->load(['requestStages', 'statusHistories']);
+        return new RequestResource(
+            $userRequest->load(['requestStages', 'attachments', 'statusHistories'])
+         );
+        // return $userRequest->load(['requestStages', 'statusHistories']);
     });
     }
 
@@ -84,7 +91,10 @@ class RequestController extends Controller
             abort(403, 'Unauthorized action. ');
         }
 
-        return $request->load(['stages', 'attachments', 'statusHistory']);
+         return new RequestResource(
+          $request->load(['requestStages', 'attachments', 'statusHistories'])
+        );
+        // return $request->load(['stages', 'attachments', 'statusHistory']);
     }
 
     /**

@@ -9,6 +9,9 @@ use App\Models\Request as DocumentRequest;
 use App\Http\Requests\UpdateStageStatusRequest as ResolveStageRequest;
 use Illuminate\Support\Facades\DB;
 use App\Models\StatusHistory as statusHistories;
+use App\Http\Resources\RequestStageResource;
+use App\Http\Resources\RequestResource;
+use App\Http\Resources\UserResource;
 
 class RequestStageController extends Controller
 {
@@ -19,12 +22,13 @@ class RequestStageController extends Controller
     {
         //
         $user = Auth::user();
-        return RequestStage::whereIn('department_id', $user->staffProfile->departments->pluck('id'))
+        $requestStages = RequestStage::whereIn('department_id', $user->staffProfile->departments->pluck('id'))
                 ->where('status', 'pending')
                 ->whereNull('handled_by')
                 //Eager load additional info for department ID resolution
                 ->with(['request', 'department'])
                 ->get();
+        return RequestStageResource::collection($requestStages);
     }
 
     /**
@@ -71,12 +75,7 @@ public function claim(Request $request, DocumentRequest $docRequest, RequestStag
 abort_if($stage->request_id != $docRequest->id, 404);
 
 $staff = $request->user()->staffProfile;
-// dump([
-//     'stage_department_id' => $stage_id->department_id,
-//     'user_department_ids' => $staff->departments->pluck('id')->toArray(),
-// ]);
 $belongsToDept = $staff->departments->contains('id', $stage->department_id);
-// dump($staff);
 abort_unless($belongsToDept, 403);
 
 $claimed = RequestStage::where('id', $stage->id)
