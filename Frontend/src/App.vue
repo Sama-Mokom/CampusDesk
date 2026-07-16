@@ -80,10 +80,11 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import NotificationBell from './components/NotificationBell.vue'
 import { useMockData } from './composables/useMockData'
+import { useAuth } from './composables/useAuth'
 
 const route = useRoute()
 const router = useRouter()
-const { sessionUser, logout } = useMockData()
+const { user, clearAuth } = useAuth()
 
 const currentTime = ref('')
 
@@ -93,7 +94,7 @@ const layout = computed(() => {
 })
 
 const roleLabel = computed(() => {
-  const u = sessionUser.value
+  const u = user.value
   if (!u) return ''
   if (u.role === 'student') return 'Student'
   const al = u.staff_profile?.admin_level
@@ -103,7 +104,7 @@ const roleLabel = computed(() => {
 })
 
 function onLogout() {
-  logout()
+  clearAuth()
   router.push({ name: 'login' })
 }
 

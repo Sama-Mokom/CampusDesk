@@ -56,23 +56,53 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, computed, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
-import { useMockData } from '@/composables/useMockData'
-import type { StudentLevel } from '@/types'
+import { reactive, computed, ref, watch, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import type { StudentLevel, Faculty, Department, Programme } from '../types'
+import { register } from '../services/auth'
+import { useAuth } from '../composables/useAuth'
+import { fetchDepartments, fetchFaculties, fetchProgrammes } from '../services/reference'
 
 const router = useRouter()
-const { faculties, departments, programmes, registerStudent, mockUsers } = useMockData()
+const route = useRoute()
+const faculties = ref<Faculty[]>([])
+const departments = ref<Department[]>([])
+const programmes = ref<Programme[]>([])
+const { user, setUser } = useAuth()
 
 const levels: StudentLevel[] = ['L100', 'L200', 'L300', 'L400', 'L500', 'L600']
 const error = ref('')
+
+onMounted(async () =>{
+  try {
+    const [fetchedFaculties, fetchedDepartments, fetchedProgrammes] = await Promise.all([
+      fetchFaculties(),
+      fetchDepartments(),
+      fetchProgrammes(),
+    ])
+    faculties.value = fetchedFaculties
+    departments.value = fetchedDepartments
+    programmes.value = fetchedProgrammes
+  } catch (err) {
+    error.value = 'Failed tp load registration data. Please refresh.'
+  }
+})
+function homePath(): string {
+  const u = user.value
+  if (!u) return '/login'
+  if (u.role === 'student') return '/student'
+  const level = u.staff_profile?.admin_level
+  if (level === 'super_admin') return '/admin'
+  if (level === 'dept_admin') return '/dept-admin'
+  return '/staff'
+}
 
 const form = reactive({
   name: '',
   email: '',
   password: '',
   matricule: '',
-  faculty_id: faculties.value[0]?.id ?? 1,
+  faculty_id: faculties.value[1]?.id ?? 0,
   department_id: 0,
   programme_id: 0,
   level: 'L100' as StudentLevel
@@ -107,26 +137,32 @@ function onDeptChange() {
   syncDefaults()
 }
 
-function onSubmit() {
+async function onSubmit() {
   error.value = ''
-  if (mockEmailTaken(form.email)) {
-    error.value = 'That email is already registered.'
-    return
+  try {
+    const registeredUser = await register({
+      name: form.name.trim(),
+      email: form.email.trim(),
+      password: form.password,
+      password_confirmation: form.password,
+      matricule: form.matricule.trim(),
+      faculty_id: form.faculty_id,
+      department_id: form.department_id,
+      programme_id: form.programme_id,
+      level: form.level
+    });
+    setUser(registeredUser)
+    router.replace(homePath())
+  } catch (err: any){
+    if (err.response && err.response.status === 422) {
+      error.value = err.response.data.message || 'Registration failed. Please check your details.';
+  } else {
+    error.value = 'A connection error occurred. Please try again.';
+   }
   }
-  registerStudent({
-    name: form.name.trim(),
-    email: form.email.trim(),
-    password: form.password,
-    matricule: form.matricule.trim(),
-    faculty_id: form.faculty_id,
-    department_id: form.department_id,
-    programme_id: form.programme_id,
-    level: form.level
-  })
-  router.push({ name: 'login', query: { registered: '1' } })
 }
 
-function mockEmailTaken(email: string) {
-  return mockUsers.value.some(u => u.email.toLowerCase() === email.trim().toLowerCase())
-}
+// function mockEmailTaken(email: string) {
+//   return mockUsers.value.some(u => u.email.toLowerCase() === email.trim().toLowerCase())
+// }
 </script>

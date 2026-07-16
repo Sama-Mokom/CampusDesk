@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\RequestStageController;
 use App\Http\Controllers\RequestController;
+use App\Http\Controllers\ReferenceDataController;
 
 Route::middleware(['auth:sanctum'])->get('/user', function (Request $request) {
     return $request->user();
@@ -30,4 +31,10 @@ Route::middleware(['auth:sanctum', 'dept_admin'])->group(function () {
 Route::middleware(['auth:sanctum', 'super_admin'])->group(function () {
     // super_admin-only routes go here
 });
+
+// Public Reference Data Endpoints
+Route::get('/faculties', [ReferenceDataController::class, 'faculties']);
+Route::get('/departments', [ReferenceDataController::class, 'departments']);
+Route::get('/programmes', [ReferenceDataController::class, 'programmes']);
+Route::get('/request-types', [ReferenceDataController::class, 'requestTypes']);
 require __DIR__.'/auth.php';

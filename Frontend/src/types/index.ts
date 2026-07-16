@@ -75,6 +75,27 @@ export interface User {
   staff_profile?: StaffProfile
 }
 
+export interface LoginCredentials {
+  email: string
+  password: string
+}
+
+export interface RegisterCredentials {
+  name: string
+  email: string
+  password: string
+  password_confirmation: string
+  matricule: string
+  faculty_id: number
+  department_id: number
+  programme_id: number
+  level: 'L100' | 'L200' | 'L300' | 'L400' | 'L500' | 'L600'
+}
+
+export interface AuthResponse {
+  token: string
+  user: User
+}
 export interface UserSummary {
   id: number
   name: string
@@ -85,6 +106,18 @@ export interface RequestTypeEntity {
   name: string
   description: string
   default_department_sequence: number[]
+}
+
+export interface CreateRequestPayload {
+  request_type_id: number;
+  description: string;
+  attachments?: File[]; // For handling file uploads if needed
+}
+
+export interface CreateRequestPayload {
+  request_type_id: number;
+  description: string;
+  attachments?: File[]; // For handling file uploads if needed
 }
 
 export interface Attachment {
@@ -103,6 +136,24 @@ export interface RequestStage {
   handled_by: UserSummary | null
   staff_note: string | null
   updated_at: string | null
+}
+
+export interface ResolveStagePayload {
+  /**
+   * The action to perform on this stage.
+   */
+  action: 'approve' | 'reject';
+  
+  /**
+   * A staff comment/note documenting the decision.
+   */
+  staff_note: string;
+  
+  /**
+   * Optional: If the overall request needs to transition to a new status 
+   * (e.g. 'rejected' if rejecting, or 'ready' if this is the final stage).
+   */
+  request_status?: RequestStatus;
 }
 
 export interface StatusHistoryEntry {
