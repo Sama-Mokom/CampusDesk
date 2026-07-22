@@ -22,14 +22,12 @@ class StoreRequestRequest extends FormRequest
      * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
-    {
-        return [
-            'request_type_id' => 'required|integer|max:10',
-            'description' => 'string|max:255',
-            'status' => 'rule::enum(status)',
-            'is_reopened' => 'boolean',
-            'attachments' => 'file|mimes:pdf,docx|max:5120'
-            //
-        ];
-    }
+{
+    return [
+        'request_type_id' => ['required', 'exists:request_types,id'],
+        'description'     => ['nullable', 'string', 'max:1000'],
+        'attachments'     => ['nullable', 'array'],
+        'attachments.*'   => ['file', 'mimes:pdf,docx,jpg,png', 'max:5120'],
+    ];
+}
 }

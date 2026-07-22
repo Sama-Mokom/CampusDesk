@@ -11,7 +11,7 @@ Route::middleware(['auth:sanctum'])->get('/user', function (Request $request) {
 });
 Route::middleware(['auth:sanctum', 'student', 'throttle:60,1'])->group(function () {
     Route::get('/requests', [RequestController::class, 'index']);
-    Route::get('/request/{requests}', [RequestController::class, 'show']);
+    Route::get('/requests/{requests}', [RequestController::class, 'show']);
 });
 
 Route::middleware(['auth:sanctum', 'student', 'throttle:10,1'])->group(function () {

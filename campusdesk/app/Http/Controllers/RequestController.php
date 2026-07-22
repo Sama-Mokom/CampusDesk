@@ -22,7 +22,7 @@ class RequestController extends Controller
     {
         //Scope to the authenticated user only. Meaning only that users requests will be returned
         return RequestResource::collection(
-           Auth::user()->requests()->latest()->get()
+           Auth::user()->requests()->with(['requestType', 'attachments'])->latest()->get()
         );
     }
 

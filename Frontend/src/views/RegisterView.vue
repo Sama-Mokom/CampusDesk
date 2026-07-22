@@ -57,14 +57,13 @@
 
 <script setup lang="ts">
 import { reactive, computed, ref, watch, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRouter } from 'vue-router'
 import type { StudentLevel, Faculty, Department, Programme } from '../types'
 import { register } from '../services/auth'
 import { useAuth } from '../composables/useAuth'
 import { fetchDepartments, fetchFaculties, fetchProgrammes } from '../services/reference'
 
 const router = useRouter()
-const route = useRoute()
 const faculties = ref<Faculty[]>([])
 const departments = ref<Department[]>([])
 const programmes = ref<Programme[]>([])

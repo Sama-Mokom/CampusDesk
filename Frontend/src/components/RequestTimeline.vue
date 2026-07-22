@@ -21,12 +21,12 @@
       </div>
       <div class="flex-1 pb-6 pt-0.5">
         <div class="flex flex-wrap items-center gap-2">
-          <p class="font-semibold text-sm text-foreground">{{ stage.department.name }}</p>
+          <p class="font-semibold text-sm text-foreground">{{ stage.department_name }}</p>
           <StatusBadge kind="stage" :status="stage.status" />
         </div>
         <p v-if="stage.staff_note" class="text-sm text-neutral-700 mt-1">{{ stage.staff_note }}</p>
         <p v-if="stage.handled_by" class="text-xs text-neutral-600 mt-1">
-          Handled by {{ stage.handled_by.name }}
+          Handled by {{ stage.handled_by }}
         </p>
         <p v-if="stage.updated_at" class="text-xs text-neutral-500 mt-1">{{ formatTime(stage.updated_at) }}</p>
       </div>

@@ -114,12 +114,6 @@ export interface CreateRequestPayload {
   attachments?: File[]; // For handling file uploads if needed
 }
 
-export interface CreateRequestPayload {
-  request_type_id: number;
-  description: string;
-  attachments?: File[]; // For handling file uploads if needed
-}
-
 export interface Attachment {
   id: number
   request_id: number
@@ -130,10 +124,10 @@ export interface Attachment {
 
 export interface RequestStage {
   id: number
-  department: { id: number; name: string }
+  department_name: string 
   sequence_order: number
   status: StageStatus
-  handled_by: UserSummary | null
+  handled_by: string | null
   staff_note: string | null
   updated_at: string | null
 }
@@ -167,8 +161,7 @@ export interface StatusHistoryEntry {
 
 export interface Request {
   id: number
-  student_id: number
-  request_type: RequestTypeEntity
+  request_type: string 
   description: string
   status: RequestStatus
   is_reopened: boolean

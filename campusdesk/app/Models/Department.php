@@ -13,6 +13,7 @@ class Department extends Model
      protected $fillable = [
         'faculty_id',
         'code',
+        'name',
     ];
     public function faculty(): BelongsTo
     {
@@ -26,5 +27,9 @@ class Department extends Model
     public function staffProfiles(): BelongsToMany
     {
         return $this->belongsToMany(StaffProfile::class);
+    }
+    public function programmes(): HasMany
+    {
+        return $this->hasMany(Programme::class);
     }
 }

@@ -2,11 +2,13 @@ import axios from 'axios';
 
 // Create the axios instance
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL, 
+  baseURL: import.meta.env.VITE_API_URL,
   timeout: 10000,
   headers: {
-    'Content-Type': 'application/json',
     Accept: 'application/json',
+    // Remove Content-Type — let Axios set it per request
+    // JSON requests will default to application/json automatically
+    // FormData requests will set multipart/form-data with boundary automatically
   },
 });
 

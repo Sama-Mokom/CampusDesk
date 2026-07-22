@@ -1,30 +1,31 @@
 import api from './api'; 
-import {CreateRequestPayload} from '../types';
+import {CreateRequestPayload, Request as DocumentRequest} from '../types';
+import type { AxiosResponse } from 'axios'
 
 
 /**
  * GET /requests
  * Fetch all requests for the currently authenticated student.
  */
-export const fetchRequests = async (): Promise<Request[]> => {
-  const response = await api.get<Request[]>('/requests');
-  return response.data;
-};
+export const fetchRequests = async (): Promise<DocumentRequest[]> => {
+  const response: AxiosResponse<{ data: DocumentRequest[] }> = await api.get('/requests')
+  return response.data.data
+}
 
 /**
  * GET /requests/{id}
  * Fetch a single request with its full stage progression and status history.
  */
-export const fetchRequestById = async (id: number): Promise<Request> => {
-  const response = await api.get<Request>(`/requests/${id}`);
-  return response.data;
-};
+export const fetchRequestById = async (id: number): Promise<DocumentRequest> => {
+  const response: AxiosResponse<{ data: DocumentRequest }> = await api.get(`/requests/${id}`)
+  return response.data.data
+}
 
 /**
  * POST /requests
  * Submit a new student request. Handles both simple JSON and file uploads.
  */
-export const createRequest = async (payload: CreateRequestPayload): Promise<Request> => {
+export const createRequest = async (payload: CreateRequestPayload): Promise<DocumentRequest> => {
   // If the user included file attachments, we must use FormData
   if (payload.attachments && payload.attachments.length > 0) {
     const formData = new FormData();
@@ -34,19 +35,21 @@ export const createRequest = async (payload: CreateRequestPayload): Promise<Requ
     payload.attachments.forEach((file) => {
       formData.append('attachments[]', file);
     });
-
-    const response = await api.post<Request>('/requests', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-    return response.data;
+    // Log what FormData actually contains
+    for (const [key, value] of formData.entries()) {
+    }
+   const response: AxiosResponse<{ data: DocumentRequest }> = await api.post('/requests', formData, {
+  //  headers: {
+  //   'Content-Type': 'multipart/form-data',
+  // },
+   })
+    return response.data.data
   }
 
   // Otherwise, send a clean JSON request
-  const response = await api.post<Request>('/requests', {
+   const response: AxiosResponse<{ data: DocumentRequest }> = await api.post('/requests', {
     request_type_id: payload.request_type_id,
     description: payload.description,
-  });
-  return response.data;
+  })
+  return response.data.data
 };

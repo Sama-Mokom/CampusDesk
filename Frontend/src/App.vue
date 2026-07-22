@@ -18,7 +18,7 @@
           <div class="flex items-center gap-3">
             <NotificationBell />
             <div class="text-sm text-right hidden sm:block">
-              <p class="font-semibold text-primary">{{ sessionUser?.name }}</p>
+              <p class="font-semibold text-primary">{{ user?.name }}</p>
               <p class="text-xs text-neutral-600">{{ roleLabel }}</p>
             </div>
             <button type="button" class="btn-secondary text-sm" @click="onLogout">Log out</button>
