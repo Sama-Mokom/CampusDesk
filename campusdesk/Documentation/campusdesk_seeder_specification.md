@@ -20,7 +20,7 @@ These migrations must exist and have been run before any seeder in this document
 | Migration | Change |
 |---|---|
 | `add_matricule_prefix_to_faculties_table` | Adds `faculties.matricule_prefix` — `string`, `unique`, manually populated (not derivable from `code`). |
-| `add_department_id_to_programmes_table` | Adds `programmes.department_id` — `foreignId`, `NOT NULL`, references `departments.id`, `restrictOnDelete()`. `programmes.faculty_id` is **retained** (accepted denormalization) and is auto-derived — see §5.4. |
+| `add_department_id_to_programmes_table` | Adds `programmes.department_id` — `foreignId`, `NOT NULL`, references `departments.id`, `restrictOnDelete()`. `programmes.faculty_id` is **retained** (accepted denormalization) and is auto-derived — see §5.3. |
 | `change_enum_values_on_student_profiles_table` | Drops and re-adds `student_profiles.level` as `enum('100','200','300','400','500','600')` (plain numeric strings, not `L100`-style). `500`/`600` represent extended-duration undergraduates at University of Buea, **not** postgraduate tiers — CampusDesk seeding remains undergraduate-only. |
 | `add_columns_to_departments_table` | Adds `departments.name` (gap-fill; was missing from the original ERD-matching migration). |
 
@@ -186,7 +186,7 @@ DEFINE MATCH_DEGREE_TYPE(programme_string):
 
 `UNCLASSIFIED` results are skipped during seeding with a visible `$this->command->warn()`, not a fatal exception — this is source-data noise (e.g. `"Void - FAP"`), not a schema-integrity violation, so it does not halt the run.
 
-**Note:** since the platform is undergraduate-only, `ProgrammeSeeder` only persists programmes classified as `BACHELOR` or `CERTIFICATE`. `MASTER`/`PHD` classifications are still computed (for correctness/future-proofing) but are expected to be filtered out or excluded at insert time — exact filtering location TBD (see §8).
+**Decision — no MASTER/PHD filtering in `ProgrammeSeeder`:** every classified programme (`BACHELOR`, `CERTIFICATE`, `MASTER`, `PHD`) is persisted as-is. `MASTER`/`PHD` rows currently have no consumer — `UserFactory` never selects them, since the platform is undergraduate-only for now — but building an explicit filter to exclude them was judged unnecessary effort for the current development/testing phase. Only `UNCLASSIFIED` rows are skipped (with a warning), since those represent genuine source-data noise, not a valid-but-unused degree tier.
 
 ### 5.3 `Programme` Model — Auto-Derived `faculty_id`
 
@@ -211,6 +211,70 @@ class Programme extends Model
 ```
 
 **Rationale:** `programmes.faculty_id` is retained as a deliberate denormalization (avoids a join on faculty-scoped programme queries) but is never independently trusted at write time — it is always derived from `department_id` via a single enforcement point, eliminating the risk of contradictory data at any call site (seeder, admin panel, Tinker).
+
+### 5.4 `Programme` Model — Degree Type Constants (Single Source of Truth)
+
+**Location:** `app/Models/Programme.php` (same model as §5.3)
+
+```php
+class Programme extends Model
+{
+    /**
+     * Degree types classified as undergraduate programmes.
+     */
+    public const UNDERGRADUATE_DEGREE_TYPES = ['BACHELOR', 'CERTIFICATE'];
+
+    /**
+     * Degree types classified as postgraduate programmes. Declared for
+     * completeness/future-proofing; not consumed anywhere yet.
+     */
+    public const POSTGRADUATE_DEGREE_TYPES = ['MASTER', 'PHD'];
+
+    // ... booted(), relationships, etc. (see §5.3)
+}
+```
+
+**Rationale:** `['BACHELOR', 'CERTIFICATE']` was on the verge of being hardcoded independently in two places — `UserFactory`'s `ALLOWED_DEGREE_TYPES` and `StudentSeeder`'s `whereHas()` eligibility filter (see §7 and §7.5). Two independently-typed copies of the same list have already almost drifted apart once during design (a stray `'MASTER'` was briefly added to one copy "for redundancy," which would have silently defeated the eligibility filter's purpose — see design history). Both consumers must now reference `Programme::UNDERGRADUATE_DEGREE_TYPES` directly rather than re-declaring the array, so the two can never diverge again.
+
+### 5.5 `Department` Model — Required Fixes
+
+**Location:** `app/Models/Department.php`
+
+Two corrections identified during design, both must be applied before seeding:
+
+1. **`$fillable` was missing `'name'`.** `DepartmentSeeder` (§6.2) mass-assigns `name` via `updateOrCreate()`. Without `name` in `$fillable`, Eloquent silently discards that field on insert unless `Model::preventSilentlyDiscardingAttributes()` is explicitly enabled elsewhere — the exact "$fillable omission causes silent data discard" failure mode already known to recur in this project.
+2. **`programmes()` relationship was missing entirely.** Required for `StudentSeeder`'s `whereHas('programmes', ...)` eligibility query (§7.5) to function — without it, calling `whereHas('programmes', ...)` throws a `BadMethodCallException` at runtime.
+
+```php
+class Department extends Model
+{
+    protected $fillable = [
+        'faculty_id',
+        'code',
+        'name', // was missing — caused silent data discard on insert
+    ];
+
+    public function faculty(): BelongsTo
+    {
+        return $this->belongsTo(Faculty::class);
+    }
+
+    public function programmes(): HasMany
+    {
+        return $this->hasMany(Programme::class); // was missing — required by StudentSeeder::whereHas()
+    }
+
+    public function requestStages(): HasMany
+    {
+        return $this->hasMany(RequestStage::class);
+    }
+
+    public function staffProfiles(): BelongsToMany
+    {
+        return $this->belongsToMany(StaffProfile::class);
+    }
+}
+```
 
 ---
 
@@ -307,7 +371,7 @@ class ProgrammeSeeder extends Seeder
                             $this->command->warn("Unclassified programme skipped: '{$progData['name']}'");
                             continue;
                         }
-                        // NOTE: MASTER/PHD filtering not yet finalized — see §8.
+                        // MASTER/PHD rows are persisted with no filtering — accepted, no current consumer.
 
                         Programme::updateOrCreate(
                             ['code' => $progData['code']],
@@ -398,7 +462,7 @@ afterCreating(user):
     ELSE IF user.role == 'student':
         // --- Resolve Faculty / Department / Programme (most-specific-wins) ---
         RESOLVED_LEVEL = transientLevel ?? RANDOM_ELEMENT(['100','200','300','400'])
-        ALLOWED_DEGREE_TYPES = ['BACHELOR', 'CERTIFICATE']   // undergraduate-only, always
+        ALLOWED_DEGREE_TYPES = Programme::UNDERGRADUATE_DEGREE_TYPES   // shared constant, see §5.4 — never re-typed locally
 
         IF transientDepartment set:
             RESOLVED_DEPT = transientDepartment
@@ -436,7 +500,68 @@ afterCreating(user):
         }
 ```
 
-### 7.4 Accepted Trade-offs
+### 7.4 `StudentDistributionHelper`
+
+**Location:** `database/seeders/Support/StudentDistributionHelper.php`
+**Responsibility:** Given a count `$n`, return an array of `$n` level assignments cycling through the four undergraduate levels. Deliberately narrow — knows nothing about departments, faculties, or `User`/`StudentProfile` creation. Static-only; no state or dependency to justify instantiation.
+
+```php
+namespace Database\Seeders\Support;
+
+class StudentDistributionHelper
+{
+    private const LEVELS = ['100', '200', '300', '400'];
+
+    /**
+     * Returns an array of $n level assignments, cycling through LEVELS.
+     * Exact evenness is not guaranteed when $n is not a multiple of count(LEVELS).
+     */
+    public static function distribute(int $n): array
+    {
+        $levels = [];
+
+        for ($i = 0; $i < $n; $i++) {
+            $levels[] = self::LEVELS[$i % count(self::LEVELS)];
+        }
+
+        return $levels;
+    }
+}
+```
+
+**Design rule:** the caller (`StudentSeeder`, §7.5) owns pairing each returned level with a specific department and actually creating records. This class only ever answers "given N, what's the level for the i-th student."
+
+### 7.5 `StudentSeeder`
+
+**Location:** `database/seeders/StudentSeeder.php`
+
+**Responsibilities:**
+- Determine which departments are eligible to receive seeded students (must have at least one `UNDERGRADUATE_DEGREE_TYPES`-classified programme).
+- For each eligible department, use `StudentDistributionHelper` to get a level spread, then create one `User::factory()->student(...)` per level.
+
+**Eligibility filter — single query, no N+1:**
+
+```php
+use App\Models\Department;
+use App\Models\Programme;
+use Illuminate\Database\Eloquent\Builder;
+
+$departments = Department::whereHas('programmes', function (Builder $query) {
+    $query->whereIn('degree_type', Programme::UNDERGRADUATE_DEGREE_TYPES);
+})->get();
+```
+
+Uses `Programme::UNDERGRADUATE_DEGREE_TYPES` directly (§5.4) — never a locally re-typed array, since the two lists (this filter, and `UserFactory`'s `ALLOWED_DEGREE_TYPES`) must always match exactly. If they diverge, a department can pass this filter yet still cause `UserFactory` to throw, since `UserFactory` queries eligible programmes independently per student at creation time.
+
+**Constructor:** takes `$studentsPerDepartment` (the "N students per department" constant) as a constructor property — consistent with how `$parsedFaculties` is injected into the Tier 0–1 seeders — rather than a hardcoded class constant.
+
+**Transaction:** the full loop is wrapped in `DB::transaction()`. Unlike `StudentDistributionHelper` (a pure function, no DB interaction, no transaction needed), `StudentSeeder::run()` performs real inserts via `User::factory()->create()` — a mid-loop failure (e.g. a `RuntimeException` from `UserFactory` if a department unexpectedly has no eligible programme at student-creation time) should not leave a partially-seeded set of students committed.
+
+**Open question, not yet resolved:** whether MySQL/Laravel's default transaction isolation guarantees correct sequential behavior for `UserFactory`'s per-student matricule sequence lookup (`WHERE matricule LIKE ... ORDER BY matricule DESC`) when many students are created back-to-back inside one single wrapping transaction. Needs explicit confirmation before this is considered fully verified — flagged in §8.
+
+**Full implementation:** not yet written — see §8.
+
+### 7.6 Accepted Trade-offs
 
 | Limitation | Rationale |
 |---|---|
@@ -453,8 +578,9 @@ The following are decided **in principle** but have no finalized code yet. Do no
 
 | Item | Decision made | Still needed |
 |---|---|---|
-| **MASTER/PHD programme filtering** | Platform is undergrad-only | Confirm whether `ProgrammeSeeder` should skip persisting `MASTER`/`PHD`-classified rows entirely, or store them for future-proofing with no current consumer. |
-| **Student/staff distribution helper** | "For each department, create N students split evenly across levels 100–400" via a small array/loop helper; exact evenness not required | Concrete implementation of the helper; value of N per department not yet chosen. |
+| **`StudentSeeder::run()` full implementation** | Design fully specified in §7.5 (eligibility filter, transaction, constructor property, distribution helper usage) | Actual code has not yet been written. |
+| **Matricule-sequence transaction isolation** | N/A | Confirm whether wrapping `StudentSeeder`'s full loop in one `DB::transaction()` affects correctness of `UserFactory`'s per-student `WHERE matricule LIKE ... ORDER BY matricule DESC` sequence lookup — i.e. whether sequential inserts-then-reads within the same open transaction are guaranteed consistent, or whether a duplicate/race is possible. See §7.5. |
+| **Value of N (students per department)** | Passed as a constructor property on `StudentSeeder`, not hardcoded as a class constant | Actual numeric value to use has not yet been chosen. |
 | **`department_staff` seeding (Tier 3)** | Each department must seed with exactly one `is_primary: true` row; tracked via an **in-memory array/set** during the seeding loop (not a DB query per insert, for performance) | Actual seeder code implementing the tracking set and assignment loop. |
 | **Requests & Stages (Tier 4–5)** | Hybrid `StageGenerationService` + `RequestObserver::created()` trigger, consistent with existing architecture | Confirm `Request::factory()->create()` alone is sufficient to trigger realistic stage generation; design a plan for seeding requests across varied stage-completion states, not just freshly-generated ones. |
 | **`status_history`, `attachments`, `notifications` (Tier 6)** | Not discussed in detail | Full design pending Tier 4–5 completion. |
