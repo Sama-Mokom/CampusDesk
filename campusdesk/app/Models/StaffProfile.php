@@ -27,6 +27,7 @@ class StaffProfile extends Model
     }
 
     protected $fillable =[
-       'staff_id'
+       'staff_id',
+       'admin_level',
     ];
 }

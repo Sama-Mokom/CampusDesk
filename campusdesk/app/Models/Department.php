@@ -25,9 +25,11 @@ class Department extends Model
     }
 
     public function staffProfiles(): BelongsToMany
-    {
-        return $this->belongsToMany(StaffProfile::class);
-    }
+{
+    return $this->belongsToMany(StaffProfile::class, 'department_staff')
+                ->withPivot('is_primary')
+                ->withTimestamps();
+}
     public function programmes(): HasMany
     {
         return $this->hasMany(Programme::class);
