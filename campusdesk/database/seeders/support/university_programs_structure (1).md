@@ -21,7 +21,7 @@
 5. M.A in Translation and Interpretation - TRI
 6. M.A. IN TRANSLATION - TRA
 7. M.A. IN TRANSLATION (ENGLISH A, FRENCH B) - TRA
-8. M.A. IN TRANSLATION (ENGLISH A, FRENCH B, KISWAHILI C - TRA
+8. M.A. IN TRANSLATION (ENGLISH A, FRENCH B, KISWAHILI C) - TRA
 9. M.A. IN TRANSLATION (FRENCH A, ENGLISH B, SPANISH C) - TRA
 10. M.A. IN TRANSLATION (FRENCH A, ENGLISH B, GERMAN C) - TRA
 11. M.A. IN TRANSLATION (FRENCH A, ENGLISH B) - TRA
@@ -624,3 +624,13 @@
 8. M.Sc Women and Gender Studies - WGS
 9. Ph.D Gender and Development - GAD
 10. Women's and Gender Studies - WGS
+
+---
+
+## Records Office - RO
+
+### Transcript Department - TRD
+
+### Attestation of Enrollment - AOE
+
+### Attestation of Certificate - AOC
