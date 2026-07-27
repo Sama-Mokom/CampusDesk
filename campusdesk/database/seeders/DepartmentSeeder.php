@@ -2,54 +2,43 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
-use Illuminate\Database\Seeder;
 use App\Models\Department;
 use App\Models\Faculty;
+use Database\Seeders\Support\DepartmentTypeMapper;
+use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 class DepartmentSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
+    public function __construct(private array $parsedFaculties) {}
+
     public function run(): void
     {
-        $faculty = Faculty::where('code', 'FET')->first();
-        //
-        Department::create([
-            'faculty_id' => $faculty->id,
-            'name' => 'Computer Engineering',
-            'code' => 'CE',
-        ]);
+        DB::transaction(function () {
+            // Single query to build faculty code → id map; avoids N+1.
+            $facultyIdMap = Faculty::pluck('id', 'code')->all();
 
-        Department::create([
-            'faculty_id' => $faculty->id,
-            'name' => 'Registrar\'s Office',
-            'code' => 'REG',
-        ]);
+            foreach ($this->parsedFaculties as $facultyData) {
+                $facultyId = $facultyIdMap[$facultyData['code']] ?? null;
 
-        Department::create([
-            'faculty_id' => $faculty->id,
-            'name' => 'Electrical Engineering',
-            'code' => 'EE',
-        ]);
+                if (!$facultyId) {
+                    $this->command->warn(
+                        "Skipping departments for unmapped faculty code: {$facultyData['code']}"
+                    );
+                    continue;
+                }
 
-        Department::create([
-            'faculty_id' => $faculty->id,
-            'name' => 'Mechanical Engineering',
-            'code' => 'MEC',
-        ]);
-
-        Department::create([
-            'faculty_id' => $faculty->id,
-            'name' => 'Civil Engineering',
-            'code' => 'CIV',
-        ]);
-
-        Department::create([
-            'faculty_id' => $faculty->id,
-            'name' => 'Chemical Engineering',
-            'code' => 'CHE',
-        ]);
+                foreach ($facultyData['departments'] as $deptData) {
+                    Department::updateOrCreate(
+                        ['code' => $deptData['code']],
+                        [
+                            'faculty_id' => $facultyId,
+                            'name'       => $deptData['name'],
+                            'type'       => DepartmentTypeMapper::resolveType($deptData['code']),
+                        ]
+                    );
+                }
+            }
+        });
     }
 }

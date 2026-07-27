@@ -2,21 +2,31 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
-use Illuminate\Database\Seeder;
 use App\Models\Faculty;
+use Database\Seeders\Support\FacultyMatriculeMapper;
+use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 class FacultySeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
+    public function __construct(private array $parsedFaculties) {}
+
     public function run(): void
     {
-        //
-        Faculty::create([
-            'name' => 'Faculty of Engineering & Technology',
-            'code' => 'FET',
-        ]);
+        DB::transaction(function () {
+            foreach ($this->parsedFaculties as $parsedFaculty) {
+                // Throws InvalidArgumentException immediately if code is unmapped —
+                // halts the run rather than silently producing wrong matricules.
+                $prefix = FacultyMatriculeMapper::getPrefix($parsedFaculty['code']);
+
+                Faculty::updateOrCreate(
+                    ['code' => $parsedFaculty['code']],
+                    [
+                        'name'             => $parsedFaculty['name'],
+                        'matricule_prefix' => $prefix,
+                    ]
+                );
+            }
+        });
     }
 }

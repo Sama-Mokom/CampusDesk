@@ -7,15 +7,19 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Faculty extends Model
 {
-    //
-    protected $fillable = ['name', 'code']; 
+    protected $fillable = [
+        'name',
+        'code',
+        'matricule_prefix',
+    ];
+
     public function departments(): HasMany
     {
-       return $this->hasMany(Department::class);
+        return $this->hasMany(Department::class);
     }
 
-     public function programmes(): HasMany
+    public function programmes(): HasMany
     {
-       return $this->hasMany(Programme::class);
+        return $this->hasMany(Programme::class);
     }
 }

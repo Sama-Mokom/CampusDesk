@@ -12,8 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('departments', function (Blueprint $table) {
-            //
-            $table->string('name');
+            $table->enum('type', ['academic', 'records', 'admin'])->after('name');
         });
     }
 
@@ -23,7 +22,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('departments', function (Blueprint $table) {
-            $table->dropColumn('name');
+            $table->dropColumn('type');
         });
     }
 };
