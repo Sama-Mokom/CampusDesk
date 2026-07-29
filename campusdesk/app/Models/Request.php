@@ -36,6 +36,7 @@ class Request extends Model
         'description',
         'status',
         'is_reopened',
+        'student_id',  
     ];
 
      protected function casts(): array

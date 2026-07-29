@@ -160,7 +160,7 @@
                   →
                   <span class="font-medium">{{ formatHistStatus(h.new_status) }}</span>
                 </p>
-                <p class="text-xs text-neutral-600">{{ h.changed_by.name }} · {{ formatDate(h.changed_at) }}</p>
+                <p class="text-xs text-neutral-600">{{ h.changed_by?.name ?? 'System' }} · {{ formatDate(h.changed_at) }}</p>
                 <p v-if="h.note" class="text-neutral-700 mt-1">{{ h.note }}</p>
               </div>
             </div>
@@ -284,9 +284,13 @@ onMounted(async () => {
 
 async function openRequest(req: DocumentRequest) {
   try {
-    const full = await fetchRequestById(req.id)
-    selectedRequest.value = full
-  } catch {
+    const res = await fetchRequestById(req.id)
+    
+    // Handle both wrapped array [{...}] and single object {...} scenarios cleanly
+    const payload = res.data ?? res
+    selectedRequest.value = Array.isArray(payload) ? payload[0] : payload
+  } catch (err) {
+    console.error('Failed to load request details:', err)
     error.value = 'Failed to load request details.'
   }
 }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use App\Models\Department;
 use App\Models\RequestType;
 use App\Models\StatusHistory as statusHistories;
 use App\Models\RequestStage;
@@ -15,108 +16,135 @@ use App\Http\Resources\RequestResource;
 
 class RequestController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index()
     {
-        //Scope to the authenticated user only. Meaning only that users requests will be returned
         return RequestResource::collection(
-           Auth::user()->requests()->with(['requestType', 'attachments'])->latest()->get()
+            Auth::user()->requests()->with(['requestType', 'attachments'])->latest()->get()
         );
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
     public function create()
     {
         //
     }
 
     /**
-     * Store a newly created resource in storage.
+     * Resolve symbolic department tokens in a sequence to real department IDs.
+     *
+     * Tokens:
+     *   "STUDENT_DEPARTMENT" → the student's own department_id
+     *   "FACULTY_RECORDS"    → the records-type department in the student's faculty
+     *   <integer>            → used as-is
      */
+    private function resolveSequence(array $sequence, \App\Models\StudentProfile $profile): array
+    {
+        return array_map(function ($entry) use ($profile) {
+
+            if ($entry === 'STUDENT_DEPARTMENT') {
+                return $profile->department_id;
+            }
+
+            if ($entry === 'FACULTY_RECORDS') {
+                $dept = Department::where('faculty_id', $profile->faculty_id)
+                    ->where('type', 'records')
+                    ->first();
+
+                abort_if(
+                    is_null($dept),
+                    422,
+                    "No records department found for faculty ID {$profile->faculty_id}. " .
+                    "Please contact an administrator to set one up."
+                );
+
+                return $dept->id;
+            }
+
+            // Already a real department ID
+            return (int) $entry;
+
+        }, $sequence);
+    }
+
     public function store(StoreRequestRequest $request)
     {
-        
-    // Database transaction is started here to ensure an all or nothing execution
-    return DB::transaction(function () use ($request){
-        $userRequest = Auth::user()->requests()->create([
-            'request_type_id' => $request->request_type_id,
-            'description' => $request->description,
-            'status' => 'pending',
-            'is_reopened' => false,
-        ]);
-        if ($request->hasFile('attachments')) {
-            foreach ($request->file('attachments', []) as $file) {
-             $path = $file->store('attachments');
-             $userRequest->attachments()->create([
-                 'file_path' => $path,
-                 'original_name' => $file->getClientOriginalName(),
-                 'mime_type' => $file->getMimeType(),
-                 'file_size' => $file->getSize(),
-    ]);
-}
-        }
-        $type = RequestType::findOrFail($request->request_type_id);
+        return DB::transaction(function () use ($request) {
+            $userRequest = Auth::user()->requests()->create([
+                'request_type_id' => $request->request_type_id,
+                'description'     => $request->description,
+                'status'          => 'pending',
+                'is_reopened'     => false,
+            ]);
 
-        foreach ($type->default_department_sequence as $index => $deptid) {
-        $userRequest->requestStages()->create([
-        'department_id' => $deptid,
-        'sequence_order' => $index + 1,
-        'status' => 'pending',
-    ]);
-}
-        $userRequest->statusHistories()->create([
-            'new_status' => 'pending',
-            'old_status' => null,
-            'changed_by' => Auth::id(),
-            'note' => 'Request submitted by student.',
-        ]);
+            if ($request->hasFile('attachments')) {
+                foreach ($request->file('attachments', []) as $file) {
+                    $path = $file->store('attachments');
+                    $userRequest->attachments()->create([
+                        'file_path'     => $path,
+                        'original_name' => $file->getClientOriginalName(),
+                        'mime_type'     => $file->getMimeType(),
+                        'file_size'     => $file->getSize(),
+                    ]);
+                }
+            }
 
-        return new RequestResource(
-            $userRequest->load(['requestStages', 'attachments', 'statusHistories'])
-         );
-        // return $userRequest->load(['requestStages', 'statusHistories']);
-    });
+            $type           = RequestType::findOrFail($request->request_type_id);
+            $studentProfile = Auth::user()->studentProfile;
+
+            abort_if(
+                is_null($studentProfile),
+                403,
+                'No student profile found for the authenticated user.'
+            );
+
+            $resolvedSequence = $this->resolveSequence($type->default_department_sequence, $studentProfile);
+
+            foreach ($resolvedSequence as $index => $deptId) {
+                $userRequest->requestStages()->create([
+                    'department_id'  => $deptId,
+                    'sequence_order' => $index + 1,
+                    'status'         => 'pending',
+                ]);
+            }
+
+            $userRequest->statusHistories()->create([
+                'new_status' => 'pending',
+                'old_status' => null,
+                'changed_by' => null,
+                'note'       => 'Request submitted by student.',
+            ]);
+
+            return new RequestResource(
+                $userRequest->load(['requestStages', 'attachments', 'statusHistories'])
+            );
+        });
     }
 
-    /**
-     * Display the specified resource.
-     */
     public function show(UserRequest $request)
     {
-        //
-        if($request->student_id != Auth::id()){
-            abort(403, 'Unauthorized action. ');
+        // dd([
+        // 'request_student_id' => $request->student_id,
+        // 'auth_id' => Auth::id(),
+        // 'match' => $request->student_id == Auth::id(),
+        //    ]);
+        if ($request->student_id != Auth::id()) {
+            abort(403, 'Unauthorized action.');
         }
 
-         return new RequestResource(
-          $request->load(['requestStages', 'attachments', 'statusHistories'])
+        return new RequestResource(
+            $request->load(['requestStages', 'attachments', 'statusHistories'])
         );
-        // return $request->load(['stages', 'attachments', 'statusHistory']);
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
     public function edit(string $id)
     {
         //
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
     public function update(Request $request, string $id)
     {
-        // =
+        //
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
     public function destroy(string $id)
     {
         //

@@ -31,7 +31,7 @@ class RegisteredUserController extends Controller
             'faculty_id' => ['required', 'exists:faculties,id'],
             'department_id' => ['required', 'exists:departments,id'],
             'programme_id' => ['required', 'exists:programmes,id'],
-            'level' => ['required', 'in:L100,L200,L300,L400,L500,L600'],
+            'level' => ['required', 'in:100,200,300,400,500,600'],
         ]);
 
         $user = User::create([

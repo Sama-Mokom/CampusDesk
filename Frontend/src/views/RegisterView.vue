@@ -69,7 +69,7 @@ const departments = ref<Department[]>([])
 const programmes = ref<Programme[]>([])
 const { user, setUser } = useAuth()
 
-const levels: StudentLevel[] = ['L100', 'L200', 'L300', 'L400', 'L500', 'L600']
+const levels: StudentLevel[] = ['100', '200', '300', '400', '500', '600']
 const error = ref('')
 
 onMounted(async () =>{
@@ -104,7 +104,7 @@ const form = reactive({
   faculty_id: faculties.value[1]?.id ?? 0,
   department_id: 0,
   programme_id: 0,
-  level: 'L100' as StudentLevel
+  level: '100' as StudentLevel
 })
 
 const filteredDepartments = computed(() =>

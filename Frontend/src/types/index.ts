@@ -1,6 +1,6 @@
 export type DegreeType = 'BSc' | 'BEng' | 'MEng' | 'MSc' | 'PhD'
 
-export type StudentLevel = 'L100' | 'L200' | 'L300' | 'L400' | 'L500' | 'L600'
+export type StudentLevel = '100' | '200' | '300' | '400' | '500' | '600'
 
 export type StudentProfileStatus = 'active' | 'on_leave' | 'graduated' | 'suspended'
 

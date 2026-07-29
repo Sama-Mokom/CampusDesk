@@ -16,9 +16,10 @@ export const fetchRequests = async (): Promise<DocumentRequest[]> => {
  * GET /requests/{id}
  * Fetch a single request with its full stage progression and status history.
  */
-export const fetchRequestById = async (id: number): Promise<DocumentRequest> => {
-  const response: AxiosResponse<{ data: DocumentRequest }> = await api.get(`/requests/${id}`)
-  return response.data.data
+export async function fetchRequestById(id: number): Promise<DocumentRequest> {
+  const response = await api.get(`/requests/${id}`)
+  const payload = response.data.data ?? response.data
+  return Array.isArray(payload) ? payload[0] : payload
 }
 
 /**

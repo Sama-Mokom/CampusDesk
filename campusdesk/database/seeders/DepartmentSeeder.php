@@ -28,6 +28,7 @@ class DepartmentSeeder extends Seeder
                     continue;
                 }
 
+                // Seed the academic/admin departments parsed from the markdown.
                 foreach ($facultyData['departments'] as $deptData) {
                     Department::updateOrCreate(
                         ['code' => $deptData['code']],
@@ -35,6 +36,21 @@ class DepartmentSeeder extends Seeder
                             'faculty_id' => $facultyId,
                             'name'       => $deptData['name'],
                             'type'       => DepartmentTypeMapper::resolveType($deptData['code']),
+                        ]
+                    );
+                }
+
+                // Seed one records/secretariat department per real faculty.
+                // The Records Office faculty (code: RO) is infrastructure-only and
+                // does not need its own secretariat.
+                if ($facultyData['code'] !== 'RO') {
+                    $recordsCode = 'REC-' . $facultyData['code'];
+                    Department::updateOrCreate(
+                        ['code' => $recordsCode],
+                        [
+                            'faculty_id' => $facultyId,
+                            'name'       => $facultyData['name'] . ' - Records Office',
+                            'type'       => 'records',
                         ]
                     );
                 }
