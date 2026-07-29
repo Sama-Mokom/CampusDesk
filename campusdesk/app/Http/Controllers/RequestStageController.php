@@ -18,18 +18,34 @@ class RequestStageController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
-    {
-        //
-        $user = Auth::user();
-        $requestStages = RequestStage::whereIn('department_id', $user->staffProfile->departments->pluck('id'))
-                ->where('status', 'pending')
-                ->whereNull('handled_by')
-                //Eager load additional info for department ID resolution
-                ->with(['request', 'department'])
-                ->get();
-        return RequestStageResource::collection($requestStages);
+    public function index(Request $request)
+{
+    $user = $request->user();
+
+    // Ensure staff profile exists
+    $staffProfile = $user->staffProfile ?? $user->staff_profile;
+    
+    if (!$staffProfile) {
+        return response()->json(['message' => 'Staff profile not found.'], 403);
     }
+
+    // Get assigned department IDs
+    $departmentIds = $staffProfile->departments()->pluck('departments.id');
+
+    $requestStages = RequestStage::query()
+        ->whereIn('department_id', $departmentIds)
+        ->where('status', 'pending')
+        ->whereNull('handled_by')
+        ->with([
+            'request.requestType', 
+            'request.student.studentProfile', 
+            'department', 
+            'user'
+        ])
+        ->get();
+
+    return RequestStageResource::collection($requestStages);
+}
 
     /**
      * Show the form for creating a new resource.

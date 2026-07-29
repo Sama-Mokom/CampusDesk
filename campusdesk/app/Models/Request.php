@@ -11,7 +11,7 @@ use App\Models\StatusHistory;
 class Request extends Model
 {
     //
-    public function user(): BelongsTo
+    public function student(): BelongsTo
     {
         return $this->belongsTo(User::class, 'student_id');
     }
@@ -31,6 +31,7 @@ class Request extends Model
     {
         return $this->hasMany(StatusHistory::class);
     }
+    
     protected $fillable = [
         'request_type_id',
         'description',

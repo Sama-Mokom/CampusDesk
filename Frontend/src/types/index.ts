@@ -124,12 +124,22 @@ export interface Attachment {
 
 export interface RequestStage {
   id: number
+  request_id: number
   department_name: string 
   sequence_order: number
   status: StageStatus
   handled_by: string | null
   staff_note: string | null
   updated_at: string | null
+  request?: {
+    id: number
+    description: string
+    request_type?: string
+    created_at: string
+    student_name?: string
+    student_matricule?: string
+    student_level?: StudentLevel
+  }
 }
 
 export interface ResolveStagePayload {
