@@ -68,6 +68,8 @@
 
     <!-- My Active Cases -->
     <div>
+      <div class="flex gap-2 shrink-0">
+     </div>
       <h2 class="text-xl text-primary font-semibold mb-3">My active cases</h2>
       <div v-if="myActiveStages.length === 0" class="card text-center text-neutral-500">
         <p>No stages in review assigned to you.</p>
@@ -84,11 +86,78 @@
             </div>
             <div class="flex gap-2 shrink-0">
               <button type="button" class="btn-primary text-sm" @click="openResolve(stage)">Update status</button>
+              <button type="button" class="btn-secondary text-sm" @click="openDetails(stage)">Details</button>
             </div>
           </div>
         </div>
       </div>
     </div>
+
+ <!-- Details Modal -->
+  <div
+    v-if="detailsModal.open && detailsModal.stage"
+    class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+    @click.self="detailsModal.open = false"
+  >
+    <div class="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+      <!-- Header -->
+      <div class="p-6 border-b border-neutral-200 flex justify-between items-start bg-white shrink-0">
+        <div>
+          <h2 class="text-xl font-bold text-primary">{{ detailsModal.stage.request?.request_type }}</h2>
+          <p class="text-sm text-neutral-600 mt-1">
+            Student: <span class="font-semibold">{{ detailsModal.stage.request?.student_name }}</span> 
+            ({{ detailsModal.stage.request?.student_matricule }})
+          </p>
+        </div>
+        <button type="button" class="text-neutral-500 hover:text-foreground text-2xl" @click="detailsModal.open = false">×</button>
+      </div>
+
+      <!-- Description & Tab Navigation -->
+      <div class="px-6 pt-4 bg-neutral-50 border-b border-neutral-200 shrink-0">
+        <p class="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1">Description</p>
+        <p class="text-sm text-foreground mb-4">{{ detailsModal.stage.request?.description }}</p>
+
+        <div class="flex gap-4 border-b border-neutral-200">
+          <button
+            type="button"
+            class="pb-2 text-sm font-medium border-b-2 transition-colors"
+            :class="activeTab === 'timeline' ? 'border-primary text-primary' : 'border-transparent text-neutral-500 hover:text-foreground'"
+            @click="activeTab = 'timeline'"
+          >
+            Progression Timeline
+          </button>
+          <button
+            type="button"
+            class="pb-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5"
+            :class="activeTab === 'attachments' ? 'border-primary text-primary' : 'border-transparent text-neutral-500 hover:text-foreground'"
+            @click="activeTab = 'attachments'"
+          >
+            Attachments
+            <span 
+              v-if="detailsModal.stage.request?.attachments?.length" 
+              class="px-1.5 py-0.5 text-xs bg-neutral-200 rounded-full font-bold"
+            >
+              {{ detailsModal.stage.request.attachments.length }}
+            </span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Tab Body -->
+      <div class="p-6 overflow-y-auto flex-1">
+        <!-- Timeline Tab -->
+        <div v-if="activeTab === 'timeline'">
+          <div v-if="detailsModal.loading" class="text-center py-6 text-neutral-500">Loading timeline...</div>
+          <RequestTimeline v-else :stages="detailsModal.stages" />
+        </div>
+
+        <!-- Attachments Tab -->
+        <div v-else-if="activeTab === 'attachments'">
+          <DocumentViewer :attachments="detailsModal.stage.request?.attachments ?? []" />
+        </div>
+      </div>
+    </div>
+  </div>
 
     <!-- Resolve Modal -->
     <div
@@ -102,9 +171,9 @@
         <div class="p-4 space-y-4">
           <p class="text-sm text-neutral-600">{{ resolveModal.stage.request?.request_type }}</p>
           <label class="block text-sm text-primary font-medium">Resolution</label>
-          <select v-model="resolveModal.action" class="input-field">
-            <option value="approve">Approve</option>
-            <option value="reject">Reject</option>
+          <select v-model="resolveStatus" class="input-field">
+            <option value="approved">Approve</option>
+            <option value="rejected">Reject</option>
           </select>
           <label class="block text-sm text-primary font-medium">Staff note</label>
           <textarea v-model="resolveModal.note" class="input-field" rows="3" placeholder="Required if rejecting" />
@@ -121,23 +190,54 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useAuth } from '../composables/useAuth'
-import { fetchStaffQueue, resolveStage, claimStage } from '../services/stages'
+import { fetchRequestStages, fetchStaffQueue, resolveStage, claimStage, fetchMyCases } from '../services/stages'
 import type { RequestStage } from '../types'
 import LevelBadge from './LevelBadge.vue'
+import RequestTimeline from './RequestTimeline.vue'
+// import StatusBadge from './StatusBadge.vue'
+import DocumentViewer from './DocumentViewer.vue'
 
 const props = defineProps<{ deptAdminMode?: boolean }>()
-
+const activeTab = ref<'timeline' | 'attachments'>('timeline')
 const auth = useAuth()
 const staffUser = computed(() => auth.user.value)
 const sp = computed(() => staffUser.value?.staff_profile)
 
 const allStages = ref<RequestStage[]>([])
+const activeCases = ref<RequestStage[]>([])
 const loading = ref(false)
 const queueError = ref('')
 
 const deptSelect = ref<number>(0)
 
 const deptOptions = computed(() => sp.value?.departments ?? [])
+
+const detailsModal = reactive({
+  open: false,
+  stage: null as RequestStage | null,
+  stages: [] as RequestStage[],
+  loading: false
+})
+
+function openDetails(stage: RequestStage) {
+  detailsModal.stage = stage
+  detailsModal.stages = []
+  activeTab.value = 'timeline'
+  detailsModal.open = true
+  detailsModal.loading = true
+  
+  fetchRequestStages(stage.request_id)
+    .then(data => { 
+      // Handle Laravel resource wrapper `{ data: [...] }` or raw array `[...]`
+      detailsModal.stages = Array.isArray(data) ? data : (data as any)?.data ?? [] 
+    })
+    .catch(() => { 
+      detailsModal.stages = [stage] 
+    })
+    .finally(() => { 
+      detailsModal.loading = false 
+    })
+}
 
 const primaryDeptName = computed(() => {
   const p = sp.value?.departments?.find(d => d.is_primary)
@@ -150,10 +250,14 @@ const selectedDeptName = computed(() => {
 
 async function loadQueue() {
   loading.value = true
-  queueError.value = ''
   try {
-    allStages.value = await fetchStaffQueue()
-  } catch (err) {
+    const [queue, cases] = await Promise.all([
+      fetchStaffQueue(),
+      fetchMyCases()
+    ])
+    allStages.value = queue
+    activeCases.value = cases
+  } catch {
     queueError.value = 'Failed to load queue.'
   } finally {
     loading.value = false
@@ -168,12 +272,8 @@ const unclaimedStages = computed(() =>
   )
 )
 
-const myActiveStages = computed(() =>
-  allStages.value.filter(s => 
-    s.status === 'in_review' && 
-    s.handled_by === staffUser.value?.name
-  )
-)
+const myActiveStages = computed(() => activeCases.value)
+
 
 const resolvedTodayCount = computed(() => {
   const today = new Date().toDateString()
@@ -206,14 +306,14 @@ async function pickUp(stage: RequestStage) {
 const resolveModal = reactive({
   open: false,
   stage: null as RequestStage | null,
-  action: 'approve' as 'approve' | 'reject',
   note: ''
 })
+const resolveStatus = ref<'approved' | 'rejected'>('approved')
 const resolveError = ref('')
 
 function openResolve(stage: RequestStage) {
   resolveModal.stage = stage
-  resolveModal.action = 'approve'
+  resolveStatus.value = 'approved'
   resolveModal.note = ''
   resolveError.value = ''
   resolveModal.open = true
@@ -224,14 +324,20 @@ async function submitResolve() {
   const stage = resolveModal.stage
   if (!stage) return
 
-  if (resolveModal.action === 'reject' && !resolveModal.note.trim()) {
+  const validStatuses = ['approved', 'rejected'] as const
+  let status: 'approved' | 'rejected' = resolveStatus.value
+  if (!validStatuses.includes(status)) {
+    console.warn('[submitResolve] resolveStatus.value was unexpected:', status, '— defaulting to "approved"')
+    status = 'approved'
+  }
+
+  if (status === 'rejected' && !resolveModal.note.trim()) {
     resolveError.value = 'A staff note is required when rejecting.'
     return
   }
-
   try {
     await resolveStage(stage.request_id, stage.id, {
-      action: resolveModal.action,
+      status,
       staff_note: resolveModal.note.trim()
     })
     resolveModal.open = false
