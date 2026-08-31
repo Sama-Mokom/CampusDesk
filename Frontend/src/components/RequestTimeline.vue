@@ -36,13 +36,16 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { RequestStage } from '@/types'
+import type { RequestStage } from '../types'
 import StatusBadge from './StatusBadge.vue'
 import { format } from 'date-fns'
 
 const props = defineProps<{ stages: RequestStage[] }>()
 
-const ordered = computed(() => [...props.stages].sort((a, b) => a.sequence_order - b.sequence_order))
+const ordered = computed(() => {
+  const list = Array.isArray(props.stages) ? props.stages : []
+  return [...list].sort((a, b) => a.sequence_order - b.sequence_order)
+})
 
 function isActive(stage: RequestStage): boolean {
   if (stage.status === 'rejected' || stage.status === 'approved') return false

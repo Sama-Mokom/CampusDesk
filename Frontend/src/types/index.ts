@@ -116,10 +116,10 @@ export interface CreateRequestPayload {
 
 export interface Attachment {
   id: number
-  request_id: number
+  request_id?: number
   file_path: string
   original_name: string
-  mime_type: string
+  mime_type?: string
 }
 
 export interface RequestStage {
@@ -139,6 +139,7 @@ export interface RequestStage {
     student_name?: string
     student_matricule?: string
     student_level?: StudentLevel
+    attachments?: Attachment[]
   }
 }
 
@@ -146,7 +147,7 @@ export interface ResolveStagePayload {
   /**
    * The action to perform on this stage.
    */
-  action: 'approve' | 'reject';
+  status: 'approved' | 'rejected';
   
   /**
    * A staff comment/note documenting the decision.
@@ -179,6 +180,17 @@ export interface Request {
   attachments: Attachment[]
   stages: RequestStage[]
   status_history: StatusHistoryEntry[]
+}
+
+export interface RequestDetails {
+  id: number
+  description: string
+  request_type: string
+  created_at: string
+  student_name: string
+  student_matricule: string
+  student_level: string
+  attachments?: Attachment[]
 }
 
 export interface Notification {

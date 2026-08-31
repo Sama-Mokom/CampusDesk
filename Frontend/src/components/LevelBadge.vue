@@ -7,7 +7,8 @@
 </template>
 
 <script setup lang="ts">
-import type { StudentLevel } from '@/types'
+import type { StudentLevel } from '../types'
 
 defineProps<{ level: StudentLevel }>()
 </script>
+

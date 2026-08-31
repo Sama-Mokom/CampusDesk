@@ -129,16 +129,14 @@
             <p class="text-foreground">{{ selectedRequest.description }}</p>
           </div>
 
-          <div v-if="selectedRequest.attachments.length">
+          <div v-if="selectedRequest.attachments?.length">
             <p class="text-sm text-neutral-600 mb-2">Attachments</p>
-            <ul class="text-sm space-y-1">
-              <li v-for="a in selectedRequest.attachments" :key="a.id" class="text-primary">{{ a.original_name }}</li>
-            </ul>
+            <DocumentViewer :attachments="selectedRequest.attachments" />
           </div>
 
           <div>
             <p class="text-sm text-neutral-600 mb-3">Stage timeline</p>
-            <RequestTimeline :stages="selectedRequest.stages" />
+            <RequestTimeline :stages="selectedRequest.stages ?? []" />
           </div>
 
           <div>
@@ -202,6 +200,7 @@ import { watch } from 'vue'
 import StatusBadge from './StatusBadge.vue'
 import LevelBadge from './LevelBadge.vue'
 import RequestTimeline from './RequestTimeline.vue'
+import DocumentViewer from './DocumentViewer.vue'
 
 
 const { user} = useAuth()
@@ -284,11 +283,7 @@ onMounted(async () => {
 
 async function openRequest(req: DocumentRequest) {
   try {
-    const res = await fetchRequestById(req.id)
-    
-    // Handle both wrapped array [{...}] and single object {...} scenarios cleanly
-    const payload = res.data ?? res
-    selectedRequest.value = Array.isArray(payload) ? payload[0] : payload
+    selectedRequest.value = await fetchRequestById(req.id)
   } catch (err) {
     console.error('Failed to load request details:', err)
     error.value = 'Failed to load request details.'

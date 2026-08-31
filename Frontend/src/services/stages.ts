@@ -10,7 +10,13 @@ import type { RequestStage, ResolveStagePayload } from '../types';
 // GET /requests/{id}/stages — stages for a specific request
 export const fetchRequestStages = async (requestId: number): Promise<RequestStage[]> => {
   const response = await api.get(`/requests/${requestId}/stages`)
-  return response.data
+  // Laravel ResourceCollection wraps results in { data: [...] }
+  return response.data.data ?? response.data
+}
+
+export const fetchMyCases = async (): Promise<RequestStage[]> => {
+  const response = await api.get('/stages/my-cases')
+  return response.data.data ?? response.data
 }
 
 // GET /stages — staff queue (no requestId needed)
@@ -36,15 +42,22 @@ export const claimStage = async (requestId: number, stageId: number): Promise<vo
 /**
  * PATCH /requests/{requestId}/stages/{stageId}/resolve
  * Resolves a stage (either 'approve' or 'reject') with a staff note.
- * Returns the updated stage details.
+ * Maps action → status ('approve' → 'approved', 'reject' → 'rejected').
  */
 export const resolveStage = async (
   requestId: number, 
   stageId: number, 
   payload: ResolveStagePayload
 ): Promise<void> => {
-  const response = await api.patch<RequestStage>(
+  // const statusMap: Record<'approved' | 'rejected', 'approved' | 'rejected'> = {
+  //   approved: 'approved',
+  //   rejected: 'rejected',
+  // }
+  await api.patch<RequestStage>(
     `/requests/${requestId}/stages/${stageId}/resolve`, 
-    payload
+    {
+      status: payload.status,
+      staff_note: payload.staff_note,
+    }
   );
 };
