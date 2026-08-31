@@ -21,9 +21,17 @@ class RequestResource extends JsonResource
            'status' => $this->status,
            'is_reopened' => $this->is_reopened,
            'created_at' => $this->created_at,
-           'attachments' => $this->attachments,
+        //    'attachments' => $this->attachments,
            'stages' => RequestStageResource::collection($this->whenLoaded('requestStages')),
            'status_history' => $this->whenLoaded('statusHistories'),
+           'attachments' => $this->whenLoaded('attachments', function () {
+            return $this->attachments->map(fn ($file) => [
+                'id'            => $file->id,
+                'original_name' => $file->original_name,
+                'file_path'     => asset('storage/' . $file->file_path),
+                'mime_type'     => $file->mime_type,
+            ]);
+        }),
         ];
     }
 }

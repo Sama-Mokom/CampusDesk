@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Jobs\SendRequestStatusNotification;
 use App\Models\Request as DocumentRequest;
 
+
 class RequestStageObserver
 {
     /**
@@ -22,11 +23,12 @@ class RequestStageObserver
      */
     public function updated(RequestStage $stage): void
     {
+        $staffProfile = \App\Models\StaffProfile::where('user_id', $stage->handled_by)->value('id');
         if ($stage->isDirty('status')) {
             $stage->statusHistories()->create([
             'old_status' => $stage->getOriginal('status'),
             'new_status' => $stage->status,
-            'changed_by' => $stage->handled_by,
+            'changed_by' => $staffProfile,
             'request_id' => $stage->request_id,
             'request_stage_id' => $stage->id,
             'note' => $stage->staff_note ?? null,

@@ -14,12 +14,13 @@ use App\Http\Requests\StoreRequestRequest;
 use App\Http\Resources\RequestStageResource;
 use App\Http\Resources\RequestResource;
 
+
 class RequestController extends Controller
 {
     public function index()
     {
         return RequestResource::collection(
-            Auth::user()->requests()->with(['requestType', 'attachments'])->latest()->get()
+            Auth::user()->requests()->with(['requestType', 'attachments', 'requestStages.department', 'statusHistories'])->latest()->get()
         );
     }
 
@@ -114,7 +115,7 @@ class RequestController extends Controller
             ]);
 
             return new RequestResource(
-                $userRequest->load(['requestStages', 'attachments', 'statusHistories'])
+                $userRequest->load(['requestType', 'requestStages.department', 'attachments', 'statusHistories'])
             );
         });
     }
@@ -131,7 +132,7 @@ class RequestController extends Controller
         }
 
         return new RequestResource(
-            $request->load(['requestStages', 'attachments', 'statusHistories'])
+            $request->load(['requestType', 'requestStages.department', 'attachments', 'statusHistories'])
         );
     }
 

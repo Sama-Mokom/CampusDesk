@@ -20,7 +20,7 @@ class RequestStageResource extends JsonResource
         'department_name' => $this->whenLoaded('department', fn() => $this->department->name),
         'sequence_order' => $this->sequence_order,
         'status'         => $this->status,
-        'handled_by'     => $this->whenLoaded('handler', fn() => $this->handler?->name),
+        'handled_by'     => $this->whenLoaded('handled_by', fn() => $this->handled_by?->name),
         'staff_note'     => $this->staff_note,
         'updated_at'     => $this->updated_at,
         'request'        => $this->whenLoaded('request', fn() => [
@@ -31,6 +31,14 @@ class RequestStageResource extends JsonResource
             'student_name' => $this->request->student?->name,
             'student_matricule' => $this->request->student?->studentProfile?->matricule,
             'student_level'     => $this->request->student?->studentProfile?->level,
+            'attachments'       => $this->when($this->request->relationLoaded('attachments'), function () {
+                return $this->request->attachments->map(fn ($file) => [
+                    'id'            => $file->id,
+                    'original_name' => $file->original_name,
+                    'file_path'     => asset('storage/' . $file->file_path),
+                    'mime_type'     => $file->mime_type,
+                ]);
+            }),
         ]),
     ];
 }

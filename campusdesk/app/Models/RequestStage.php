@@ -18,6 +18,10 @@ class RequestStage extends Model
     {
         return $this->belongsTo(Department::class);
     }
+     public function handled_by(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'handled_by');
+    }
      public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'handled_by');

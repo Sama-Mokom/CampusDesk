@@ -11,25 +11,41 @@ use Illuminate\Support\Facades\DB;
 use App\Models\StatusHistory as statusHistories;
 use App\Http\Resources\RequestStageResource;
 use App\Http\Resources\RequestResource;
-use App\Http\Resources\UserResource;
+use Illuminate\Http\JsonResponse;
 
 class RequestStageController extends Controller
 {
     /**
      * Display a listing of the resource.
      */
-    public function index(Request $request)
+    public function index(Request $request, DocumentRequest $docRequest = null)
 {
-    $user = $request->user();
+   $user = $request->user();
 
-    // Ensure staff profile exists
+    // IF fetching timeline/details for a specific request:
+    if ($docRequest && $docRequest->exists) {
+        $stages = RequestStage::query()
+            ->where('request_id', $docRequest->id)
+            ->with([
+                'request.requestType', 
+                'request.student.studentProfile',
+                'request.attachments', // Eager-load attachments for the details modal
+                'department', 
+                'handled_by',
+            ])
+            ->orderBy('sequence_order', 'asc')
+            ->get();
+
+        return RequestStageResource::collection($stages);
+    }
+
+    // OTHERWISE: Fetch the staff department queue
     $staffProfile = $user->staffProfile ?? $user->staff_profile;
     
     if (!$staffProfile) {
         return response()->json(['message' => 'Staff profile not found.'], 403);
     }
 
-    // Get assigned department IDs
     $departmentIds = $staffProfile->departments()->pluck('departments.id');
 
     $requestStages = RequestStage::query()
@@ -38,13 +54,41 @@ class RequestStageController extends Controller
         ->whereNull('handled_by')
         ->with([
             'request.requestType', 
-            'request.student.studentProfile', 
+            'request.student.studentProfile',
+            'request.attachments',
             'department', 
-            'user'
+            'handled_by'
         ])
         ->get();
 
     return RequestStageResource::collection($requestStages);
+}
+
+public function myCases(): JsonResponse
+{
+    $user = Auth::user();
+    $stages = RequestStage::where('handled_by', $user->id)
+        ->where('status', 'in_review')
+        ->with(['request.requestType', 'request.student.studentProfile', 'request.attachments', 'department', 'user'])
+        ->get();
+    return response()->json(RequestStageResource::collection($stages));
+}
+
+public function forRequest(DocumentRequest $docRequest): \Illuminate\Http\Resources\Json\AnonymousResourceCollection
+{
+    $stages = RequestStage::query()
+        ->where('request_id', $docRequest->id)
+        ->with([
+            'request.requestType', 
+            'request.student.studentProfile',
+            'request.attachments',
+            'department', 
+            'handled_by'
+        ])
+        ->orderBy('sequence_order', 'asc')
+        ->get();
+
+    return RequestStageResource::collection($stages);
 }
 
     /**
