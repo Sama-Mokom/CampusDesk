@@ -13,9 +13,12 @@ Route::middleware(['auth:sanctum'])->get('/user', function (Request $request) {
 Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/attachments/{attachment}', [AttachmentController::class, 'show']);
 });
+Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
+    Route::get('/requests/{request}', [RequestController::class, 'show']);
+});
 Route::middleware(['auth:sanctum', 'student', 'throttle:60,1'])->group(function () {
     Route::get('/requests', [RequestController::class, 'index']);
-    Route::get('/requests/{request}', [RequestController::class, 'show']);
+    // Route::get('/requests/{request}', [RequestController::class, 'show']);
 });
 
 Route::middleware(['auth:sanctum', 'student', 'throttle:10,1'])->group(function () {

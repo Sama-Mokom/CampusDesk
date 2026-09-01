@@ -121,20 +121,17 @@ class RequestController extends Controller
     }
 
     public function show(UserRequest $request)
-    {
-        // dd([
-        // 'request_student_id' => $request->student_id,
-        // 'auth_id' => Auth::id(),
-        // 'match' => $request->student_id == Auth::id(),
-        //    ]);
-        if ($request->student_id != Auth::id()) {
-            abort(403, 'Unauthorized action.');
-        }
+{
+    $user = Auth::user();
+    $isOwner = $request->student_id === $user->id;
+    $isStaff = $user->role === 'staff';
 
-        return new RequestResource(
-            $request->load(['requestType', 'requestStages.department', 'attachments', 'statusHistories'])
-        );
-    }
+    abort_unless($isOwner || $isStaff, 403);
+
+    return new RequestResource(
+        $request->load(['requestStages', 'attachments', 'statusHistories'])
+    );
+}
 
     public function edit(string $id)
     {

@@ -190,7 +190,8 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useAuth } from '../composables/useAuth'
-import { fetchRequestStages, fetchStaffQueue, resolveStage, claimStage, fetchMyCases } from '../services/stages'
+import { fetchStaffQueue, resolveStage, claimStage, fetchMyCases } from '../services/stages'
+import { fetchRequestById } from '../services/requests'
 import type { RequestStage } from '../types'
 import LevelBadge from './LevelBadge.vue'
 import RequestTimeline from './RequestTimeline.vue'
@@ -226,10 +227,9 @@ function openDetails(stage: RequestStage) {
   detailsModal.open = true
   detailsModal.loading = true
   
-  fetchRequestStages(stage.request_id)
+  fetchRequestById(stage.request_id)
     .then(data => { 
-      // Handle Laravel resource wrapper `{ data: [...] }` or raw array `[...]`
-      detailsModal.stages = Array.isArray(data) ? data : (data as any)?.data ?? [] 
+      detailsModal.stages = data.stages ?? []
     })
     .catch(() => { 
       detailsModal.stages = [stage] 
@@ -238,6 +238,7 @@ function openDetails(stage: RequestStage) {
       detailsModal.loading = false 
     })
 }
+
 
 const primaryDeptName = computed(() => {
   const p = sp.value?.departments?.find(d => d.is_primary)
