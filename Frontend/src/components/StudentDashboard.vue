@@ -6,7 +6,7 @@
           <h2 class="text-xl text-primary font-semibold">Hello, {{ profile?.name ?? 'Student' }}</h2>
           <p class="text-sm text-neutral-600 mt-1">
             <span class="font-mono font-medium text-foreground">{{ sp?.matricule }}</span>
-            <span v-if="sp"> · {{ sp.faculty.name }} · {{ sp.department.name }}</span>
+            <span v-if="sp"> · {{ facultyName }} · {{ departmentName }}</span>
           </p>
         </div>
         <LevelBadge v-if="sp" :level="sp.level" />
@@ -79,18 +79,18 @@
           v-for="req in sortedRequests"
           :key="req.id"
           class="card cursor-pointer hover:border-primary transition-colors"
-          @click="selectedRequest = req"
+          @click="openRequest(req)"
         >
           <div class="flex items-start justify-between gap-4">
             <div class="flex-1">
-              <h3 class="font-semibold text-foreground">{{ req.request_type.name }}</h3>
+              <h3 class="font-semibold text-foreground">{{ req.request_type }}</h3>
               <p class="text-sm text-neutral-600 mt-1 line-clamp-2">{{ req.description }}</p>
               <div class="flex items-center gap-2 mt-2 flex-wrap">
                 <StatusBadge kind="request" :status="req.status" />
                 <span class="text-xs text-neutral-500">{{ formatDate(req.created_at) }}</span>
               </div>
             </div>
-            <button type="button" class="btn-secondary text-sm shrink-0" @click.stop="selectedRequest = req">View</button>
+            <button type="button" class="btn-secondary text-sm shrink-0" @click.stop="openRequest(req)" >View</button>
           </div>
         </div>
       </div>
@@ -104,7 +104,7 @@
       <div class="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div class="sticky top-0 bg-white border-b border-neutral-200 p-6 flex justify-between items-start">
           <div>
-            <h2 class="text-2xl font-bold">{{ selectedRequest.request_type.name }}</h2>
+            <h2 class="text-2xl font-bold">{{ selectedRequest.request_type }}</h2>
             <p v-if="selectedRequest.is_reopened" class="text-xs font-medium text-amber-700 mt-1">Reopened request</p>
           </div>
           <button type="button" class="text-neutral-500 hover:text-foreground text-2xl" @click="selectedRequest = null">×</button>
@@ -129,16 +129,14 @@
             <p class="text-foreground">{{ selectedRequest.description }}</p>
           </div>
 
-          <div v-if="selectedRequest.attachments.length">
+          <div v-if="selectedRequest.attachments?.length">
             <p class="text-sm text-neutral-600 mb-2">Attachments</p>
-            <ul class="text-sm space-y-1">
-              <li v-for="a in selectedRequest.attachments" :key="a.id" class="text-primary">{{ a.original_name }}</li>
-            </ul>
+            <DocumentViewer :attachments="selectedRequest.attachments" />
           </div>
 
           <div>
             <p class="text-sm text-neutral-600 mb-3">Stage timeline</p>
-            <RequestTimeline :stages="selectedRequest.stages" />
+            <RequestTimeline :stages="selectedRequest.stages ?? []" />
           </div>
 
           <div>
@@ -160,7 +158,7 @@
                   →
                   <span class="font-medium">{{ formatHistStatus(h.new_status) }}</span>
                 </p>
-                <p class="text-xs text-neutral-600">{{ h.changed_by.name }} · {{ formatDate(h.changed_at) }}</p>
+                <p class="text-xs text-neutral-600">{{ h.changed_by?.name ?? 'System' }} · {{ formatDate(h.changed_at) }}</p>
                 <p v-if="h.note" class="text-neutral-700 mt-1">{{ h.note }}</p>
               </div>
             </div>
@@ -191,36 +189,67 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
-import { useMockData } from '@/composables/useMockData'
-import type { Request, RequestStatus } from '@/types'
-import { requestStatusLabel } from '@/types'
+import { ref, reactive, computed, onMounted } from 'vue'
+import { useAuth } from '../composables/useAuth'
+import { fetchRequests, fetchRequestById, createRequest } from '../services/requests'
+import { fetchRequestTypes, fetchFaculties, fetchDepartments } from '../services/reference'
+import type { Request as DocumentRequest, RequestTypeEntity, Faculty, Department } from '../types'
+import type { RequestStatus } from '../types'
+import { requestStatusLabel } from '../types'
+import { watch } from 'vue'
 import StatusBadge from './StatusBadge.vue'
 import LevelBadge from './LevelBadge.vue'
 import RequestTimeline from './RequestTimeline.vue'
+import DocumentViewer from './DocumentViewer.vue'
 
-const {
-  sessionUser,
-  requestTypes,
-  studentRequests,
-  studentStats,
-  createStudentRequest,
-  reopenRequest,
-  markCollected,
-  deptSummary
-} = useMockData()
 
-const profile = computed(() => sessionUser.value)
-const sp = computed(() => profile.value?.student_profile)
+const { user} = useAuth()
+
+// Reference data
+const requestTypes = ref<RequestTypeEntity[]>([])
+const faculties = ref<Faculty[]>([])
+const departments = ref<Department[]>([])
+
+// Student requests
+const studentRequests = ref<DocumentRequest[]>([])
+
+// UI state
+const loading = ref(true)
+const error = ref('')
+
+const profile = computed(() => user.value)
+const sp = computed(() => user.value?.student_profile ?? null)
+
+// Resolve faculty and department names from loaded reference data
+const facultyName = computed(() => {
+  if (!sp.value) return ''
+  return faculties.value.find(f => f.id === sp.value!.faculty_id)?.name ?? ''
+})
+const departmentName = computed(() => {
+  if (!sp.value) return ''
+  return departments.value.find(d => d.id === sp.value!.department_id)?.name ?? ''
+})
+
+const studentStats = computed(() => ({
+  total: studentRequests.value.length,
+  pending: studentRequests.value.filter(r => r.status === 'pending').length,
+  ready_for_collection: studentRequests.value.filter(r => r.status === 'ready').length,
+}))
 
 const form = reactive({
   request_type_id: requestTypes.value[0]?.id ?? 1,
   description: ''
 })
-const fileList = ref<{ name: string; type: string }[]>([])
+watch(requestTypes, (types) => {
+  if (types.length && !form.request_type_id) {
+    form.request_type_id = types[0].id
+  }
+}, { immediate: true })
+
+const fileList = ref<File[]>([])
 const confirmStep = ref(false)
 const confirmDepartments = ref<string[]>([])
-const selectedRequest = ref<Request | null>(null)
+const selectedRequest = ref<DocumentRequest | null>(null)
 const historyOpen = ref(false)
 
 const sortedRequests = computed(() =>
@@ -229,26 +258,82 @@ const sortedRequests = computed(() =>
   )
 )
 
+onMounted(async () => {
+  try {
+    const [requests, types, fetchedFaculties, fetchedDepartments] = await Promise.all([
+      fetchRequests(),
+      fetchRequestTypes(),
+      fetchFaculties(),
+      fetchDepartments(),
+    ])
+    studentRequests.value = requests
+    requestTypes.value = types
+    faculties.value = fetchedFaculties
+    departments.value = fetchedDepartments
+    console.log('requests response:', requests)
+  } catch (err) {
+    error.value = 'Failed to load dashboard data.'
+  } finally {
+    loading.value = false
+  }
+  console.log('sp:', sp.value)
+  console.log('faculties:', faculties.value)
+  console.log('facultyName:', facultyName.value)
+})
+
+async function openRequest(req: DocumentRequest) {
+  try {
+    selectedRequest.value = await fetchRequestById(req.id)
+  } catch (err) {
+    console.error('Failed to load request details:', err)
+    error.value = 'Failed to load request details.'
+  }
+}
+
 function onFiles(e: Event) {
   const input = e.target as HTMLInputElement
   fileList.value = []
   if (!input.files) return
   for (let i = 0; i < input.files.length; i++) {
-    const f = input.files[i]!
-    fileList.value.push({ name: f.name, type: f.type })
+    fileList.value.push(input.files[i]!)
   }
 }
 
-function submitRequest() {
-  const u = sessionUser.value
+
+
+async function submitRequest() {
+  const u = user.value
+  error.value = '' 
+
   if (!u || u.role !== 'student' || !form.description.trim()) return
+  
   const rt = requestTypes.value.find(t => t.id === form.request_type_id)
   if (!rt) return
-  createStudentRequest(u, form.request_type_id, form.description.trim(), fileList.value)
-  confirmDepartments.value = rt.default_department_sequence.map(id => deptSummary(id).name)
-  confirmStep.value = true
-  form.description = ''
-  fileList.value = []
+  try {
+    const stuRequest = await createRequest({
+      request_type_id: form.request_type_id, 
+      description: form.description.trim(), 
+      attachments: fileList.value
+    });
+
+    
+    // Map the department sequence names for confirmation
+    confirmDepartments.value = stuRequest.stages?.map(s => s.department_name) ?? []
+    studentRequests.value.unshift(stuRequest)
+    confirmStep.value = true
+    
+    // Reset form fields
+    form.description = ''
+    fileList.value = []
+
+  } catch (err: any) {
+    console.error('Request submission failed:', err);
+    if (err.response && err.response.data && err.response.data.message) {
+      error.value = err.response.data.message;
+    } else {
+      error.value = 'Failed to submit the request. Please try again.';
+    }
+  }
 }
 
 function resetForm() {
@@ -266,16 +351,12 @@ function formatHistStatus(s: RequestStatus | null) {
 }
 
 function doReopen() {
-  const u = sessionUser.value
-  const r = selectedRequest.value
-  if (!u || !r) return
-  reopenRequest(r.id, u)
+  // TODO: implement reopen endpoint
+  console.log('Reopen not yet implemented')
 }
 
 function doCollected() {
-  const u = sessionUser.value
-  const r = selectedRequest.value
-  if (!u || !r) return
-  markCollected(r.id, u)
+  // TODO: implement collected endpoint
+  console.log('Mark collected not yet implemented')
 }
 </script>

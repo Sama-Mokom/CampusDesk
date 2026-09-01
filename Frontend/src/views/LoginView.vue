@@ -31,18 +31,19 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useMockData } from '@/composables/useMockData'
+import { useAuth } from '../composables/useAuth'
+import { login } from '../services/auth'
 
 const router = useRouter()
 const route = useRoute()
-const { login, sessionUser } = useMockData()
+const { user, setUser } = useAuth()
 
 const email = ref('')
 const password = ref('')
 const error = ref('')
 
 function homePath(): string {
-  const u = sessionUser.value
+  const u = user.value
   if (!u) return '/login'
   if (u.role === 'student') return '/student'
   const level = u.staff_profile?.admin_level
@@ -51,18 +52,26 @@ function homePath(): string {
   return '/staff'
 }
 
-function onSubmit() {
-  error.value = ''
-  const u = login(email.value.trim(), password.value)
-  if (!u) {
-    error.value = 'Invalid email or password.'
-    return
-  }
-  const redir = route.query.redirect as string | undefined
-  if (redir && redir.startsWith('/')) {
-    router.replace(redir)
+async function onSubmit(){
+  error.value = '';
+  try {
+    const loggedInUser = await login({
+      email: email.value.trim(),
+      password: password.value,
+    });
+    setUser(loggedInUser);
+    const redir = route.query.redirect as string | undefined;
+    if (redir && redir.startsWith('/')) {
+      router.replace(redir);
+    } else {
+      router.replace(homePath());
+    }
+  } catch (err: any) {
+    if (err.response && err.response.status === 422) {
+      error.value = err.response.data.message || 'Invalid email or password.';
   } else {
-    router.replace(homePath())
-  }
+    error.value = 'A connection error occurred. Please try again.';
+   }
+}
 }
 </script>

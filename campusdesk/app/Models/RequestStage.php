@@ -16,7 +16,11 @@ class RequestStage extends Model
     }
      public function department(): BelongsTo
     {
-        return $this->belongsTo(department::class);
+        return $this->belongsTo(Department::class);
+    }
+     public function handled_by(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'handled_by');
     }
      public function user(): BelongsTo
     {
@@ -26,4 +30,18 @@ class RequestStage extends Model
     {
         return $this->hasMany(StatusHistory::class);
     }
+    protected function casts(): array
+{
+    return [
+        'handled_by' => 'integer',
+    ];
+}
+    protected $fillable = [
+    'department_id',
+    'sequence_order',
+    'status',        
+    'handled_by',    
+    'request_id',   
+    'staff_note',    
+];
 }

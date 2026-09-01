@@ -1,6 +1,6 @@
 export type DegreeType = 'BSc' | 'BEng' | 'MEng' | 'MSc' | 'PhD'
 
-export type StudentLevel = 'L100' | 'L200' | 'L300' | 'L400' | 'L500' | 'L600'
+export type StudentLevel = '100' | '200' | '300' | '400' | '500' | '600'
 
 export type StudentProfileStatus = 'active' | 'on_leave' | 'graduated' | 'suspended'
 
@@ -75,6 +75,27 @@ export interface User {
   staff_profile?: StaffProfile
 }
 
+export interface LoginCredentials {
+  email: string
+  password: string
+}
+
+export interface RegisterCredentials {
+  name: string
+  email: string
+  password: string
+  password_confirmation: string
+  matricule: string
+  faculty_id: number
+  department_id: number
+  programme_id: number
+  level: 'L100' | 'L200' | 'L300' | 'L400' | 'L500' | 'L600'
+}
+
+export interface AuthResponse {
+  token: string
+  user: User
+}
 export interface UserSummary {
   id: number
   name: string
@@ -87,22 +108,57 @@ export interface RequestTypeEntity {
   default_department_sequence: number[]
 }
 
+export interface CreateRequestPayload {
+  request_type_id: number;
+  description: string;
+  attachments?: File[]; // For handling file uploads if needed
+}
+
 export interface Attachment {
   id: number
-  request_id: number
+  request_id?: number
   file_path: string
   original_name: string
-  mime_type: string
+  mime_type?: string
 }
 
 export interface RequestStage {
   id: number
-  department: { id: number; name: string }
+  request_id: number
+  department_name: string 
   sequence_order: number
   status: StageStatus
-  handled_by: UserSummary | null
+  handled_by: string | null
   staff_note: string | null
   updated_at: string | null
+  request?: {
+    id: number
+    description: string
+    request_type?: string
+    created_at: string
+    student_name?: string
+    student_matricule?: string
+    student_level?: StudentLevel
+    attachments?: Attachment[]
+  }
+}
+
+export interface ResolveStagePayload {
+  /**
+   * The action to perform on this stage.
+   */
+  status: 'approved' | 'rejected';
+  
+  /**
+   * A staff comment/note documenting the decision.
+   */
+  staff_note: string;
+  
+  /**
+   * Optional: If the overall request needs to transition to a new status 
+   * (e.g. 'rejected' if rejecting, or 'ready' if this is the final stage).
+   */
+  request_status?: RequestStatus;
 }
 
 export interface StatusHistoryEntry {
@@ -116,8 +172,7 @@ export interface StatusHistoryEntry {
 
 export interface Request {
   id: number
-  student_id: number
-  request_type: RequestTypeEntity
+  request_type: string 
   description: string
   status: RequestStatus
   is_reopened: boolean
@@ -125,6 +180,17 @@ export interface Request {
   attachments: Attachment[]
   stages: RequestStage[]
   status_history: StatusHistoryEntry[]
+}
+
+export interface RequestDetails {
+  id: number
+  description: string
+  request_type: string
+  created_at: string
+  student_name: string
+  student_matricule: string
+  student_level: string
+  attachments?: Attachment[]
 }
 
 export interface Notification {

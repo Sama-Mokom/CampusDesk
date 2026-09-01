@@ -2,7 +2,15 @@
 
 namespace App\Providers;
 
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Support\Facades\RateLimiter;
+use App\Observers\RequestStageObserver;
+use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\Gate;
+use App\Models\User;
+use App\Models\RequestStage;
+use Illuminate\Http\Request;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -19,6 +27,26 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        Gate::define('is_student', fn(User $user) => $user->role === 'student');
+        Gate::define('is_staff', fn(User $user) => $user->role === 'staff');
+        Gate::define('is_dept-admin', fn(User $user) => 
+        $user->role === 'staff' && $user->staffProfile?->admin_level === 'dept_admin');
+        Gate::define('is-super-admin', fn(User $user) => 
+        $user->role === 'staff' && $user->staffProfile?->admin_level === 'super_admin');
+
+        ResetPassword::createUrlUsing(function (object $notifiable, string $token) {
+            return config('app.frontend_url')."/password-reset/$token?email={$notifiable->getEmailForPasswordReset()}";
+        });
+
+        RequestStage::observe(RequestStageObserver::class);
+
+        // RateLimiter::for('auth', function (Request $request) {
+        // return Limit::perMinute(5)->by($request->user()?->id ?: $request->ip());
+        //  });
+        // RateLimiter::for('api', function (Request $request) {
+        // return $request->user()
+        // ? Limit::perMinute(20)->by($request->user()->id)
+        // : Limit::perMinute(10)->by($request->ip());
+        // });
     }
 }

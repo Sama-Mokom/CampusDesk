@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CampusDesk Database Seeder — Technical Specification</title>
+<style>
+  @page { margin: 25mm 20mm; }
+  body {
+    font-family: "Times New Roman", Times, serif;
+    color: #000000;
+    background: #ffffff;
+    font-size: 11pt;
+    line-height: 1.5;
+    text-align: justify;
+    max-width: 850px;
+    margin: 0 auto;
+    padding: 25mm 20mm;
+  }
+  .header-block {
+    text-align: center;
+    font-weight: bold;
+    text-transform: uppercase;
+    line-height: 1.4;
+  }
+  .header-block .doc-title {
+    margin-top: 14px;
+    font-size: 14pt;
+  }
+  hr {
+    border: none;
+    border-top: 1px solid #000000;
+    margin: 14px 0;
+  }
+  .meta-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0 20px 0;
+    font-size: 11pt;
+  }
+  .meta-table td {
+    padding: 3px 6px;
+    vertical-align: top;
+    border: none;
+  }
+  .meta-table td.label {
+    font-weight: bold;
+    width: 32%;
+  }
+  h1 {
+    font-size: 16pt;
+    font-weight: bold;
+    text-transform: uppercase;
+    text-align: left;
+    margin-top: 30px;
+  }
+  h2 {
+    font-size: 13pt;
+    font-weight: bold;
+    text-align: left;
+    margin-top: 24px;
+    border-bottom: 1px solid #000000;
+    padding-bottom: 2px;
+  }
+  h3 {
+    font-size: 11pt;
+    font-weight: bold;
+    font-style: italic;
+    text-align: left;
+    margin-top: 16px;
+    margin-bottom: 4px;
+  }
+  p, li { text-align: justify; }
+  table.data {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0;
+    font-size: 10pt;
+  }
+  table.data th, table.data td {
+    border: 1px solid #000000;
+    padding: 5px 6px;
+    text-align: left;
+    vertical-align: top;
+  }
+  table.data th {
+    font-weight: bold;
+    background: #ffffff;
+  }
+  pre {
+    font-family: "Courier New", Courier, monospace;
+    font-size: 10pt;
+    border: 1px solid #000000;
+    padding: 8px 10px;
+    background: #ffffff;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    line-height: 1.35;
+    margin: 10px 0;
+  }
+  code {
+    font-family: "Courier New", Courier, monospace;
+    font-size: 10pt;
+  }
+  .status-open {
+    font-style: italic;
+  }
+  ol, ul { margin-left: 18px; }
+</style>
+</head>
+<body>
+
+<div class="header-block">
+  UNIVERSITY OF BUEA<br>
+  FACULTY OF ENGINEERING AND TECHNOLOGY<br>
+  DEPARTMENT OF COMPUTER ENGINEERING<br>
+  COURSE CODE: N/A — Independent Development Project<br>
+  COURSE TITLE: CampusDesk — University Document Request &amp; Tracking System
+</div>
+
+<hr>
+
+<div class="header-block doc-title">
+  DATABASE SEEDER — TECHNICAL SPECIFICATION
+</div>
+
+<table class="meta-table">
+  <tr><td class="label">Student Name:</td><td>Nkeng Sama Mokom</td>
+      <td class="label">Matricule Number:</td><td>FE23A118</td></tr>
+  <tr><td class="label">Academic Level:</td><td>Level 400</td>
+      <td class="label">Degree Programme:</td><td>Computer Engineering</td></tr>
+  <tr><td class="label">Host Institution:</td><td>University of Buea</td>
+      <td class="label">Submission Date:</td><td>20 July 2026</td></tr>
+</table>
+
+<hr>
+
+<h1>1. Purpose &amp; Scope</h1>
+<p>
+This document consolidates all architectural and implementation decisions made regarding the CampusDesk
+database seeding strategy. It defines the dependency-ordered seeding sequence, the finalized
+<code>UserFactory</code> state design, the data generation rules governing academic identity (matricule,
+level, faculty/department/programme consistency), and the responsibilities of <code>DatabaseSeeder.php</code>.
+Sections marked <span class="status-open">"OPEN — NOT YET DECIDED"</span> represent areas discussed but not
+yet finalized, and require further design work before implementation.
+</p>
+
+<h1>2. Schema Dependency Tiers</h1>
+<p>
+Seeding order is dictated strictly by foreign key dependency. Each tier below must be fully populated
+before the next tier begins.
+</p>
+<table class="data">
+<tr><th>Tier</th><th>Tables</th><th>Depends On</th></tr>
+<tr><td>0</td><td>faculties, users, request_types</td><td>None</td></tr>
+<tr><td>1</td><td>departments, programmes</td><td>faculties</td></tr>
+<tr><td>2</td><td>student_profiles, staff_profiles</td><td>users, faculties, departments, programmes</td></tr>
+<tr><td>3</td><td>department_staff</td><td>staff_profiles, departments</td></tr>
+<tr><td>4</td><td>requests</td><td>users (student_id), request_types</td></tr>
+<tr><td>5</td><td>request_stages</td><td>requests, departments (generated via Observer)</td></tr>
+<tr><td>6</td><td>status_history, attachments, notifications</td><td>requests, request_stages, users</td></tr>
+</table>
+
+<h1>3. Finalized Architectural Decisions</h1>
+
+<h3>3.1 Stage Generation Placement</h3>
+<p>
+Stage generation logic will be extracted from <code>RequestController</code> into a dedicated
+<code>StageGenerationService</code>, invoked automatically from a <code>RequestObserver::created()</code> hook.
+This guarantees stage generation fires identically regardless of whether a <code>Request</code> is created via
+HTTP, Tinker, or a seeder — eliminating the risk of divergent logic between production code and test data.
+</p>
+
+<h3>3.2 Faculty / Department / Programme Consistency</h3>
+<p>
+Because <code>student_profiles</code> denormalizes <code>faculty_id</code> alongside <code>department_id</code>
+and <code>programme_id</code>, all three must be mutually consistent for every seeded student. Faculty is
+always derived from the most specific value supplied (department takes precedence over faculty), never
+selected independently at random.
+</p>
+
+<h3>3.3 Role / Profile Assignment Strategy</h3>
+<p>
+A single <code>afterCreating()</code> hook, registered once inside <code>UserFactory::configure()</code>,
+is the sole authority for creating <code>StudentProfile</code> or <code>StaffProfile</code> rows. State
+methods (<code>staff()</code>, <code>student()</code>) do not create related rows themselves — they only
+override <code>role</code> and stash parameters as transient properties on the factory instance for the
+single hook to read. This avoids duplicate-insert races that would occur if multiple competing
+<code>afterCreating()</code> hooks existed.
+</p>
+
+<h3>3.4 Default Behaviour</h3>
+<p>
+<code>User::factory()->create()</code> with no state defaults to <code>role: "student"</code> and will
+always generate an associated <code>StudentProfile</code>, reflecting the platform's real-world user
+distribution. This is a deliberate default, not an oversight.
+</p>
+
+<h1>4. UserFactory Specification (Finalized)</h1>
+
+<h3>4.1 Transient Properties</h3>
+<pre>transient_faculty     = null   // Faculty|null, optional override
+transient_department  = null   // Department|null, optional override
+transient_level       = null   // string|null, optional override ("100"–"400")
+transient_admin_level = null   // string|null, staff promotion tier</pre>
+
+<h3>4.2 State Method — staff()</h3>
+<pre>METHOD staff(admin_level = null):
+    self.transient_admin_level = admin_level
+    RETURN self.state(FUNCTION (attributes):
+        RETURN { "role": "staff" }
+    )</pre>
+
+<h3>4.3 State Method — student()</h3>
+<pre>METHOD student(faculty = null, department = null, level = null):
+    self.transient_faculty    = faculty
+    self.transient_department = department
+    self.transient_level      = level
+    RETURN self.state(FUNCTION (attributes):
+        RETURN { "role": "student" }
+    )</pre>
+
+<h3>4.4 configure() — Single Authoritative Hook</h3>
+<pre>METHOD configure():
+    RETURN self.afterCreating(FUNCTION (user_record):
+
+        IF user_record.role == "staff":
+            CREATE StaffProfile WITH {
+                "user_id": user_record.id,
+                "staff_id": generate_unique_staff_id(),
+                "admin_level": self.transient_admin_level   // null if staff() bypassed
+            }
+
+        ELSE IF user_record.role == "student":
+
+            // --- Phase 1: Resolve Faculty / Department / Programme ---
+            IF self.transient_department IS NOT NULL:
+                RESOLVED_DEPT    = self.transient_department
+                RESOLVED_FACULTY = RESOLVED_DEPT.faculty
+                RESOLVED_PROG    = RANDOM_RECORD_FROM(Programmes WHERE faculty_id == RESOLVED_FACULTY.id)
+                IF RESOLVED_PROG IS NULL:
+                    THROW RuntimeException(
+                        "No Programme found for Faculty '{name}' (id: {id}). " .
+                        "Seed at least one Programme for this faculty before creating student users."
+                    )
+
+            ELSE IF self.transient_faculty IS NOT NULL:
+                RESOLVED_FACULTY = self.transient_faculty
+                RESOLVED_DEPT    = RANDOM_RECORD_FROM(Departments WHERE faculty_id == RESOLVED_FACULTY.id)
+                IF RESOLVED_DEPT IS NULL:
+                    THROW RuntimeException("No Department found for Faculty '{name}' (id: {id}). Seed departments first.")
+                RESOLVED_PROG    = RANDOM_RECORD_FROM(Programmes WHERE faculty_id == RESOLVED_FACULTY.id)
+                IF RESOLVED_PROG IS NULL:
+                    THROW RuntimeException("No Programme found for Faculty '{name}' (id: {id}). Seed programmes first.")
+
+            ELSE:
+                RESOLVED_FACULTY = RANDOM_RECORD_FROM(Faculties)
+                IF RESOLVED_FACULTY IS NULL:
+                    THROW RuntimeException("No Faculties found. Run FacultySeeder before creating student users.")
+                RESOLVED_DEPT = RANDOM_RECORD_FROM(Departments WHERE faculty_id == RESOLVED_FACULTY.id)
+                IF RESOLVED_DEPT IS NULL:
+                    THROW RuntimeException("No Department found for randomly selected Faculty '{name}' (id: {id}).")
+                RESOLVED_PROG = RANDOM_RECORD_FROM(Programmes WHERE faculty_id == RESOLVED_FACULTY.id)
+                IF RESOLVED_PROG IS NULL:
+                    THROW RuntimeException("No Programme found for randomly selected Faculty '{name}' (id: {id}).")
+
+            // --- Phase 1B: Resolve Level ---
+            RESOLVED_LEVEL = self.transient_level ?? RANDOM_ELEMENT(["100","200","300","400"])
+
+            // --- Phase 2: Generate Coherent Matricule ---
+            FACULTY_CODE   = UPPERCASE(RESOLVED_FACULTY.code)
+            SECTION_LETTER = "A"                                  // Hardcoded — registrar-owned rule, out of scope
+            BASE_SYSTEM_YEAR = 2026
+            LEVEL_NUMERIC    = CONVERT_TO_INT(RESOLVED_LEVEL)
+            YEARS_SPENT      = (LEVEL_NUMERIC / 100) - 1
+            COMPUTED_ENROLLMENT_YEAR = BASE_SYSTEM_YEAR - YEARS_SPENT
+            DERIVED_YEAR_STR = SUBSTRING(CONVERT_TO_STR(COMPUTED_ENROLLMENT_YEAR), -2)
+            PREFIX_MATCH     = FACULTY_CODE + DERIVED_YEAR_STR + SECTION_LETTER
+
+            LAST_MATRICULE = QUERY(StudentProfiles)
+                                .WHERE("matricule", "LIKE", PREFIX_MATCH + "%")
+                                .ORDER_BY("matricule", "DESC")
+                                .FIRST()
+            NEXT_SEQUENCE_INT = LAST_MATRICULE IS NOT NULL
+                                 ? CONVERT_TO_INT(SUBSTRING(LAST_MATRICULE.matricule, -3)) + 1
+                                 : 1
+            GENERATED_MATRICULE = PREFIX_MATCH + PAD_LEFT(NEXT_SEQUENCE_INT, 3, "0")
+
+            // --- Phase 3: Persist ---
+            CREATE StudentProfile WITH {
+                "user_id":        user_record.id,
+                "faculty_id":     RESOLVED_FACULTY.id,
+                "department_id":  RESOLVED_DEPT.id,
+                "programme_id":   RESOLVED_PROG.id,
+                "level":          RESOLVED_LEVEL,
+                "matricule":      GENERATED_MATRICULE
+            }
+    )</pre>
+
+<h3>4.5 Known Limitations (Accepted Trade-offs)</h3>
+<table class="data">
+<tr><th>Limitation</th><th>Rationale</th></tr>
+<tr><td>Section letter hardcoded to "A"</td><td>Undergraduate/postgraduate section assignment is a registrar-owned business rule, not a seeding concern. Not expected to affect realistic seed volumes.</td></tr>
+<tr><td>Matricule sequence capped at 999 per faculty/year/section bucket</td><td>Accepted — seeding volumes are not expected to approach this ceiling.</td></tr>
+<tr><td>Repeated <code>create()</code> calls on the same factory chain reuse stashed transient state</td><td>Expected Laravel behaviour; each new <code>User::factory()->student(...)</code> chain must be re-declared to change parameters.</td></tr>
+</table>
+
+<h1>5. DatabaseSeeder.php — Orchestration Plan</h1>
+
+<h3>5.1 Tier 0–1 — Reference Data</h3>
+<p class="status-open">
+OPEN — NOT YET DECIDED. Requires confirmation on: (a) whether faculties/departments/programmes use real
+University of Buea names via hardcoded arrays rather than <code>fake()</code> data, given they are
+known, fixed institutional data rather than synthetic entities; and (b) exact record counts per table.
+</p>
+
+<h3>5.2 Tier 2 — Students &amp; Staff</h3>
+<p class="status-open">
+OPEN — NOT YET DECIDED. Requires a decision on how quantity/variation is controlled — e.g. manual
+per-department/per-level loops versus a distribution helper — so that seeded students are not
+skewed entirely toward one random level by chance.
+</p>
+
+<h3>5.3 Tier 3 — department_staff</h3>
+<p class="status-open">
+OPEN — NOT YET DECIDED. Requires resolution of the <code>is_primary</code> uniqueness rule (whether a
+department must seed with exactly one primary staff handler before non-primary assignments occur) and
+the downstream impact on the staff pickup-and-lock mechanic if a department seeds with zero primary staff.
+</p>
+
+<h3>5.4 Tier 4–5 — Requests &amp; Stages</h3>
+<p class="status-open">
+OPEN — NOT YET DECIDED. Requires confirmation that <code>Request::factory()->create()</code> alone is
+sufficient to trigger stage generation via the Observer, and a plan for seeding requests across a
+realistic spread of stage-completion states (not all freshly generated) to exercise the two-level
+status system during testing.
+</p>
+
+<h3>5.5 Tier 6 — status_history, attachments, notifications</h3>
+<p class="status-open">
+OPEN — NOT YET DECIDED. Not yet discussed in detail.
+</p>
+
+<h1>6. Next Steps</h1>
+<ol>
+<li>Resolve Section 5.1 — reference data source (hardcoded vs. faked) and volume targets.</li>
+<li>Resolve Section 5.2 — student/staff distribution strategy across departments and levels.</li>
+<li>Resolve Section 5.3 — <code>department_staff</code> primary-assignment guarantee.</li>
+<li>Resolve Section 5.4 — request/stage seeding and realistic status progression.</li>
+<li>Finalize Section 5.5 once Tier 4–5 mechanics are settled.</li>
+</ol>
+
+</body>
+</html>

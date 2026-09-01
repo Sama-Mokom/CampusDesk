@@ -8,14 +8,24 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class StaffProfile extends Model
 {
-    //
-     public function user(): BelongsTo
+    protected $fillable = [
+        'user_id',
+        'staff_id',
+        'admin_level',
+    ];
+
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
-     public function departmentStaff(): BelongsToMany
+    public function departments(): BelongsToMany
     {
-        return $this->belongsToMany(DepartmentStaff::class);
+        return $this->belongsToMany(
+            Department::class,
+            'department_staff',
+            'staff_profile_id',
+            'department_id'
+        )->withPivot('is_primary');
     }
 }

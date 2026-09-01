@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { useMockData } from '@/composables/useMockData'
+import { useAuth } from '@/composables/useAuth'
 import LoginView from '@/views/LoginView.vue'
 import RegisterView from '@/views/RegisterView.vue'
 import StudentView from '@/views/StudentView.vue'
@@ -8,8 +8,8 @@ import DeptAdminView from '@/views/DeptAdminView.vue'
 import SuperAdminView from '@/views/SuperAdminView.vue'
 
 function homePathForUser(): string {
-  const { sessionUser } = useMockData()
-  const u = sessionUser.value
+  const { user } = useAuth()
+  const u = user.value
   if (!u) return '/login'
   if (u.role === 'student') return '/student'
   if (u.role === 'staff') {
@@ -55,8 +55,9 @@ export const router = createRouter({
 })
 
 router.beforeEach((to, _from, next) => {
-  const { isAuthenticated, sessionUser } = useMockData()
+  const { isAuthenticated, user } = useAuth()
   const authed = isAuthenticated.value
+  const u = user.value
 
   if (to.meta.guest && authed) {
     return next(homePathForUser())
@@ -66,7 +67,6 @@ router.beforeEach((to, _from, next) => {
     return next({ name: 'login', query: { redirect: to.fullPath } })
   }
 
-  const u = sessionUser.value
   if (to.meta.roles && u) {
     const roles = to.meta.roles as string[]
     if (!roles.includes(u.role)) return next(homePathForUser())
