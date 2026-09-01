@@ -5,9 +5,13 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\RequestStageController;
 use App\Http\Controllers\RequestController;
 use App\Http\Controllers\ReferenceDataController;
+use App\Http\Controllers\AttachmentController;
 
 Route::middleware(['auth:sanctum'])->get('/user', function (Request $request) {
     return $request->user();
+});
+Route::middleware(['auth:sanctum'])->group(function () {
+    Route::get('/attachments/{attachment}', [AttachmentController::class, 'show']);
 });
 Route::middleware(['auth:sanctum', 'student', 'throttle:60,1'])->group(function () {
     Route::get('/requests', [RequestController::class, 'index']);

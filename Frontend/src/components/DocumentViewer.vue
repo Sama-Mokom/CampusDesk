@@ -16,10 +16,12 @@
       >
         <div class="flex items-center gap-2 overflow-hidden">
           <span class="text-lg shrink-0">{{ fileIcon(file) }}</span>
-          <span class="text-sm font-medium text-foreground truncate">{{ file.original_name }}</span>
+          <span class="text-sm font-medium text-foreground truncate">{{
+            file.original_name
+          }}</span>
         </div>
         <span class="text-xs text-primary font-semibold shrink-0 ml-2">
-          {{ activeFile?.id === file.id ? 'Viewing' : 'View' }}
+          {{ activeFile?.id === file.id ? "Viewing" : "View" }}
         </span>
       </button>
     </div>
@@ -30,19 +32,20 @@
       class="border border-neutral-200 rounded-lg overflow-hidden bg-neutral-50"
     >
       <!-- Toolbar -->
-      <div class="flex items-center justify-between px-4 py-2 bg-white border-b border-neutral-200">
+      <div
+        class="flex items-center justify-between px-4 py-2 bg-white border-b border-neutral-200"
+      >
         <span class="text-sm font-medium text-foreground truncate max-w-xs">
           {{ activeFile.original_name }}
         </span>
         <div class="flex items-center gap-2 shrink-0">
-          <a
-            :href="activeFile.file_path"
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            type="button"
             class="text-xs text-primary font-semibold hover:underline"
+            @click="openInNewTab"
           >
             Open in new tab ↗
-          </a>
+          </button>
           <button
             type="button"
             class="text-neutral-400 hover:text-neutral-600 text-lg leading-none ml-2"
@@ -53,26 +56,29 @@
         </div>
       </div>
 
+      <!-- Loading state -->
+      <div
+        v-if="loadingFile"
+        class="flex items-center justify-center py-10 text-neutral-500"
+      >
+        Loading file...
+      </div>
+
       <!-- Image viewer -->
-      <div v-if="isImage(activeFile)" class="flex items-center justify-center p-4 min-h-48 max-h-[60vh] overflow-auto">
-        <img
-          :src="activeFile.file_path"
-          :alt="activeFile.original_name"
-          class="max-w-full max-h-[55vh] object-contain rounded"
-        />
+      <div v-else-if="blobUrl && isImage(activeFile)" >
+        <img :src="blobUrl" :alt="activeFile.original_name"  />
       </div>
 
       <!-- PDF viewer -->
-      <div v-else-if="isPdf(activeFile)" class="w-full" style="height: 60vh;">
-        <iframe
-          :src="activeFile.file_path"
-          :title="activeFile.original_name"
-          class="w-full h-full border-0"
-        />
+      <div v-else-if="blobUrl && isPdf(activeFile)" >
+        <iframe :src="blobUrl" :title="activeFile.original_name" />
       </div>
 
       <!-- Unsupported type fallback -->
-      <div v-else class="flex flex-col items-center justify-center py-10 gap-3 text-neutral-500">
+      <div
+        v-else
+        class="flex flex-col items-center justify-center py-10 gap-3 text-neutral-500"
+      >
         <span class="text-4xl">📎</span>
         <p class="text-sm">Preview not available for this file type.</p>
         <a
@@ -94,37 +100,74 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import type { Attachment } from '../types'
+import { ref } from "vue";
+import type { Attachment } from "../types";
+import api from "../services/api";
 
 const props = defineProps<{
-  attachments: Attachment[]
-}>()
+  attachments: Attachment[];
+}>();
 
-const activeFile = ref<Attachment | null>(null)
+const activeFile = ref<Attachment | null>(null);
+const blobUrl = ref<string | null>(null);
+const loadingFile = ref(false);
 
-function select(file: Attachment) {
-  // Toggle: clicking the active file collapses the viewer
-  activeFile.value = activeFile.value?.id === file.id ? null : file
+async function select(file: Attachment) {
+  if (activeFile.value?.id === file.id) {
+    // Toggle off
+    activeFile.value = null;
+    if (blobUrl.value) {
+      URL.revokeObjectURL(blobUrl.value);
+      blobUrl.value = null;
+    }
+    return;
+  }
+
+  activeFile.value = file;
+  blobUrl.value = null;
+  loadingFile.value = true;
+
+  try {
+    const response = await api.get(`/attachments/${file.id}`, {
+      responseType: "blob",
+    });
+    const blob = new Blob([response.data], { type: file.mime_type });
+    blobUrl.value = URL.createObjectURL(blob);
+  } catch {
+    activeFile.value = null;
+  } finally {
+    loadingFile.value = false;
+  }
+}
+function openInNewTab() {
+  if (blobUrl.value) {
+    window.open(blobUrl.value, '_blank', 'noopener,noreferrer')
+  }
 }
 
-const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml']
-const PDF_TYPES   = ['application/pdf']
+const IMAGE_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "image/svg+xml",
+];
+const PDF_TYPES = ["application/pdf"];
 
 function isImage(file: Attachment): boolean {
-  if (file.mime_type && IMAGE_TYPES.includes(file.mime_type)) return true
+  if (file.mime_type && IMAGE_TYPES.includes(file.mime_type)) return true;
   // Fall back to extension check when mime_type is absent
-  return /\.(jpe?g|png|gif|webp|svg)$/i.test(file.original_name)
+  return /\.(jpe?g|png|gif|webp|svg)$/i.test(file.original_name);
 }
 
 function isPdf(file: Attachment): boolean {
-  if (file.mime_type && PDF_TYPES.includes(file.mime_type)) return true
-  return /\.pdf$/i.test(file.original_name)
+  if (file.mime_type && PDF_TYPES.includes(file.mime_type)) return true;
+  return /\.pdf$/i.test(file.original_name);
 }
 
 function fileIcon(file: Attachment): string {
-  if (isImage(file)) return '🖼️'
-  if (isPdf(file))   return '📄'
-  return '📎'
+  if (isImage(file)) return "🖼️";
+  if (isPdf(file)) return "📄";
+  return "📎";
 }
 </script>
