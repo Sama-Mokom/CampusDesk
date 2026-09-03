@@ -26,6 +26,7 @@ class StatusHistory extends Model
         'old_status',
         'changed_by',
         'request_id',
+        'request_stage_id',
         'note',
     ];
 }
