@@ -21,24 +21,37 @@ class RequestStageObserver
     /**
      * Handle the RequestStage "updated" event.
      */
-    public function updated(RequestStage $stage): void
-    {
-        $staffProfile = \App\Models\StaffProfile::where('user_id', $stage->handled_by)->value('id');
-        if ($stage->isDirty('status')) {
-            $stage->statusHistories()->create([
-            'old_status' => $stage->getOriginal('status'),
-            'new_status' => $stage->status,
-            'changed_by' => $staffProfile,
-            'request_id' => $stage->request_id,
-            'request_stage_id' => $stage->id,
-            'note' => $stage->staff_note ?? null,
-           ]);
-           $request = DocumentRequest::with('requestType')->find($stage->request_id);
-           $user = User::find($request->student_id);
+   public function updated(RequestStage $stage): void
+{
+    if (!$stage->isDirty('status')) return;
 
-           SendRequestStatusNotification::dispatch($user, $request, $stage->status);
+    // Resolve staff_profile id from handled_by (user_id)
+    $staffProfileId = null;
+    if ($stage->handled_by) {
+        $staffProfileId = \App\Models\StaffProfile::where('user_id', $stage->handled_by)
+            ->value('id');
+    }
+
+    $stage->statusHistories()->create([
+        'old_status'       => $stage->getOriginal('status'),
+        'new_status'       => $stage->status,
+        'changed_by'       => $staffProfileId,
+        'request_id'       => $stage->request_id,
+        'request_stage_id' => $stage->id,
+        'note'             => $stage->staff_note ?? null,
+    ]);
+
+    // Only send notification on meaningful transitions
+    if (in_array($stage->status, ['in_review', 'approved', 'rejected'])) {
+        $request = DocumentRequest::with('requestType')->find($stage->request_id);
+        if ($request) {
+            $student = \App\Models\User::find($request->student_id);
+            if ($student) {
+                SendRequestStatusNotification::dispatch($student, $request, $stage->status);
+            }
         }
     }
+}
 
     /**
      * Handle the RequestStage "deleted" event.
