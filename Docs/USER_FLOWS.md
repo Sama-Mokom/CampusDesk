@@ -194,11 +194,11 @@ stateDiagram-v2
 ```mermaid
 flowchart TD
     A[Login success] --> B{user.role?}
-    B -->|student| C[/student]
+    B -->|student| C["/student"]
     B -->|staff| D{staff_profile.admin_level?}
-    D -->|null| E[/staff]
-    D -->|dept_admin| F[/dept-admin]
-    D -->|super_admin| G[/admin]
+    D -->|null| E["/staff"]
+    D -->|dept_admin| F["/dept-admin"]
+    D -->|super_admin| G["/admin"]
 ```
 
 Implemented in `router/index.ts`'s `homePathForUser()` function, reading from `useAuth().user`.
