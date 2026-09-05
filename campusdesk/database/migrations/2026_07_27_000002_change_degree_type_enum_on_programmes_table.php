@@ -23,6 +23,13 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // SQLite does not support MODIFY COLUMN; the column is stored as TEXT
+        // with no enforcement of enum values, so the drop+re-add cycle is
+        // unnecessary — SQLite already accepts any string value.
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
+
         DB::statement("
             ALTER TABLE `programmes`
             MODIFY COLUMN `degree_type`
@@ -32,6 +39,10 @@ return new class extends Migration
 
     public function down(): void
     {
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
+
         DB::statement("
             ALTER TABLE `programmes`
             MODIFY COLUMN `degree_type`
