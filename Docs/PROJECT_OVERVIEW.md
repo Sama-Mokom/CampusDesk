@@ -56,7 +56,7 @@ This project has two explicit goals:
 - Request reopen flow (currently stubbed)
 - Mark as collected flow (currently stubbed)
 - Analytics dashboard
-- Potential adoption by University of Buea or GYGM Foundation
+- Potential adoption by University of Buea
 
 ## Major Constraints
 

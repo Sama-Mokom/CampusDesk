@@ -8,7 +8,7 @@ This timeline reconstructs the project's development chronologically based on th
 
 - Developer (Sama Mokom) expressed a goal: improve Laravel/PHP backend skills through independent, hand-coded learning, using AI only as a Socratic mentor — not a code generator.
 - Plan: vibe-code the frontend with v0/Vue, hand-code the backend against Laravel docs and Stack Overflow.
-- Claude was asked to suggest a non-generic project idea reflecting the developer's real context (University of Buea student, GYGM Foundation connection, past internship experience).
+- Claude was asked to suggest a non-generic project idea reflecting the developer's real context (University of Buea student, past internship experience).
 - **Decision:** CampusDesk — a university document request and tracking system — was chosen over generic alternatives (todo app, blog) specifically because it naturally covers the full breadth of Laravel fundamentals and solves a problem the developer has personally experienced.
 - A full Laravel learning roadmap was created covering 6 phases: project setup, migrations/Eloquent, auth/roles, core request lifecycle, queues/mail, and polish/hardening.
 - A v0 prompt was drafted for initial frontend scaffolding (multi-role dashboards: Student, Staff, Admin).
