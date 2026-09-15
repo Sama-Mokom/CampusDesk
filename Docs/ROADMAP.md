@@ -30,6 +30,8 @@
 - [x] `forRequest()` route-model binding and timeline tests
 - [x] Department-admin gate authorization tests
 - [x] Frontend student-level and degree-type enum alignment
+- [x] Mark collected endpoint and Student Dashboard wiring
+- [x] In-app notification API, lifecycle delivery service, and notification bell wiring
 
 ## Immediate Fixes Cleared ✅
 
@@ -37,16 +39,7 @@ All previously listed immediate fixes are complete.
 
 ## Next (recommended order)
 
-5. **Mark collected endpoint**
-   - Backend: `PATCH /api/requests/{request}/collect`
-   - Verify `status === 'ready'`, set `status = 'collected'`, log status history
-   - Frontend: wire `doCollected()` in `StudentDashboard.vue`
-
-6. **In-app notifications**
-   - Backend: `GET /api/notifications`, `PATCH /api/notifications/{id}/read`
-   - Consider: should the email-notification observer also write to the `notifications` table? (Currently it does not — they are disconnected.)
-   - Frontend: wire `NotificationBell.vue` (currently uses `useMockData`)
-   - Add `$fillable` to `Notification` model before attempting to create rows
+No remaining tasks in this section. Continue with the Later items.
 
 ## Later
 

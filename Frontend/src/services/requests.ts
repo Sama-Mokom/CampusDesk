@@ -31,6 +31,11 @@ export async function reopenRequest(id: number): Promise<DocumentRequest> {
   return response.data.data ?? response.data
 }
 
+export async function markRequestCollected(id: number): Promise<DocumentRequest> {
+  const response = await api.patch(`/requests/${id}/collect`)
+  return response.data.data ?? response.data
+}
+
 /**
  * POST /requests
  * Submit a new student request. Handles both simple JSON and file uploads.

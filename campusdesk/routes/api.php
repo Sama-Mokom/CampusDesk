@@ -6,6 +6,7 @@ use App\Http\Controllers\RequestStageController;
 use App\Http\Controllers\RequestController;
 use App\Http\Controllers\ReferenceDataController;
 use App\Http\Controllers\AttachmentController;
+use App\Http\Controllers\NotificationController;
 
 Route::middleware(['auth:sanctum'])->get('/user', function (Request $request) {
     return $request->user();
@@ -16,6 +17,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
 Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     Route::get('/requests/{request}', [RequestController::class, 'show']);
     Route::post('/requests/{request}/reopen', [RequestController::class, 'reopen']);
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::patch('/notifications/{notification}/read', [NotificationController::class, 'markRead']);
 });
 Route::middleware(['auth:sanctum', 'student', 'throttle:60,1'])->group(function () {
     Route::get('/requests', [RequestController::class, 'index']);
@@ -24,6 +27,7 @@ Route::middleware(['auth:sanctum', 'student', 'throttle:60,1'])->group(function 
 
 Route::middleware(['auth:sanctum', 'student', 'throttle:10,1'])->group(function () {
     Route::post('/requests', [RequestController::class, 'store']);
+    Route::patch('/requests/{request}/collect', [RequestController::class, 'collect']);
 });
 
 Route::middleware(['auth:sanctum', 'staff', 'throttle:60,1'])->group(function () {

@@ -438,9 +438,9 @@ Stream a protected attachment file.
 
 | Feature | Suggested Endpoint | Status |
 |---------|-------------------|--------|
-| Mark collected | `PATCH /api/requests/{request}/collect` | ❌ TODO |
-| Get notifications | `GET /api/notifications` | ❌ TODO |
-| Mark notification read | `PATCH /api/notifications/{id}/read` | ❌ TODO |
+| Mark collected | `PATCH /api/requests/{request}/collect` | ✅ Student-owned ready requests only |
+| Get notifications | `GET /api/notifications` | ✅ Authenticated user's newest notifications |
+| Mark notification read | `PATCH /api/notifications/{notification}/read` | ✅ Authenticated owner only |
 | Reassign stage (dept admin) | `PATCH /api/stages/{stage}/reassign` | ❌ TODO |
 | Dept admin: list department requests | `GET /api/dept-admin/requests` | ❌ TODO |
 | Admin: list all requests | `GET /api/admin/requests` | ❌ TODO |

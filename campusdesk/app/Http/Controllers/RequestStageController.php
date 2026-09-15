@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\DB;
 use App\Models\StatusHistory as statusHistories;
 use App\Http\Resources\RequestStageResource;
 use App\Http\Resources\RequestResource;
+use App\Services\RequestStatusNotificationService;
 use Illuminate\Http\JsonResponse;
 
 class RequestStageController extends Controller
@@ -146,7 +147,7 @@ public function forRequest(DocumentRequest $docRequest): \Illuminate\Http\Resour
     {
         //
     }
-public function claim(Request $request, DocumentRequest $docRequest, RequestStage $stage)
+public function claim(Request $request, DocumentRequest $docRequest, RequestStage $stage, RequestStatusNotificationService $notifications)
 {
 
     abort_if($stage->request_id != $docRequest->id, 404);
@@ -155,7 +156,7 @@ public function claim(Request $request, DocumentRequest $docRequest, RequestStag
     $belongsToDept = $staff->departments->contains('id', $stage->department_id);
     abort_unless($belongsToDept, 403);
 
-    DB::transaction(function () use ($request, $docRequest, $stage) {
+    DB::transaction(function () use ($request, $docRequest, $stage, $notifications) {
         $oldRequestStatus = $docRequest->status;
 
         // Re-fetch the row with a pessimistic lock — serialises concurrent transactions
@@ -195,12 +196,13 @@ public function claim(Request $request, DocumentRequest $docRequest, RequestStag
             'request_stage_id' => null,
             'note'             => null,
         ]);
+        $notifications->notifyStudent($docRequest, 'in_review');
     });
 
     return response()->json(['message' => 'Stage claimed'], 200);
 }
 
-public function resolve(ResolveStageRequest $formRequest, DocumentRequest $docRequest, RequestStage $stage)
+public function resolve(ResolveStageRequest $formRequest, DocumentRequest $docRequest, RequestStage $stage, RequestStatusNotificationService $notifications)
 {
     
       abort_if($stage->request_id !== $docRequest->id, 404);
@@ -211,7 +213,7 @@ public function resolve(ResolveStageRequest $formRequest, DocumentRequest $docRe
 
       $status = $formRequest->validated()['status'];
 
-      DB::transaction(function () use ($formRequest, $docRequest, $stage, $status){
+      DB::transaction(function () use ($formRequest, $docRequest, $stage, $status, $notifications){
         $oldRequestStatus = $docRequest->status;
         $staffNote = $formRequest->validated()['staff_note'] ?? null;
 
@@ -231,6 +233,7 @@ public function resolve(ResolveStageRequest $formRequest, DocumentRequest $docRe
             'request_stage_id' => null,
             'note'             => $staffNote,
         ]);
+        $notifications->notifyStudent($docRequest, $docRequest->status);
       });
 
       return response()->json(['message'=> 'Stage resolved. '], 200);

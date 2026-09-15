@@ -186,9 +186,10 @@
               v-if="selectedRequest.status === 'ready'"
               type="button"
               class="btn-primary"
+              :disabled="collecting"
               @click="doCollected"
             >
-              Mark as collected
+              {{ collecting ? 'Marking as collected...' : 'Mark as collected' }}
             </button>
           </div>
         </div>
@@ -200,7 +201,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useAuth } from '../composables/useAuth'
-import { fetchRequests, fetchRequestById, createRequest, reopenRequest } from '../services/requests'
+import { fetchRequests, fetchRequestById, createRequest, reopenRequest, markRequestCollected } from '../services/requests'
 import { fetchRequestTypes, fetchFaculties, fetchDepartments } from '../services/reference'
 import type { Request as DocumentRequest, RequestTypeEntity, Faculty, Department } from '../types'
 import type { RequestStatus } from '../types'
@@ -262,6 +263,7 @@ const confirmDepartments = ref<string[]>([])
 const selectedRequest = ref<DocumentRequest | null>(null)
 const historyOpen = ref(false)
 const reopening = ref(false)
+const collecting = ref(false)
 
 const sortedRequests = computed(() =>
   [...studentRequests.value].sort(
@@ -386,8 +388,23 @@ async function doReopen() {
   }
 }
 
-function doCollected() {
-  // TODO: implement collected endpoint
-  console.log('Mark collected not yet implemented')
+async function doCollected() {
+  if (!selectedRequest.value || collecting.value) return
+
+  error.value = ''
+  success.value = ''
+  collecting.value = true
+
+  try {
+    const collectedRequest = await markRequestCollected(selectedRequest.value.id)
+    const index = studentRequests.value.findIndex(request => request.id === collectedRequest.id)
+    if (index !== -1) studentRequests.value[index] = collectedRequest
+    selectedRequest.value = collectedRequest
+    success.value = 'Request marked as collected.'
+  } catch (err: any) {
+    error.value = err.response?.data?.message ?? 'Failed to mark the request as collected. Please try again.'
+  } finally {
+    collecting.value = false
+  }
 }
 </script>

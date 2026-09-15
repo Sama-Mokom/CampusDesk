@@ -202,7 +202,7 @@ Status legend: ✅ IMPLEMENTED · 🟡 PARTIALLY IMPLEMENTED · ❌ PLANNED/TODO
 
 ---
 
-## Feature 11: Mark Request as Collected ❌ NOT IMPLEMENTED
+## Feature 11: Mark Request as Collected ✅
 
 **Purpose:** Student confirms physical collection, closing the request lifecycle.
 
@@ -213,15 +213,15 @@ Status legend: ✅ IMPLEMENTED · 🟡 PARTIALLY IMPLEMENTED · ❌ PLANNED/TODO
   - Log `status_history` entry
 - Frontend: wire `doCollected()` in `StudentDashboard.vue`
 
-**Status:** ❌ NOT IMPLEMENTED. Frontend stub: `doCollected()` logs to console.
+**Status:** ✅ Implemented. Only the owning student can transition a `ready` request to `collected`; the transition is recorded in status history.
 
 ---
 
-## Feature 12: In-App Notifications (Bell/Dropdown) ❌ NOT IMPLEMENTED
+## Feature 12: In-App Notifications (Bell/Dropdown) ✅
 
 **Purpose:** Show unread notification count and list in the app UI (separate from email).
 
-**Current state:** `notifications` table exists. `Notification` model exists but has no `$fillable`. `NotificationBell.vue` exists but uses `useMockData`. The email-notification observer does NOT write to the `notifications` table.
+**Current state:** The bell uses authenticated API data. Parent request lifecycle transitions create an in-app notification and queue the matching email through `RequestStatusNotificationService`.
 
 **What needs to be built:**
 - Add `$fillable` to `Notification` model
