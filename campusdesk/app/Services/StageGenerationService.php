@@ -9,6 +9,19 @@ use RuntimeException;
 class StageGenerationService
 {
     /**
+     * Resolve every entry in a request type's department-sequence template.
+     *
+     * @return int[] Concrete department IDs in their original sequence order.
+     */
+    public function resolveSequence(array $sequence, StudentProfile $student): array
+    {
+        return array_map(
+            fn (mixed $entry): int => $this->resolveDepartmentId($entry, $student),
+            $sequence
+        );
+    }
+
+    /**
      * Resolve a single entry from a request type's default_department_sequence
      * to a concrete department ID for the given student.
      *

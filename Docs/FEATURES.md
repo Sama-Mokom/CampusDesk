@@ -94,7 +94,7 @@ Status legend: ✅ IMPLEMENTED · 🟡 PARTIALLY IMPLEMENTED · ❌ PLANNED/TODO
 2. Dashboard shows: profile header (name, matricule, faculty/department names, level badge), stats strip (total / pending / ready for collection), list of requests
 3. Clicking a request card calls `GET /api/requests/{id}` for full detail
 4. Detail modal shows: description, status badge, reopened flag, attachments (via `DocumentViewer`), stage timeline (department name, sequence order, stage status, staff note, handler name), full status history log
-5. If status is `rejected`, a "Reopen Request" button is shown — ❌ NOT WIRED (stub)
+5. If status is `rejected`, a "Reopen Request" button calls the backend and updates the request in place.
 6. If status is `ready`, a "Mark as Collected" button is shown — ❌ NOT WIRED (stub)
 
 **Database interactions:** SELECT `requests` with eager-loaded `requestType`, `attachments`, `requestStages`, `statusHistories`.
@@ -179,7 +179,7 @@ Status legend: ✅ IMPLEMENTED · 🟡 PARTIALLY IMPLEMENTED · ❌ PLANNED/TODO
 
 **Main flow:**
 1. Any `RequestStage` model update where `status` is dirty triggers `RequestStageObserver::updated()`
-2. Observer creates the `status_history` entry (resolving `staff_profile_id` from `user_id`)
+2. Observer creates the stage `status_history` entry using the authenticated user's ID when available
 3. Observer dispatches `SendRequestStatusNotification::dispatch($student, $request, $stage->status)` for transitions to `in_review`, `approved`, or `rejected`
 4. Job pushed to `jobs` table — requires `php artisan queue:work` (or `composer run dev`)
 5. Job sends `RequestStatusUpdated` mailable → Mailtrap in dev
@@ -190,21 +190,15 @@ Status legend: ✅ IMPLEMENTED · 🟡 PARTIALLY IMPLEMENTED · ❌ PLANNED/TODO
 
 ---
 
-## Feature 10: Reopen a Rejected Request ❌ NOT IMPLEMENTED
+## Feature 10: Reopen a Rejected Request ✅ IMPLEMENTED
 
-**Purpose:** Allow a student to resubmit a rejected request.
+**Purpose:** Allow a request owner or super admin to return a rejected request to the appropriate department queue.
 
-**Design decision (ADR-06):** Spawn fresh `request_stages` from the `default_department_sequence`, leaving original rejection in `status_history` untouched.
+**Design decision (ADR-06):** Preserve the original stages and audit history. The one rejected stage is restored to `pending`, its assignment is cleared, and its staff note is retained.
 
-**What needs to be built:**
-- Backend: `POST /api/requests/{request}/reopen`
-  - Guard: request must belong to student, `status` must be `rejected`
-  - Set `is_reopened = true`, `status = pending`
-  - Use `StageGenerationService` to resolve the sequence (do not duplicate `resolveSequence()`)
-  - Log `status_history` entry
-- Frontend: wire `doReopen()` in `StudentDashboard.vue`
+**Implementation:** `POST /api/requests/{request}/reopen` runs atomically, locks the parent request and rejected stage, requires exactly one rejected stage, clears `handled_by`, sets the stage/request to `pending`, sets `is_reopened = true`, and writes stage and parent audit events. The Student Dashboard calls the endpoint, updates its list and detail state, and displays success/error feedback.
 
-**Status:** ❌ NOT IMPLEMENTED. Backend stub: none. Frontend stub: `doReopen()` logs to console.
+**Status:** ✅ Implemented and covered by backend feature tests and Student Dashboard Vitest tests.
 
 ---
 
@@ -283,7 +277,7 @@ Status legend: ✅ IMPLEMENTED · 🟡 PARTIALLY IMPLEMENTED · ❌ PLANNED/TODO
 | View request details (staff) | ✅ | ✅ | ✅ |
 | View attachments (both roles) | ✅ | ✅ | ✅ |
 | Email notifications | ✅ | N/A | ✅ |
-| Reopen request | ❌ | 🟡 (stub) | ❌ |
+| Reopen request | ✅ | ✅ | ✅ |
 | Mark collected | ❌ | 🟡 (stub) | ❌ |
 | In-app notifications | ❌ | 🟡 (mock UI) | ❌ |
 | Dept Admin dashboard | ❌ | 🟡 (mock UI) | ❌ |

@@ -105,7 +105,7 @@ campusdesk/
 │   │   │   │   │                                         ⚠️ logout() has session bug
 │   │   │   │   └── RegisteredUserController.php        ← registration + student profile
 │   │   │   ├── RequestController.php                   ← student request CRUD
-│   │   │   │                                              (contains inline resolveSequence())
+│   │   │   │                                              (uses StageGenerationService)
 │   │   │   ├── RequestStageController.php              ← staff queue + claim + resolve
 │   │   │   ├── AttachmentController.php                ← protected file serving
 │   │   │   └── ReferenceDataController.php             ← public dropdown data
@@ -141,7 +141,7 @@ campusdesk/
 │   │   └── RequestStatusUpdated.php
 │   ├── Services/
 │   │   └── StageGenerationService.php  ← resolves symbolic department tokens
-│   │                                      (built but NOT YET USED by RequestController)
+│   │                                      and complete department sequences
 │   ├── Http/Resources/
 │   │   ├── RequestResource.php
 │   │   ├── RequestStageResource.php
@@ -277,7 +277,7 @@ Request types store a `default_department_sequence` JSON array that can contain 
 - `"FACULTY_RECORDS"` → resolves to the `records`-type department in the student's faculty
 - Integer → used as-is
 
-**Current implementation:** `RequestController` contains an inline private `resolveSequence()` method that performs this resolution. A refactored `StageGenerationService` class exists at `app/Services/StageGenerationService.php` and implements the same logic more cleanly, but `RequestController` has not yet been updated to use it. When adding the reopen endpoint, use `StageGenerationService` directly.
+**Current implementation:** `StageGenerationService::resolveSequence()` maps the complete template through `resolveDepartmentId()`. `RequestController::store()` injects and uses the service when creating initial stages. Reopening does not regenerate stages.
 
 ## Seeder Architecture
 

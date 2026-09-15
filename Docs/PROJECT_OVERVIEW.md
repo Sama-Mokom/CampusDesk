@@ -53,7 +53,7 @@ This project has two explicit goals:
 - Department admin oversight and stage reassignment
 - Super admin system management (CRUD for all entities)
 - Notification bell/dropdown in UI
-- Request reopen flow (currently stubbed)
+- Reopen rejected request flow (student/super-admin authorization, audit trail, and Student Dashboard wiring)
 - Mark as collected flow (currently stubbed)
 - Analytics dashboard
 - Potential adoption by University of Buea

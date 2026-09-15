@@ -1,5 +1,12 @@
 <template>
   <div class="space-y-6">
+    <p v-if="error" role="alert" class="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">
+      {{ error }}
+    </p>
+    <p v-if="success" role="status" class="rounded-md bg-green-50 px-4 py-3 text-sm text-green-700">
+      {{ success }}
+    </p>
+
     <div class="card">
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -169,9 +176,11 @@
               v-if="selectedRequest.status === 'rejected'"
               type="button"
               class="btn-primary"
+              data-testid="reopen-request"
+              :disabled="reopening"
               @click="doReopen"
             >
-              Reopen request
+              {{ reopening ? 'Reopening...' : 'Reopen request' }}
             </button>
             <button
               v-if="selectedRequest.status === 'ready'"
@@ -191,7 +200,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useAuth } from '../composables/useAuth'
-import { fetchRequests, fetchRequestById, createRequest } from '../services/requests'
+import { fetchRequests, fetchRequestById, createRequest, reopenRequest } from '../services/requests'
 import { fetchRequestTypes, fetchFaculties, fetchDepartments } from '../services/reference'
 import type { Request as DocumentRequest, RequestTypeEntity, Faculty, Department } from '../types'
 import type { RequestStatus } from '../types'
@@ -216,6 +225,7 @@ const studentRequests = ref<DocumentRequest[]>([])
 // UI state
 const loading = ref(true)
 const error = ref('')
+const success = ref('')
 
 const profile = computed(() => user.value)
 const sp = computed(() => user.value?.student_profile ?? null)
@@ -251,6 +261,7 @@ const confirmStep = ref(false)
 const confirmDepartments = ref<string[]>([])
 const selectedRequest = ref<DocumentRequest | null>(null)
 const historyOpen = ref(false)
+const reopening = ref(false)
 
 const sortedRequests = computed(() =>
   [...studentRequests.value].sort(
@@ -350,9 +361,29 @@ function formatHistStatus(s: RequestStatus | null) {
   return requestStatusLabel(s)
 }
 
-function doReopen() {
-  // TODO: implement reopen endpoint
-  console.log('Reopen not yet implemented')
+async function doReopen() {
+  if (!selectedRequest.value || reopening.value) return
+
+  error.value = ''
+  success.value = ''
+  reopening.value = true
+
+  try {
+    const reopenedRequest = await reopenRequest(selectedRequest.value.id)
+    const index = studentRequests.value.findIndex(request => request.id === reopenedRequest.id)
+
+    if (index !== -1) {
+      studentRequests.value[index] = reopenedRequest
+    }
+
+    selectedRequest.value = reopenedRequest
+    success.value = 'Request reopened and returned to the pending queue.'
+  } catch (err: any) {
+    success.value = ''
+    error.value = err.response?.data?.message ?? 'Failed to reopen the request. Please try again.'
+  } finally {
+    reopening.value = false
+  }
 }
 
 function doCollected() {

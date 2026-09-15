@@ -214,7 +214,8 @@ VITE_API_URL=http://127.0.0.1:8000/api
 
 | Command | Purpose |
 |---------|---------|
-| `composer run dev` | Start server + queue + logs + vite all in one |
+| `composer run dev-mail` | Start server + queue + logs + vite all in one |
+`composer run dev` | Start server + logs + vite all in one. To avoid overpopulating mailtrap in development|
 | `php artisan serve` | Start Laravel dev server only |
 | `php artisan queue:work` | Process queued jobs (required for emails) |
 | `php artisan migrate:fresh --seed` | Reset database completely and reseed all data |

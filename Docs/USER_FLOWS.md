@@ -136,11 +136,11 @@ sequenceDiagram
     RSC->>DB: lockForUpdate(predecessor stage, if seq > 1)
     RSC->>DB: Verify status=pending, handled_by=null
     RSC->>DB: UPDATE stage: status=in_review, handled_by=A
-    RSC->>DB: INSERT status_history (changed_by=staff_profile_id_of_A)
     RSC->>DB: UPDATE request: status=in_review
+    RSC->>DB: INSERT parent status_history (request_stage_id=null, changed_by=A)
     RSC->>DB: COMMIT
     RSC-->>S1: 200 "Stage claimed"
-    Note over RSC: RequestStageObserver::updated() fires:<br/>creates another status_history entry,<br/>dispatches email notification job
+    Note over RSC: RequestStageObserver::updated() writes the single stage history entry<br/>and dispatches the email notification job
 
     S1->>RSC: PATCH .../stages/{stage}/resolve {status: approved}
     RSC->>DB: Verify handled_by=A, status=in_review
@@ -149,7 +149,7 @@ sequenceDiagram
     RSC->>DB: UPDATE request: status=forwarded
     RSC->>DB: COMMIT
     RSC-->>S1: 200 "Stage resolved."
-    Note over RSC: Observer fires: status_history logged,<br/>email job dispatched
+    Note over RSC: Observer writes stage history; controller writes parent history;<br/>email job dispatched
 
     Note over S2: NOW Stage 2 becomes visible (predecessor approved)
     S2->>RSC: GET /api/stages
@@ -170,7 +170,7 @@ stateDiagram-v2
     forwarded --> in_review : next staff claims
     in_review --> ready : final stage approved
     in_review --> rejected : stage rejected
-    rejected --> pending : student reopens\n(is_reopened=true,\nfresh stages spawned)\n❌ NOT YET IMPLEMENTED
+    rejected --> pending : student or super admin reopens\n(is_reopened=true,\nrejected stage reset and requeued)
     ready --> collected : student marks collected\n❌ NOT YET IMPLEMENTED
     collected --> [*]
 ```
@@ -251,7 +251,7 @@ sequenceDiagram
     RSC->>RSC: stage.update({status: ...})
     Note over RO: Observer fires on stage 'updated' event
     RO->>RO: isDirty('status') check
-    RO->>RO: Insert status_history (resolved staff_profile_id)
+    RO->>RO: Insert stage status_history (authenticated user ID when available)
     RO->>JQ: SendRequestStatusNotification::dispatch(student, request, newStatus)
     Note over QW: php artisan queue:work
     QW->>JQ: Pick up job

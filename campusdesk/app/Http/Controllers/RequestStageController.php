@@ -156,6 +156,8 @@ public function claim(Request $request, DocumentRequest $docRequest, RequestStag
     abort_unless($belongsToDept, 403);
 
     DB::transaction(function () use ($request, $docRequest, $stage) {
+        $oldRequestStatus = $docRequest->status;
+
         // Re-fetch the row with a pessimistic lock — serialises concurrent transactions
         $lockedStage = RequestStage::where('id', $stage->id)
             ->lockForUpdate()
@@ -184,16 +186,15 @@ public function claim(Request $request, DocumentRequest $docRequest, RequestStag
             'handled_by' => $request->user()->id,
         ]);
 
-        $staffProfileId = \App\Models\StaffProfile::where('user_id', Auth::id())->value('id');
+        $docRequest->update(['status' => 'in_review']);
+
         $docRequest->statusHistories()->create([
-            'old_status'       => 'pending',
+            'old_status'       => $oldRequestStatus,
             'new_status'       => 'in_review',
-            'changed_by'       => $staffProfileId,
-            'request_stage_id' => $stage->id,
+            'changed_by'       => Auth::id(),
+            'request_stage_id' => null,
             'note'             => null,
         ]);
-
-        $docRequest->update(['status' => 'in_review']);
     });
 
     return response()->json(['message' => 'Stage claimed'], 200);
@@ -211,15 +212,25 @@ public function resolve(ResolveStageRequest $formRequest, DocumentRequest $docRe
       $status = $formRequest->validated()['status'];
 
       DB::transaction(function () use ($formRequest, $docRequest, $stage, $status){
+        $oldRequestStatus = $docRequest->status;
+        $staffNote = $formRequest->validated()['staff_note'] ?? null;
+
         $stage->update([
             'status' => $status,
-            'staff_note' => $formRequest->validated()['staff_note']?? null,
+            'staff_note' => $staffNote,
         ]);
         if ($status ==='approved') {
             $this->handleApproval($docRequest,$stage);
         } else {
             $docRequest->update(['status' =>'rejected']);
         }
+        $docRequest->statusHistories()->create([
+            'old_status'       => $oldRequestStatus,
+            'new_status'       => $docRequest->status,
+            'changed_by'       => Auth::id(),
+            'request_stage_id' => null,
+            'note'             => $staffNote,
+        ]);
       });
 
       return response()->json(['message'=> 'Stage resolved. '], 200);

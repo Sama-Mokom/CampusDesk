@@ -3,9 +3,9 @@
 namespace App\Observers;
 
 use App\Models\RequestStage;
-use App\Models\User;
 use App\Jobs\SendRequestStatusNotification;
 use App\Models\Request as DocumentRequest;
+use Illuminate\Support\Facades\Auth;
 
 
 class RequestStageObserver
@@ -25,17 +25,10 @@ class RequestStageObserver
 {
     if (!$stage->isDirty('status')) return;
 
-    // Resolve staff_profile id from handled_by (user_id)
-    $staffProfileId = null;
-    if ($stage->handled_by) {
-        $staffProfileId = \App\Models\StaffProfile::where('user_id', $stage->handled_by)
-            ->value('id');
-    }
-
     $stage->statusHistories()->create([
         'old_status'       => $stage->getOriginal('status'),
         'new_status'       => $stage->status,
-        'changed_by'       => $staffProfileId,
+        'changed_by'       => Auth::id() ?? $stage->handled_by,
         'request_id'       => $stage->request_id,
         'request_stage_id' => $stage->id,
         'note'             => $stage->staff_note ?? null,

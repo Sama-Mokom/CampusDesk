@@ -23,6 +23,15 @@ export async function fetchRequestById(id: number): Promise<DocumentRequest> {
 }
 
 /**
+ * POST /requests/{id}/reopen
+ * Restore a rejected request to the pending queue.
+ */
+export async function reopenRequest(id: number): Promise<DocumentRequest> {
+  const response = await api.post(`/requests/${id}/reopen`)
+  return response.data.data ?? response.data
+}
+
+/**
  * POST /requests
  * Submit a new student request. Handles both simple JSON and file uploads.
  */

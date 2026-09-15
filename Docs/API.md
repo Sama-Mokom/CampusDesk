@@ -246,6 +246,19 @@ Returns a single request with full stage timeline, attachments, and status histo
 
 ---
 
+### POST /api/requests/{request}/reopen
+Reopen a rejected request.
+
+**Auth:** `auth:sanctum` with a 60/minute rate limit. The controller authorizes only the request owner or a staff user whose `staffProfile.admin_level` is `super_admin`.
+
+**Guards:** The parent request is re-fetched with `lockForUpdate()` inside a database transaction and must still have `status = rejected`; otherwise the endpoint returns 422. The request must have exactly one rejected stage; an invariant failure returns 500 and rolls back every write.
+
+**Side effects:** The rejected stage becomes `pending`, its `handled_by` is cleared so it re-enters its department queue, and its existing `staff_note` is retained. The parent request becomes `pending`, `is_reopened` becomes true, and both stage-level and parent-level audit rows are written.
+
+**Response 200:** Full `RequestResource` in a `data` wrapper.
+
+---
+
 ### POST /api/requests
 Submit a new document request.
 
@@ -272,7 +285,7 @@ attachments[]: (file, optional, pdf/docx/jpg/png, max 5MB each)
 **Side effects:**
 1. Creates `requests` row
 2. Loads `request_type.default_department_sequence`
-3. Resolves symbolic tokens in sequence via inline `resolveSequence()` in `RequestController`
+3. Resolves symbolic tokens in sequence via `StageGenerationService::resolveSequence()`
 4. Creates one `request_stages` row per department in resolved sequence
 5. Creates initial `status_history` entry (`changed_by: null`, note: "Request submitted by student.")
 6. Stores uploaded files in `storage/app/attachments/`
@@ -360,7 +373,7 @@ Claim an unclaimed stage.
 **Side effects:**
 - Sets stage `status = in_review`, `handled_by = auth user id`
 - Updates parent request `status = in_review`
-- A `status_history` entry is manually inserted (NOT via observer — the claim() method writes to status_history directly, then the observer also fires on the stage update, which would create a duplicate — see KNOWN_ISSUES.md)
+- `RequestStageObserver` writes the stage transition history (`request_stage_id` set); the controller writes one parent-request transition (`request_stage_id: null`).
 
 ---
 
@@ -390,10 +403,12 @@ Resolve a claimed stage (approve or reject).
 - If more stages remain → parent request `status = forwarded`
 - If final stage → parent request `status = ready`
 - `RequestStageObserver::updated()` fires → creates status history + dispatches email notification
+- The controller records the parent transition (`in_review → forwarded` or `ready`) with `request_stage_id: null`.
 
 **Side effects on rejection:**
 - Parent request `status = rejected`
 - Observer fires → status history + email notification
+- The controller records the parent transition (`in_review → rejected`) with `request_stage_id: null`.
 
 **Response 200:**
 ```json
@@ -423,7 +438,6 @@ Stream a protected attachment file.
 
 | Feature | Suggested Endpoint | Status |
 |---------|-------------------|--------|
-| Reopen request | `POST /api/requests/{request}/reopen` | ❌ TODO |
 | Mark collected | `PATCH /api/requests/{request}/collect` | ❌ TODO |
 | Get notifications | `GET /api/notifications` | ❌ TODO |
 | Mark notification read | `PATCH /api/notifications/{id}/read` | ❌ TODO |

@@ -127,7 +127,7 @@ Unit tests for `RequestTimeline.vue` stage display.
 
 - [ ] **Concurrent claim test** — Two simultaneous claim requests on same stage; assert only one succeeds (200), the other gets 409. Requires multi-connection or goroutine-style execution — difficult in PHPUnit, but could simulate with `pcntl_fork` or a dedicated concurrency testing harness.
 - [ ] **Queue filtering integration test** — Seed a request, have one staff member claim Stage 1 but not approve, assert Stage 2 does NOT appear in the Stage 2 dept's queue. *(This is now covered by preservation tests P-3.1/P-3.2)*
-- [ ] **Status history FK correctness test** — Assert `status_history.changed_by` resolves to a `staff_profiles.id` (not `users.id`) after claim and resolve.
+- [x] **Status-history transition coverage** — Feature tests verify one stage-level observer entry plus a parent-level entry, both attributed through `users.id`, for claim, resolve, and reopen.
 
 ### Medium Priority (core business logic)
 

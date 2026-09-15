@@ -124,16 +124,13 @@ export type DegreeType = 'BACHELOR' | 'CERTIFICATE' | 'MASTER' | 'PHD'
 
 ### ✅ RESOLVED — Foreign Key Violation: `status_history.changed_by`
 
-**Symptom:** Repeated `SQLSTATE[23000]: Cannot add or update a child row... FOREIGN KEY (changed_by) REFERENCES staff_profiles (id)` errors when claiming or resolving stages.
+**Symptom:** Stage transitions were written twice, and parent transitions were recorded with an incorrect hard-coded status.
 
-**Root cause:** `status_history.changed_by` has a foreign key to `staff_profiles.id`, but code was passing `Auth::id()` or `$stage->handled_by`, both of which are `users.id` values.
+**Root cause:** Both the controller and `RequestStageObserver` wrote stage history. The former `staff_profiles.id` foreign key also did not represent student actors.
 
-**Fix:** Every insertion into `status_history.changed_by` must first resolve the staff profile ID:
-```php
-$staffProfileId = \App\Models\StaffProfile::where('user_id', $userId)->value('id');
-```
+**Fix:** `changed_by` now references `users.id`. The observer is the single stage-history writer and uses `Auth::id()` when available; controllers write only parent-request events with `request_stage_id: null`.
 
-**Current implementation:** Both `claim()` in `RequestStageController` and `updated()` in `RequestStageObserver` correctly resolve `staff_profile_id` before inserting.
+**Current implementation:** Claim, resolve, and reopen all produce one stage-level event plus the appropriate parent-request event.
 
 **Status:** ✅ RESOLVED. **⚠️ Reintroduction risk is high** — any new code path that writes to `status_history` must follow this pattern.
 
@@ -273,7 +270,7 @@ These items were marked UNVERIFIED in the original documentation. They have sinc
 
 1. ✅ **`departments.type` column** — CONFIRMED EXISTS. Migration `2026_07_27_000001_add_type_to_departments_table`. Enum: `academic|records|admin`. `Department.$fillable` includes `type`.
 
-2. ✅ **Symbolic department sequence tokens** — CONFIRMED INTENTIONAL. `StageGenerationService.php` provides the canonical implementation. `RequestController` still has an inline `resolveSequence()` copy — these are functionally equivalent.
+2. ✅ **Symbolic department sequence tokens** — CONFIRMED INTENTIONAL. `StageGenerationService.php` provides the canonical implementation, used by `RequestController::store()`.
 
 3. ✅ **Current live `RequestStageController::index()` implementation** — CONFIRMED uses SQL `whereExists` correlated subquery for the main staff queue path. There is a dead code branch at the top of `index()` (the `$docRequest` branch) that uses the old PHP-level filter — this is unreachable from any current route.
 

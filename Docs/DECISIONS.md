@@ -22,7 +22,7 @@ Each entry: Decision, Context, Options Considered, Decision Made, Reasoning, Con
 
 ---
 
-## ADR-02: `status_history.changed_by` References `staff_profiles.id`, Not `users.id`
+## ADR-02: `status_history.changed_by` References `users.id`
 
 **Context:** Every status transition needs to be logged with who made the change.
 
@@ -30,19 +30,13 @@ Each entry: Decision, Context, Options Considered, Decision Made, Reasoning, Con
 - A. `changed_by` → `users.id`
 - B. `changed_by` → `staff_profiles.id`
 
-**Decision:** B — `staff_profiles.id`, with `nullOnDelete()`.
+**Decision:** A — `users.id`, with `nullOnDelete()`.
 
-**Reasoning:** Preserves audit history semantically tied to a staff role rather than a raw user account. If a staff account is deleted, the history entry becomes null rather than cascading away.
+**Reasoning:** Both students and staff can now cause auditable transitions, including reopen. Referencing the shared user account prevents the `handled_by` (user ID) / `changed_by` (staff-profile ID) mismatch.
 
-**Consequences:** This created a recurring bug — `RequestStage.handled_by` stores `users.id`, but `StatusHistory.changed_by` expects `staff_profiles.id`. Every place that logs to `status_history` must explicitly resolve:
-```php
-$staffProfileId = StaffProfile::where('user_id', $stage->handled_by)->value('id');
-```
-This mismatch caused a foreign key constraint violation multiple times during development.
+**Consequences:** The observer uses `Auth::id()` when an HTTP actor is available, falling back to `handled_by` in non-HTTP contexts. Parent request transitions use the authenticated user directly.
 
-**Current implementation:** Both `claim()` in `RequestStageController` and `updated()` in `RequestStageObserver` correctly resolve `staff_profile_id` before inserting.
-
-**Status:** ✅ Implemented. Active risk: any new code path writing to `status_history` must follow the same pattern. Open question: whether to simplify both foreign keys to `users.id` — see ROADMAP.md "Needs Decision".
+**Status:** ✅ Implemented.
 
 ---
 
@@ -113,15 +107,15 @@ PHPUnit tests in `SequentialRoutingPreservationTest` and `SequentialRoutingBugCo
 **Options considered:**
 - A. Rejected requests are permanently closed
 - B. Student can revise and resubmit the same request
-- C. Request is closed but student can reopen it (fresh stage sequence spawned)
+- C. Request is closed but student can reopen it at the rejected stage
 
 **Decision:** C.
 
 **Reasoning:** Explicit decision from the developer: "It is closed completely but the student can reopen it." Editing in place would corrupt the original rejection's audit trail.
 
-**Consequences:** Reopening sets `is_reopened = true` on the `requests` row and spawns an entirely new set of `request_stages` from the `default_department_sequence`, leaving the original rejection in `status_history` untouched.
+**Consequences:** Reopening is atomic: it restores the single rejected stage to `pending`, clears `handled_by` to requeue it, preserves `staff_note`, sets the request to `pending` with `is_reopened = true`, and records stage and parent audit events. It is available to the owning student and super admins.
 
-**Status:** ❌ NOT IMPLEMENTED. No backend endpoint exists. `doReopen()` in `StudentDashboard.vue` is a stub. `StageGenerationService` exists and should be used when implementing this.
+**Status:** ✅ Implemented.
 
 ---
 
@@ -144,7 +138,7 @@ PHPUnit tests in `SequentialRoutingPreservationTest` and `SequentialRoutingBugCo
 
 `StageGenerationService` provides the canonical, service-level implementation of the same logic. The `departments.type` column (confirmed present via migration) is what `FACULTY_RECORDS` resolution depends on.
 
-**Current implementation:** `RequestController` has an inline `resolveSequence()` private method. `StageGenerationService` provides the same logic extracted into a service class. When building the reopen endpoint, use `StageGenerationService` directly and eventually replace the inline method.
+**Current implementation:** `StageGenerationService::resolveSequence()` is the canonical implementation and is injected into `RequestController::store()`.
 
 **Status:** ✅ VERIFIED and implemented. `departments.type` column confirmed to exist.
 

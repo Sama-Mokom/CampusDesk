@@ -140,7 +140,7 @@ erDiagram
     REQUESTS ||--o{ ATTACHMENTS : "has"
     REQUESTS ||--o{ STATUS_HISTORY : "logs"
     REQUEST_STAGES ||--o{ STATUS_HISTORY : "logs"
-    STAFF_PROFILES ||--o{ STATUS_HISTORY : "changed_by"
+    USERS ||--o{ STATUS_HISTORY : "changed_by"
     USERS ||--o{ NOTIFICATIONS : "receives"
     DEPARTMENTS ||--o{ PROGRAMMES : "has"
 ```
@@ -293,16 +293,11 @@ erDiagram
 | request_stage_id | bigint FK nullable | → request_stages.id, cascadeOnDelete |
 | old_status | string nullable | null for initial submission |
 | new_status | string | |
-| changed_by | bigint FK nullable | → **staff_profiles.id** (NOT users.id), nullOnDelete |
+| changed_by | bigint FK nullable | → **users.id**, nullOnDelete |
 | note | text nullable | |
 | created_at / updated_at | timestamps | |
 
-**⚠️ Critical design note:** `changed_by` references `staff_profiles.id` NOT `users.id`. See DECISIONS.md ADR-02. The FK was changed from `users.id` to `staff_profiles.id` in migration `2026_07_25_083626_change_foreign_key_constraint_on_status_history_table`.
-
-When inserting, always resolve the staff_profile ID from user ID:
-```php
-$staffProfileId = StaffProfile::where('user_id', $userId)->value('id');
-```
+**Audit actor convention:** `changed_by` references `users.id`. Stage transitions are written by `RequestStageObserver`, using the authenticated user when available; parent-request transitions are written by the request-stage controller. Initial submission remains system-authored (`changed_by: null`).
 
 **Table name override:** `StatusHistory` model declares `protected $table = 'status_history'` (not `status_histories`).
 
@@ -356,7 +351,7 @@ stateDiagram-v2
     forwarded --> in_review : next staff claims
     in_review --> ready : final stage approved
     in_review --> rejected : stage rejected
-    rejected --> pending : student reopens\n(is_reopened=true,\nfresh stages spawned)\n❌ NOT YET IMPLEMENTED
+    rejected --> pending : student or super admin reopens\n(is_reopened=true,\nrejected stage reset and requeued)
     ready --> collected : student marks collected\n❌ NOT YET IMPLEMENTED
     collected --> [*]
 ```
@@ -397,7 +392,7 @@ stateDiagram-v2
 | `2026_07_21_090019_add_matricule_prefix_to_faculties_table` | adds matricule_prefix to faculties |
 | `2026_07_21_090636_add_department_id_to_programmes_table` | adds department_id FK to programmes |
 | `2026_07_21_111603_change_enum_values_on_student_profiles_table` | level: L100→100, etc. |
-| `2026_07_25_083626_change_foreign_key_constraint_on_status_history_table` | changed_by: users→staff_profiles |
+| `2026_07_25_083626_change_foreign_key_constraint_on_status_history_table` | changed_by FK is `users.id` |
 | `2026_07_27_000001_add_type_to_departments_table` | adds type enum to departments |
 | `2026_07_27_000002_change_degree_type_enum_on_programmes_table` | BSc/BEng→BACHELOR/CERTIFICATE/etc. |
 | `2026_07_27_000003_fix_programmes_code_unique_constraint` | code unique → (code, dept_id) unique |

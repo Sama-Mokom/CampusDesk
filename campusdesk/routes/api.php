@@ -15,6 +15,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 });
 Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     Route::get('/requests/{request}', [RequestController::class, 'show']);
+    Route::post('/requests/{request}/reopen', [RequestController::class, 'reopen']);
 });
 Route::middleware(['auth:sanctum', 'student', 'throttle:60,1'])->group(function () {
     Route::get('/requests', [RequestController::class, 'index']);

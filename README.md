@@ -54,8 +54,8 @@ All diagrams are embedded as Mermaid code within the relevant document (primaril
 | **Frontend location** | `Frontend/src/` |
 | **Backend URL (dev)** | `http://127.0.0.1:8000` |
 | **Frontend URL (dev)** | `http://localhost:5173` |
-| **Current status** | Student + Staff workflows fully wired and working. Sequential routing concurrency bug fixed and regression-tested. Dept Admin, Super Admin, notifications, reopen, and collect are not yet built (backend) — mock UI exists for all. |
-| **Automated tests** | PHPUnit feature tests: 2 files (sequential routing). Vitest frontend unit tests: 4 files (DocumentViewer, StaffDashboard x2, RequestTimeline). |
+| **Current status** | Student + Staff workflows are wired and working. Sequential routing and the rejected-request reopen flow are regression-tested. Dept Admin, Super Admin dashboards, notifications, and collection remain unbuilt. |
+| **Automated tests** | PHPUnit feature tests: sequential routing plus reopen coverage. Vitest frontend unit tests include the Student Dashboard reopen flow. |
 
 ---
 

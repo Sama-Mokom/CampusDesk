@@ -31,7 +31,7 @@ Students submit document requests (transcripts, attestations, etc.). Each reques
 | Dept Admin dashboard wiring | ❌ NOT STARTED |
 | Super Admin dashboard wiring | ❌ NOT STARTED |
 | Notifications bell/dropdown wiring | ❌ NOT STARTED |
-| Reopen rejected request endpoint | ❌ NOT IMPLEMENTED |
+| Reopen rejected request endpoint | ✅ IMPLEMENTED |
 | Mark request as collected endpoint | ❌ NOT IMPLEMENTED |
 | Reassign stage endpoint (dept admin) | ❌ NOT IMPLEMENTED |
 | Admin CRUD endpoints | ❌ NOT IMPLEMENTED |
@@ -70,10 +70,15 @@ Before this seeder work, the multi-claim concurrency bug was identified and fixe
 - **Issue:** `AppServiceProvider` defines the gate as `'is_dept-admin'` (underscore prefix, hyphen separator). `EnsureIsDeptAdmin` middleware checks `Gate::allows('is-dept-admin')` (all hyphens). These do NOT match — the `dept_admin` middleware will always deny access.
 - **Fix:** Standardize to all-hyphen: rename the gate definition in `AppServiceProvider` from `'is_dept-admin'` to `'is-dept-admin'`.
 
-### 4. Reopen rejected request
-- **Backend:** Add `POST /api/requests/{request}/reopen` endpoint in `RequestController`
-- **Logic:** Set `is_reopened = true`, spawn fresh `request_stages` from `default_department_sequence` (use `StageGenerationService` which already exists at `app/Services/StageGenerationService.php`), create status history entry, set parent request status back to `pending`
-- **Frontend:** Wire `doReopen()` in `StudentDashboard.vue` (currently stubbed with a TODO comment)
+### 4. Reopen rejected request ✅ implemented
+- **Endpoint:** `POST /api/requests/{request}/reopen`, protected by `auth:sanctum` and rate limiting.
+- **Authorization:** Only the owning student or a staff user with `staffProfile.admin_level = super_admin` may reopen the request.
+- **Atomic transition:** A transaction re-fetches and locks the parent request, verifies it is still `rejected`, then locks the request's rejected stage. Exactly one rejected stage is required; an invariant failure returns 500 and rolls back all writes.
+- **Stage update:** The rejected stage is restored to `pending`; `handled_by` is cleared so it re-enters its department's unclaimed queue; its `staff_note` is preserved. No stages are generated or deleted.
+- **Request update:** The parent request becomes `pending` and `is_reopened` becomes true.
+- **Audit trail:** `RequestStageObserver` records the stage transition with the authenticated actor. `RequestController` records the parent `rejected → pending` event with `request_stage_id = null`.
+- **Frontend:** `StudentDashboard.vue` calls `reopenRequest()`, prevents duplicate submissions, replaces the selected/list request with the API response, and displays success or Laravel error feedback.
+- **Coverage:** `ReopenRequestTest` verifies authorization, locking-related guards, requeueing, audit rows, repeat-call rejection, and transaction rollback; `StudentDashboard.reopen.spec.ts` covers the client flow.
 
 ### 5. Mark as collected
 - **Backend:** Add `PATCH /api/requests/{request}/collect` endpoint
@@ -140,7 +145,7 @@ Frontend/src/types/index.ts              ← all TypeScript interfaces
 
 3. **Gate naming convention** — after the bug fix in item 3 above, all gate names should use hyphens: `is-student`, `is-staff`, `is-dept-admin`, `is-super-admin`. Middleware aliases use underscores (`student`, `staff`, `dept_admin`, `super_admin`). Do not mix these up.
 
-4. **`status_history.changed_by` references `staff_profiles.id`** — NOT `users.id`. This is intentional (audit trail preserved if user account deleted). When inserting status history, always resolve the staff_profile ID from the user ID first.
+4. **`status_history.changed_by` references `users.id`**. The observer records stage transitions, while controllers record parent-request transitions with `request_stage_id: null`.
 
 5. **`$fillable` must be explicitly set** — every model in this project has had silent data loss bugs due to missing `$fillable` entries. Always check `$fillable` when a field is not being saved.
 
@@ -152,13 +157,13 @@ Frontend/src/types/index.ts              ← all TypeScript interfaces
 
 9. **`degree_type` enum values are `BACHELOR`, `CERTIFICATE`, `MASTER`, `PHD`** — changed from `BSc`, `BEng`, etc. The frontend `DegreeType` TypeScript type still uses the old values.
 
-10. **`StageGenerationService` exists but is not yet used** — `app/Services/StageGenerationService.php` was written to replace the inline `resolveSequence()` method in `RequestController`. The controller has not been updated to use it yet. Use the service when adding the reopen endpoint.
+10. **`StageGenerationService` is used by request creation** through `RequestController::store()`. Reopen intentionally restores the existing rejected stage rather than generating stages.
 
 ---
 
 ## Known issues / things to be aware of
 
-1. **`doReopen()` and `doCollected()` are stubbed in `StudentDashboard.vue`** — they log to console only. The backend endpoints do not exist yet.
+1. **Only `doCollected()` remains a stub in `StudentDashboard.vue`**. `doReopen()` is wired and tested.
 
 2. **Dept Admin and Super Admin dashboards are still mock-only** — `DeptAdminView.vue`, `AdminDashboard.vue`, and `SuperAdminView.vue` exist but all data is sourced from `useMockData`. No backend routes exist for these views.
 

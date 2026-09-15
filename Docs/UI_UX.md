@@ -48,7 +48,7 @@ The header's Log Out button calls `clearAuth()` (clears localStorage) and naviga
 - Recent requests list: cards showing type, status badge, date, click-to-expand detail
 - Request detail modal: description, status badge, reopened indicator, attachments (via `DocumentViewer`), vertical stage timeline, collapsible status history log
 - Conditional action buttons:
-  - "Reopen Request" shown if status is `rejected` — ❌ UI exists, backend not wired (`doReopen()` is a console.log stub)
+  - "Reopen Request" shown if status is `rejected` — calls the API, disables while in flight, then updates the detail/list state and displays success or error feedback
   - "Mark as Collected" shown if status is `ready` — ❌ UI exists, backend not wired (`doCollected()` is a console.log stub)
 
 ### Staff Dashboard (`StaffDashboard.vue`)

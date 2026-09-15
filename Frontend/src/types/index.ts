@@ -89,7 +89,7 @@ export interface RegisterCredentials {
   faculty_id: number
   department_id: number
   programme_id: number
-  level: 'L100' | 'L200' | 'L300' | 'L400' | 'L500' | 'L600'
+  level: '100' | '200' | '300' | '400' | '500' | '600'
 }
 
 export interface AuthResponse {

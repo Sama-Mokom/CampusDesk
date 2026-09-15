@@ -365,12 +365,19 @@ class SequentialRoutingPreservationTest extends TestCase
         $this->assertEquals('in_review', $freshRequest->status,
             "P-3.3: Parent request status should be in_review after a valid claim.");
 
-        // At least one status history entry must have been created for this stage
+        // The observer is the sole writer for stage transitions.
         $historyCount = DB::table('status_history')
             ->where('request_stage_id', $stageA->id)
             ->count();
-        $this->assertGreaterThanOrEqual(1, $historyCount,
-            "P-3.3: A status history entry should be created when a stage is claimed.");
+        $this->assertSame(1, $historyCount,
+            "P-3.3: Exactly one stage history entry should be created when a stage is claimed.");
+        $this->assertDatabaseHas('status_history', [
+            'request_id' => $docRequest->id,
+            'request_stage_id' => null,
+            'old_status' => 'pending',
+            'new_status' => 'in_review',
+            'changed_by' => $staffA->id,
+        ]);
     }
 
     /**
@@ -572,6 +579,18 @@ class SequentialRoutingPreservationTest extends TestCase
         $freshStageA = $stageA->fresh();
         $this->assertEquals('approved', $freshStageA->status,
             "P-3.6a: Stage status must be approved after resolve.");
+        $this->assertSame(1, DB::table('status_history')
+            ->where('request_stage_id', $stageA->id)
+            ->where('old_status', 'in_review')
+            ->where('new_status', 'approved')
+            ->count());
+        $this->assertDatabaseHas('status_history', [
+            'request_id' => $docRequest->id,
+            'request_stage_id' => null,
+            'old_status' => 'in_review',
+            'new_status' => 'forwarded',
+            'changed_by' => $staffA->id,
+        ]);
     }
 
     /**
@@ -673,6 +692,19 @@ class SequentialRoutingPreservationTest extends TestCase
         $freshStageA = $stageA->fresh();
         $this->assertEquals('rejected', $freshStageA->status,
             "P-3.6c: Stage status must be rejected after reject resolve.");
+        $this->assertSame(1, DB::table('status_history')
+            ->where('request_stage_id', $stageA->id)
+            ->where('old_status', 'in_review')
+            ->where('new_status', 'rejected')
+            ->count());
+        $this->assertDatabaseHas('status_history', [
+            'request_id' => $docRequest->id,
+            'request_stage_id' => null,
+            'old_status' => 'in_review',
+            'new_status' => 'rejected',
+            'changed_by' => $staffA->id,
+            'note' => 'Missing required documentation.',
+        ]);
     }
 
     /**
