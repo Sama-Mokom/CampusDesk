@@ -28,7 +28,7 @@ Route::middleware(['auth:sanctum', 'student', 'throttle:10,1'])->group(function 
 
 Route::middleware(['auth:sanctum', 'staff', 'throttle:60,1'])->group(function () {
     // staff-only routes go here
-    Route::get('/requests/{request}/stages', [RequestStageController::class, 'forRequest']);
+    Route::get('/requests/{docRequest}/stages', [RequestStageController::class, 'forRequest']);
     Route::get('/stages', [RequestStageController::class, 'index']);
     Route::get('/stages/my-cases', [RequestStageController::class, 'myCases']);
     Route::post('requests/{docRequest}/stages/{stage}/claim', [RequestStageController::class, 'claim']);

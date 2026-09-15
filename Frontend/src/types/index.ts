@@ -1,4 +1,4 @@
-export type DegreeType = 'BSc' | 'BEng' | 'MEng' | 'MSc' | 'PhD'
+export type DegreeType = 'BACHELOR' | 'CERTIFICATE' | 'MASTER' | 'PHD'
 
 export type StudentLevel = '100' | '200' | '300' | '400' | '500' | '600'
 

@@ -478,8 +478,8 @@ const statusKeys: RequestStatus[] = [
   'rejected'
 ]
 
-const degreeTypes: DegreeType[] = ['BSc', 'BEng', 'MEng', 'MSc', 'PhD']
-const levels = ['L100', 'L200', 'L300', 'L400', 'L500', 'L600'] as const
+const degreeTypes: DegreeType[] = ['BACHELOR', 'CERTIFICATE', 'MASTER', 'PHD']
+const levels: StudentLevel[] = ['100', '200', '300', '400', '500', '600']
 
 const avgHours = computed(() => systemStats.value.avg_resolution_hours.toFixed(1))
 
@@ -497,7 +497,7 @@ const newProg = reactive({
   faculty_id: 1,
   name: '',
   code: '',
-  degree_type: 'BEng' as DegreeType
+  degree_type: 'BACHELOR' as DegreeType
 })
 const newRt = reactive({ name: '', description: '', sequence: [] as number[] })
 const newRtDeptPick = ref(1)
@@ -622,7 +622,7 @@ const userForm = reactive({
   faculty_id: 1,
   department_id: 1,
   programme_id: 1,
-  level: 'L100',
+  level: '100' as StudentLevel,
   staff_id: '',
   admin_level: null as StaffAdminLevel,
   dept_ids: [] as number[],
@@ -663,7 +663,7 @@ function openUserModal(mode: 'create' | 'edit', u?: User) {
       faculty_id: faculties.value[0]?.id ?? 1,
       department_id: 1,
       programme_id: 1,
-      level: 'L100',
+      level: '100',
       staff_id: '',
       admin_level: null,
       dept_ids: [],

@@ -4,11 +4,11 @@ This document is a knowledge base of every significant bug encountered during de
 
 ---
 
-## 🔴 ACTIVE BUGS (not yet fixed)
+## ✅ RECENTLY RESOLVED BUGS
 
 ---
 
-### 🔴 ACTIVE — Logout Endpoint Crashes in API Context
+### ✅ RESOLVED — Logout Endpoint Revokes the Current Sanctum Token
 
 **Symptom:** `POST /api/logout` crashes with a session-related error because `AuthenticatedSessionController::destroy()` calls `$request->session()->invalidate()` and `$request->session()->regenerateToken()`. The session driver is not active on API routes.
 
@@ -25,11 +25,11 @@ public function destroy(Request $request): Response
 }
 ```
 
-**Status:** ❌ NOT FIXED — active bug.
+**Status:** ✅ RESOLVED — the logout route uses `auth:sanctum`; the controller deletes the current token. Feature coverage verifies revocation and subsequent API denial.
 
 ---
 
-### 🔴 ACTIVE — `forRequest()` Route-Model Binding Mismatch (Empty Stage Timeline)
+### ✅ RESOLVED — `forRequest()` Route-Model Binding
 
 **Symptom:** `GET /api/requests/{request}/stages` always returns an empty `data` array, regardless of which request ID is in the URL.
 
@@ -42,11 +42,11 @@ public function destroy(Request $request): Response
 Route::get('/requests/{docRequest}/stages', [RequestStageController::class, 'forRequest']);
 ```
 
-**Status:** ❌ NOT FIXED — active bug. The Staff Dashboard works around this by using `GET /api/requests/{id}` (the `show()` endpoint) for viewing full stage timelines instead of this endpoint.
+**Status:** ✅ RESOLVED — the route uses `{docRequest}` and the endpoint returns the ordered stage timeline. The Staff Dashboard may continue using the request-show endpoint.
 
 ---
 
-### 🔴 ACTIVE — `is_dept-admin` Gate Name Inconsistency
+### ✅ RESOLVED — Department-Admin Gate Name Consistency
 
 **Symptom:** The `dept_admin` middleware always returns 403, even for users with `admin_level = 'dept_admin'`.
 
@@ -62,11 +62,11 @@ if (! Gate::allows('is-dept-admin')) { ... }
 
 **Fix needed:** In `AppServiceProvider`, change `'is_dept-admin'` to `'is-dept-admin'`.
 
-**Status:** ❌ NOT FIXED — active bug. Has no user-visible impact yet because no `dept_admin` routes exist.
+**Status:** ✅ RESOLVED — both the provider and middleware use `is-dept-admin`; gate and middleware tests cover allowed and denied staff roles.
 
 ---
 
-### 🔴 ACTIVE — Frontend `RegisterCredentials` Type Mismatch on `level`
+### ✅ RESOLVED — Frontend Student-Level Type Alignment
 
 **Symptom:** The TypeScript type `RegisterCredentials.level` in `Frontend/src/types/index.ts` is typed as `'L100' | 'L200' | 'L300' | 'L400' | 'L500' | 'L600'`. The backend validation rule is `in:100,200,300,400,500,600` (no `L` prefix). If the frontend sends `'L400'`, the backend returns 422 validation error.
 
@@ -79,11 +79,11 @@ if (! Gate::allows('is-dept-admin')) { ... }
 2. Update `StudentLevel` type to match
 3. Verify and update any dropdown options in `RegisterView.vue`
 
-**Status:** ❌ NOT FIXED — active type mismatch.
+**Status:** ✅ RESOLVED — frontend types, registration options, dashboard values, and mock data use `100` through `600`.
 
 ---
 
-### 🔴 ACTIVE — Frontend `DegreeType` Type Uses Old Enum Values
+### ✅ RESOLVED — Frontend Degree-Type Enum Alignment
 
 **Symptom:** The TypeScript type `DegreeType` in `Frontend/src/types/index.ts` is `'BSc' | 'BEng' | 'MEng' | 'MSc' | 'PhD'`. The database enum is now `BACHELOR | CERTIFICATE | MASTER | PHD`.
 
@@ -96,7 +96,7 @@ if (! Gate::allows('is-dept-admin')) { ... }
 export type DegreeType = 'BACHELOR' | 'CERTIFICATE' | 'MASTER' | 'PHD'
 ```
 
-**Status:** ❌ NOT FIXED — active type mismatch.
+**Status:** ✅ RESOLVED — frontend types, dashboard options/defaults, and mock data use the canonical database values.
 
 ---
 

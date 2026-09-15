@@ -26,18 +26,14 @@
 - [x] Vitest unit tests for frontend components (4 files: DocumentViewer, StaffDashboard x2, RequestTimeline)
 - [x] Reopen rejected request endpoint and Student Dashboard wiring
 - [x] Reopen/audit-trail feature tests
+- [x] Sanctum-token logout and revocation tests
+- [x] `forRequest()` route-model binding and timeline tests
+- [x] Department-admin gate authorization tests
+- [x] Frontend student-level and degree-type enum alignment
 
-## Immediate Fixes Required 🔴
+## Immediate Fixes Cleared ✅
 
-These are active bugs that should be fixed before extending the system further:
-
-1. **Fix logout endpoint** — replace session-based code with `currentAccessToken()->delete()` in `AuthenticatedSessionController::destroy()`. See KNOWN_ISSUES.md.
-
-2. **Fix `forRequest()` route-model binding** — rename `{request}` parameter in the route to `{docRequest}`. See KNOWN_ISSUES.md.
-
-3. **Fix `is_dept-admin` gate name** — rename to `'is-dept-admin'` (all hyphens) in `AppServiceProvider::boot()`. See KNOWN_ISSUES.md.
-
-4. **Fix frontend `level` and `DegreeType` type values** — update `RegisterCredentials.level` and `StudentLevel` in `types/index.ts` to use `'100'`–`'600'`; update `DegreeType` to `'BACHELOR' | 'CERTIFICATE' | 'MASTER' | 'PHD'`. See KNOWN_ISSUES.md.
+All previously listed immediate fixes are complete.
 
 ## Next (recommended order)
 
@@ -55,7 +51,6 @@ These are active bugs that should be fixed before extending the system further:
 ## Later
 
 7. **Department Admin dashboard wiring**
-   - Fix the `is_dept-admin` gate first (item 3 above)
    - Backend: `GET /api/dept-admin/requests` (all requests in primary department, claimed + unclaimed)
    - Backend: `PATCH /api/dept-admin/stages/{stage}/reassign` (change `handled_by`)
    - Frontend: replace `useMockData` references in `DeptAdminView.vue` with real service calls
