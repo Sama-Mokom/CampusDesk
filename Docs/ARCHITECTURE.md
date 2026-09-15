@@ -55,6 +55,7 @@ Frontend/
 │   │   ├── auth.ts                ← login/register/logout API calls
 │   │   ├── requests.ts            ← student request API calls
 │   │   ├── stages.ts              ← staff stage API calls
+│   │   ├── notifications.ts        ← in-app notification API calls
 │   │   └── reference.ts           ← dropdown data (faculties, depts, etc.)
 │   ├── router/
 │   │   └── index.ts               ← routes + role-based guards
@@ -71,7 +72,7 @@ Frontend/
 │       ├── AdminDashboard.vue     ← super admin UI component (MOCK ONLY — uses useMockData)
 │       ├── DocumentViewer.vue     ← blob URL file viewer (WIRED)
 │       ├── RequestTimeline.vue    ← stage progression display
-│       ├── NotificationBell.vue   ← notification bell (MOCK ONLY — uses useMockData)
+│       ├── NotificationBell.vue   ← notification bell (wired to notification API)
 │       ├── StatusBadge.vue        ← coloured status pill
 │       └── LevelBadge.vue         ← student level display
 ├── app/                           ← ABANDONED Next.js scaffold (ignore — do not use)
@@ -107,6 +108,7 @@ campusdesk/
 │   │   │   ├── RequestController.php                   ← student request CRUD
 │   │   │   │                                              (uses StageGenerationService)
 │   │   │   ├── RequestStageController.php              ← staff queue + claim + resolve
+│   │   │   ├── NotificationController.php               ← list + mark-read notifications
 │   │   │   ├── AttachmentController.php                ← protected file serving
 │   │   │   └── ReferenceDataController.php             ← public dropdown data
 │   │   ├── Middleware/
@@ -134,14 +136,14 @@ campusdesk/
 │   │   ├── Attachment.php
 │   │   └── Notification.php
 │   ├── Observers/
-│   │   └── RequestStageObserver.php ← auto status history + email dispatch
+│   │   └── RequestStageObserver.php ← auto stage status history
 │   ├── Jobs/
 │   │   └── SendRequestStatusNotification.php
 │   ├── Mail/
 │   │   └── RequestStatusUpdated.php
 │   ├── Services/
-│   │   └── StageGenerationService.php  ← resolves symbolic department tokens
-│   │                                      and complete department sequences
+│   │   ├── StageGenerationService.php  ← resolves symbolic department tokens
+│   │   └── RequestStatusNotificationService.php ← queues email + creates in-app lifecycle notifications
 │   ├── Http/Resources/
 │   │   ├── RequestResource.php
 │   │   ├── RequestStageResource.php
@@ -249,14 +251,14 @@ Frontend receives a file ID, fetches it via Axios with `responseType: 'blob'`, c
 
 ## Queue / Async Architecture
 
-Email notifications are dispatched as queued jobs:
+Lifecycle notifications are created and email notifications are dispatched as queued jobs:
 
 ```
-Stage status changes
+Request status transition
   ↓
-RequestStageObserver::updated() fires
+RequestStatusNotificationService::notifyStudent()
   ↓
-SendRequestStatusNotification::dispatch($student, $request, $newStatus)
+INSERT notifications row + SendRequestStatusNotification::dispatch(...)->afterCommit()
   ↓
 Job pushed to `jobs` table (database queue driver)
   ↓
@@ -268,6 +270,15 @@ Mailtrap (dev) receives email
 ```
 
 Queue must be running for notifications to send. Use `composer run dev` to start server + queue worker + log viewer concurrently, or run `php artisan queue:work` in a separate terminal.
+
+## Deferred Integration Architecture
+
+Four future initiatives have been scoped but are not implemented:
+
+- **Design-system overhaul:** The Vue SPA in `Frontend/src/` remains the only frontend target. Figma work should introduce reusable, accessible Vue components and tokens without changing backend business logic by default.
+- **Real-time delivery:** `RequestStatusNotificationService` is the current lifecycle notification seam. Future first-party real-time UI updates should publish domain events from that seam and use WebSockets or SSE; signed webhooks are reserved for third-party consumers. Delivery must be queued, idempotent, retryable, and auditable.
+- **AI support:** An AI gateway must be isolated from request mutation paths. It may receive curated support knowledge and redacted, read-only context only. Escalation requires persisted support conversations/messages and a human handoff ticket associated with a department or super administrator.
+- **Payments:** Mobile Money support must sit behind a provider interface. A `payments` aggregate and verified provider webhook will control an `awaiting_payment` request state; successful-payment handling must lock the payment and request records before releasing the request into the existing stage queue.
 
 ## Stage Sequence Resolution Architecture
 

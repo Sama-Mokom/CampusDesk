@@ -63,6 +63,30 @@ No remaining tasks in this section. Continue with the Later items.
     - Student request submission integration test
     - Frontend E2E tests (Cypress or Playwright — not currently installed)
 
+## Future Strategic Initiatives
+
+These GitHub issues are intentionally deferred. They require design review and must not bypass the current request lifecycle, authorization, or audit-history rules.
+
+10. **Frontend design-system overhaul**
+    - Translate approved Figma mockups into the active Vue 3 SPA under `Frontend/src/`; do not revive the abandoned Next.js scaffold.
+    - Establish design tokens, accessible shared components, responsive layouts, loading states, and visual regression coverage.
+    - Preserve the existing Vue service contracts unless a separately approved API change is required.
+
+11. **Real-time event delivery**
+    - Evolve the current queued `RequestStatusNotificationService` into a domain-event source for request status, stage assignment, and ready-for-collection events.
+    - Prefer WebSockets/SSE for first-party SPA updates; evaluate signed outbound webhooks only for genuine third-party consumers.
+    - Add queued delivery, exponential backoff, idempotency, delivery audit records, and HMAC verification for outbound webhooks.
+
+12. **Scoped AI support with human escalation**
+    - Build an isolated AI gateway with read-only, least-privilege tools and retrieval over approved, versioned support content.
+    - Redact PII and credentials before any external-model call; never permit the model to approve requests, change roles, or mutate workflow state.
+    - Add support conversations, messages, and handoff tickets, routing escalations to the relevant department admin or super admin with the sanitized transcript.
+
+13. **Mobile Money processing fees**
+    - Design-review and select an aggregator (Fapshi is the proposed default; CamPay is the alternative) before implementation.
+    - Add fee configuration to request types, a provider-neutral payment gateway interface, payment records, signed webhook processing, and immutable payment/event logs.
+    - Model fee-required requests as `awaiting_payment`; use a locked webhook transaction to release only successful payments into the normal queue, while preventing staff claims before payment.
+
 ## Blocked
 
 *(Nothing is currently blocked by an external dependency.)*

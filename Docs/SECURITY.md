@@ -102,3 +102,9 @@ PHPUnit regression tests in `SequentialRoutingPreservationTest` lock this behavi
 8. **`.env` is gitignored** — confirmed via `campusdesk/.gitignore`. No secrets are committed to the repository.
 
 9. **`personal_access_tokens` table is manually migrated** — Sanctum tokens are stored in `personal_access_tokens` via migration `2026_04_12_232151_create_personal_access_tokens_table`. This is redundant with Sanctum's own migration. Verify this does not cause conflicts (no issues observed in practice).
+
+## Deferred Integration Security Requirements
+
+- **AI support:** External models must never receive passwords, bearer tokens, attachments, or unredacted personal data. AI tools must be read-only and allowlisted; all workflow changes remain human-authorized API actions. Human escalation transcripts require role-scoped access and retention rules.
+- **Event delivery:** Outbound webhooks require per-consumer secrets, HMAC signatures, timestamp/replay protection, idempotency keys, bounded retries, and delivery audit logs. Browser clients should use authenticated, authorization-scoped channels rather than public subscriptions.
+- **Payments:** Provider credentials and webhook secrets belong only in environment configuration. Webhook verification precedes any database write; provider transaction IDs must be unique; payment state changes must be idempotent, locked, logged, and never trusted from the browser redirect alone.
