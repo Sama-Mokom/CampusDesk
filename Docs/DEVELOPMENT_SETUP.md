@@ -107,45 +107,9 @@ php artisan serve
 php artisan queue:work
 ```
 
-## Creating Super Admin (Manual — no seeder)
+## Creating Manual Staff Test Users (Tinker)
 
-Super admin accounts are not seeded. Create via Tinker:
-
-```bash
-php artisan tinker
-```
-
-```php
-$user = App\Models\User::factory()->staff('super_admin')->create([
-    'email' => 'admin@campusdesk.com',
-    'name'  => 'Super Admin',
-]);
-// The factory automatically creates a StaffProfile with admin_level='super_admin'
-
-// Assign to a department (required for staff middleware to work)
-$dept = App\Models\Department::where('code', 'CE')->first();
-$user->staffProfile->departments()->attach($dept->id, ['is_primary' => true]);
-```
-
-## Creating Additional Staff (Tinker)
-
-To create plain staff beyond what's seeded:
-
-```bash
-php artisan tinker
-```
-
-```php
-$user = App\Models\User::factory()->staff()->create([
-    'email' => 'staff@example.com',
-    'name'  => 'Test Staff',
-]);
-// factory creates StaffProfile automatically; admin_level will be null
-
-// Attach to a department
-$dept = App\Models\Department::where('code', 'CS')->first();
-$user->staffProfile->departments()->attach($dept->id, ['is_primary' => true]);
-```
+Public HTTP registration intentionally creates students only. For local manual testing, use the comprehensive [Staff Tinker guide](TINKER_STAFF_USERS.md). It covers plain staff, department admins, super admins, any department assignment, multi-department membership, verification, and cleanup.
 
 ## Frontend Setup
 

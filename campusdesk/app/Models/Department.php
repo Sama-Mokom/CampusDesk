@@ -36,10 +36,11 @@ class Department extends Model
         // Pivot table name must be explicit: Laravel's default alphabetical-pluralization
         // convention would guess 'department_staff_profile', not the actual 'department_staff'.
         //
-        // NOTE: withTimestamps() is intentionally omitted — the department_staff pivot table
-        // has no created_at / updated_at columns; calling withTimestamps() against a table
-        // without those columns causes attach() to fail.
+        // The pivot has Laravel timestamps.  Keep this in sync with the migration so
+        // relationship helpers such as attach() and syncWithoutDetaching() work in
+        // Tinker as well as in seeders.
         return $this->belongsToMany(StaffProfile::class, 'department_staff')
-                    ->withPivot('is_primary');
+                    ->withPivot('is_primary')
+                    ->withTimestamps();
     }
 }
