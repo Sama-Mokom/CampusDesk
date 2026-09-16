@@ -12,29 +12,29 @@ class FacultyMatriculeMapper
     // rather than silently producing wrong matricules.
     private const MAP = [
         'ASTI' => 'AS',
-        'COT'  => 'CT',
+        'COT' => 'CT',
         'FAVM' => 'AV',
-        'FA'   => 'AR',
-        'FED'  => 'ED',
-        'FET'  => 'FE',
-        'FHS'  => 'HS',
+        'FA' => 'AR',
+        'FED' => 'ED',
+        'FET' => 'FE',
+        'FHS' => 'HS',
         'FLPS' => 'LP',
-        'FS'   => 'SC',
+        'FS' => 'SC',
         'FSMS' => 'SM',
         // Synthetic Records Office faculty — never appears on a real student matricule.
-        'RO'   => 'RO',
+        'RO' => 'RO',
     ];
 
     /**
      * Return the two-letter matricule prefix for a faculty code.
      *
-     * @throws InvalidArgumentException  If the code is not in the map.
+     * @throws InvalidArgumentException If the code is not in the map.
      */
     public static function getPrefix(string $facultyCode): string
     {
-        if (!isset(self::MAP[$facultyCode])) {
+        if (! isset(self::MAP[$facultyCode])) {
             throw new InvalidArgumentException(
-                "Unmapped faculty code '{$facultyCode}'. Matricule prefixes cannot be derived " .
+                "Unmapped faculty code '{$facultyCode}'. Matricule prefixes cannot be derived ".
                 "algorithmically. Add '{$facultyCode}' to FacultyMatriculeMapper::MAP."
             );
         }

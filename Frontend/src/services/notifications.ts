@@ -2,6 +2,8 @@ import api from './api'
 import type { Notification } from '../types'
 
 export async function fetchNotifications(): Promise<Notification[]> {
+  if (!localStorage.getItem('token')) return []
+
   const response = await api.get('/notifications')
   return response.data.data ?? []
 }

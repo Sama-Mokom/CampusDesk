@@ -2,15 +2,16 @@
 
 namespace App\Providers;
 
-use Illuminate\Cache\RateLimiting\Limit;
-use Illuminate\Support\Facades\RateLimiter;
+use App\Models\RequestStage;
+use App\Models\User;
 use App\Observers\RequestStageObserver;
 use Illuminate\Auth\Notifications\ResetPassword;
-use Illuminate\Support\ServiceProvider;
-use Illuminate\Support\Facades\Gate;
-use App\Models\User;
-use App\Models\RequestStage;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -27,12 +28,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        Gate::define('is_student', fn(User $user) => $user->role === 'student');
-        Gate::define('is_staff', fn(User $user) => $user->role === 'staff');
-        Gate::define('is-dept-admin', fn(User $user) => 
-        $user->role === 'staff' && $user->staffProfile?->admin_level === 'dept_admin');
-        Gate::define('is-super-admin', fn(User $user) => 
-        $user->role === 'staff' && $user->staffProfile?->admin_level === 'super_admin');
+        Model::preventSilentlyDiscardingAttributes();
+
+        Gate::define('is_student', fn (User $user) => $user->role === 'student');
+        Gate::define('is_staff', fn (User $user) => $user->role === 'staff');
+        Gate::define('is-dept-admin', fn (User $user) => $user->role === 'staff' && $user->staffProfile?->admin_level === 'dept_admin');
+        Gate::define('is-super-admin', fn (User $user) => $user->role === 'staff' && $user->staffProfile?->admin_level === 'super_admin');
 
         ResetPassword::createUrlUsing(function (object $notifiable, string $token) {
             return config('app.frontend_url')."/password-reset/$token?email={$notifiable->getEmailForPasswordReset()}";

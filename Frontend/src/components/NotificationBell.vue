@@ -46,13 +46,17 @@
 import { ref, computed, onMounted } from 'vue'
 import type { Notification } from '@/types'
 import { fetchNotifications, markNotificationRead } from '@/services/notifications'
+import { useAuth } from '@/composables/useAuth'
 import { format } from 'date-fns'
 
 const open = ref(false)
 const items = ref<Notification[]>([])
 const unreadCount = computed(() => items.value.filter(item => !item.read).length)
+const { isAuthenticated } = useAuth()
 
 onMounted(async () => {
+  if (!isAuthenticated.value) return
+
   try {
     items.value = await fetchNotifications()
   } catch {
@@ -69,6 +73,8 @@ function formatTime(iso: string) {
 }
 
 async function onClick(id: number) {
+  if (!isAuthenticated.value) return
+
   const index = items.value.findIndex(item => item.id === id)
   if (index === -1 || items.value[index]!.read) return
 

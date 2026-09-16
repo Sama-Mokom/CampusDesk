@@ -9,28 +9,29 @@ class FacultyMarkdownParser
     // Codes contain hyphens and forward-slashes (e.g. PUL-PUA, GS/PB, MBA-ACC).
     // The separator \s+-\s+ is unambiguous regardless of code content because it is
     // anchored by surrounding spaces.
-    private const FACULTY_PATTERN    = '/^##\s+(?P<name>.+?)\s+-\s+(?P<code>[A-Z0-9_\/\-]+)$/';
+    private const FACULTY_PATTERN = '/^##\s+(?P<name>.+?)\s+-\s+(?P<code>[A-Z0-9_\/\-]+)$/';
+
     private const DEPARTMENT_PATTERN = '/^###\s+(?P<name>.+?)\s+-\s+(?P<code>[A-Z0-9_\/\-]+)$/';
 
     // Programme name group is greedy (.+, not .+?) — required to correctly resolve
     // lines with internal, unspaced dashes like "B.Eng in Electrical and Electronic
     // Engineering (Duration One Year) - EEN".
-    private const PROGRAMME_PATTERN  = '/^\d+\.\s+(?P<name>.+)\s+-\s+(?P<code>[A-Z0-9_\/\-]+)$/';
+    private const PROGRAMME_PATTERN = '/^\d+\.\s+(?P<name>.+)\s+-\s+(?P<code>[A-Z0-9_\/\-]+)$/';
 
     /**
      * Parse the content of university_programs_structure.md into a nested array.
      *
-     * @param  string        $fileContent  Raw file content.
-     * @param  Command|null  $command      Optional command instance for console warnings.
-     *                                    Nullable so the parser is callable outside a seeder
-     *                                    (Tinker, tests). Warnings go to visible console output —
-     *                                    never Log::warning() (project convention).
+     * @param  string  $fileContent  Raw file content.
+     * @param  Command|null  $command  Optional command instance for console warnings.
+     *                                 Nullable so the parser is callable outside a seeder
+     *                                 (Tinker, tests). Warnings go to visible console output —
+     *                                 never Log::warning() (project convention).
      * @return array<int, array{name: string, code: string, departments: array}>
      */
     public function parse(string $fileContent, ?Command $command = null): array
     {
-        $faculties         = [];
-        $currentFaculty    = null;
+        $faculties = [];
+        $currentFaculty = null;
         $currentDepartment = null;
 
         $lines = explode("\n", $fileContent);
@@ -57,10 +58,11 @@ class FacultyMarkdownParser
                     $faculties[] = $currentFaculty;
                 }
                 $currentFaculty = [
-                    'name'        => trim($matches['name']),
-                    'code'        => trim($matches['code']),
+                    'name' => trim($matches['name']),
+                    'code' => trim($matches['code']),
                     'departments' => [],
                 ];
+
                 continue;
             }
 
@@ -68,8 +70,9 @@ class FacultyMarkdownParser
             if (preg_match(self::DEPARTMENT_PATTERN, $line, $matches)) {
                 if ($currentFaculty === null) {
                     $command?->warn(
-                        "Line " . ($lineNumber + 1) . ": Department before Faculty context — skipping: \"{$line}\""
+                        'Line '.($lineNumber + 1).": Department before Faculty context — skipping: \"{$line}\""
                     );
+
                     continue;
                 }
                 // Flush pending department into current faculty
@@ -77,10 +80,11 @@ class FacultyMarkdownParser
                     $currentFaculty['departments'][] = $currentDepartment;
                 }
                 $currentDepartment = [
-                    'name'       => trim($matches['name']),
-                    'code'       => trim($matches['code']),
+                    'name' => trim($matches['name']),
+                    'code' => trim($matches['code']),
                     'programmes' => [],
                 ];
+
                 continue;
             }
 
@@ -88,19 +92,21 @@ class FacultyMarkdownParser
             if (preg_match(self::PROGRAMME_PATTERN, $line, $matches)) {
                 if ($currentDepartment === null) {
                     $command?->warn(
-                        "Line " . ($lineNumber + 1) . ": Programme outside Department context — skipping: \"{$line}\""
+                        'Line '.($lineNumber + 1).": Programme outside Department context — skipping: \"{$line}\""
                     );
+
                     continue;
                 }
                 $currentDepartment['programmes'][] = [
                     'name' => trim($matches['name']),
                     'code' => trim($matches['code']),
                 ];
+
                 continue;
             }
 
             // Unrecognized line — warn but continue
-            $command?->warn("Line " . ($lineNumber + 1) . ": Unrecognized line structure: \"{$line}\"");
+            $command?->warn('Line '.($lineNumber + 1).": Unrecognized line structure: \"{$line}\"");
         }
 
         // EOF flush

@@ -89,7 +89,7 @@ Create the `campusdesk` database in phpMyAdmin (or via MySQL CLI), then:
 php artisan migrate:fresh --seed
 ```
 
-This seeds: all UB faculties, departments, programmes, 80 staff users, students (~10 per dept), department-staff assignments, and 4 request types. No Tinker required.
+This seeds: all UB faculties, departments, programmes, 80 staff users, students (~10 per eligible academic department), department-staff assignments, four request types, 24 lifecycle-varied requests, attachment fixtures, and in-app notification fixtures. Email is never sent by the seeders. See [IMPLEMENTATION_UPDATES.md](IMPLEMENTATION_UPDATES.md) for lifecycle and data-integrity details.
 
 ```bash
 # One-command startup (server + queue worker + log viewer together)
@@ -183,6 +183,7 @@ VITE_API_URL=http://127.0.0.1:8000/api
 | `php artisan serve` | Start Laravel dev server only |
 | `php artisan queue:work` | Process queued jobs (required for emails) |
 | `php artisan migrate:fresh --seed` | Reset database completely and reseed all data |
+| `php artisan db:seed --class=Database\\Seeders\\RequestTypeSeeder` | Rerun request-type reference data after departments are seeded |
 | `php artisan route:list` | Verify registered routes and middleware |
 | `php artisan tinker` | Interactive REPL for manual data manipulation |
 | `php artisan test` | Run PHPUnit tests |

@@ -20,6 +20,14 @@ composer run test   # also clears config cache first
 
 ### Written Feature Tests
 
+#### `RequestTypeSeederTest.php`
+
+Validates that `RequestTypeSeeder` persists the four canonical names, descriptions, cast `default_department_sequence` arrays, and dynamically resolved final department IDs. It runs the seeder twice to lock in idempotency.
+
+#### `DatabaseSeederIntegrationTest.php`
+
+Runs the complete `DatabaseSeeder` against the test database and validates reference-data relationships, records departments, 80 staff users, primary department assignments, eligible students, all six seeded request states, stages/history, attachments, and in-app notification fixtures.
+
 #### `SequentialRoutingBugConditionTest.php`
 Tests that confirm the two defects in the original (pre-fix) `RequestStageController`:
 
@@ -104,6 +112,10 @@ Tests cover the bug condition where `resolveModal.status` was `undefined` or `nu
 
 #### `RequestTimeline.spec.ts`
 Unit tests for `RequestTimeline.vue` stage display.
+
+#### `NotificationBell.spec.ts`
+
+Ensures guests do not request protected notifications and authenticated users load them normally. This prevents a 401-triggered login reload loop.
 
 ---
 

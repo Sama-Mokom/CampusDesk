@@ -7,16 +7,21 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class RequestType extends Model
 {
-    //
-      public function requests(): HasMany
+    /**
+     * Request types are managed by trusted seed/admin workflows only. If a
+     * public write endpoint is introduced, replace this with an allow-list.
+     */
+    protected $guarded = [];
+
+    public function requests(): HasMany
     {
         return $this->hasMany(Request::class);
     }
-     protected function casts(): array
+
+    protected function casts(): array
     {
         return [
             'default_department_sequence' => 'array',
         ];
     }
-
 }

@@ -9,12 +9,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Department extends Model
 {
-    protected $fillable = [
-        'faculty_id',
-        'code',
-        'name',
-        'type',
-    ];
+    // Reference data; no public department write endpoint exists.
+    protected $guarded = [];
 
     public function faculty(): BelongsTo
     {
@@ -40,7 +36,7 @@ class Department extends Model
         // relationship helpers such as attach() and syncWithoutDetaching() work in
         // Tinker as well as in seeders.
         return $this->belongsToMany(StaffProfile::class, 'department_staff')
-                    ->withPivot('is_primary')
-                    ->withTimestamps();
+            ->withPivot('is_primary')
+            ->withTimestamps();
     }
 }

@@ -16,7 +16,7 @@
             </div>
           </router-link>
           <div class="flex items-center gap-3">
-            <NotificationBell />
+            <NotificationBell v-if="isAuthenticated" />
             <div class="text-sm text-right hidden sm:block">
               <p class="font-semibold text-primary">{{ user?.name }}</p>
               <p class="text-xs text-neutral-600">{{ roleLabel }}</p>
@@ -84,7 +84,7 @@ import { useAuth } from './composables/useAuth'
 
 const route = useRoute()
 const router = useRouter()
-const { user, clearAuth } = useAuth()
+const { user, isAuthenticated, clearAuth } = useAuth()
 
 const currentTime = ref('')
 
