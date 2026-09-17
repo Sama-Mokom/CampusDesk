@@ -47,6 +47,7 @@ No remaining tasks in this section. Continue with the Later items.
    - Backend: `GET /api/dept-admin/requests` (all requests in primary department, claimed + unclaimed)
    - Backend: `PATCH /api/dept-admin/stages/{stage}/reassign` (change `handled_by`)
    - Frontend: replace `useMockData` references in `DeptAdminView.vue` with real service calls
+   - Direct assignment of pending/unclaimed stages is intentionally deferred; staff must use the normal concurrency-safe claim flow.
 
 8. **Super Admin dashboard wiring**
    - This is the largest remaining chunk of work

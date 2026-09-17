@@ -33,6 +33,8 @@
 
 **Note:** This matrix reflects the INTENDED design. Admin-side permissions (reassign, manage, audit log) have no backend enforcement yet because the admin routes do not exist. The matrix is aspirational for those rows.
 
+**Implementation update:** Department-admin reassignment is now enforced by `GET /api/dept-admin/requests` and `PATCH /api/dept-admin/stages/{stage}/reassign`. The effective scope is the admin's primary department, not every department to which they may be assigned. The `stage_reassignments` audit record and recipient's `stage_reassigned` in-app notification are written only for a successful handoff. Super-admin management and audit endpoints remain planned.
+
 ---
 
 ## Authentication Flow
@@ -124,8 +126,6 @@ sequenceDiagram
     participant RSC as RequestStageController
     participant DB as Database (locked rows)
 
-    Note over S1,S2: Stage 1 (Dept X) is pending, unclaimed<br/>Stage 2 (Dept Y) exists but predecessor not approved
-
     S2->>RSC: GET /api/stages (queue for Dept Y)
     RSC->>DB: whereExists(predecessor approved OR seq=1)
     DB-->>RSC: Stage 2 EXCLUDED (predecessor not approved)
@@ -140,7 +140,6 @@ sequenceDiagram
     RSC->>DB: INSERT parent status_history (request_stage_id=null, changed_by=A)
     RSC->>DB: COMMIT
     RSC-->>S1: 200 "Stage claimed"
-    Note over RSC: RequestStageObserver::updated() writes the single stage history entry<br/>and dispatches the email notification job
 
     S1->>RSC: PATCH .../stages/{stage}/resolve {status: approved}
     RSC->>DB: Verify handled_by=A, status=in_review
@@ -149,9 +148,6 @@ sequenceDiagram
     RSC->>DB: UPDATE request: status=forwarded
     RSC->>DB: COMMIT
     RSC-->>S1: 200 "Stage resolved."
-    Note over RSC: Observer writes stage history; controller writes parent history;<br/>email job dispatched
-
-    Note over S2: NOW Stage 2 becomes visible (predecessor approved)
     S2->>RSC: GET /api/stages
     RSC-->>S2: Stage 2 now included
     S2->>RSC: POST .../stages/{stage2}/claim
@@ -159,6 +155,48 @@ sequenceDiagram
 ```
 
 ---
+
+## Department-Admin Reassignment Flow
+
+Department-admin oversight is restricted to the administrator's **primary** department. The overview endpoint includes every stage that passed through that department, while reassignment is deliberately narrower: only an already claimed `in_review` stage can move from one eligible staff member to another.
+
+```mermaid
+sequenceDiagram
+    participant DA as Department Admin
+    participant UI as DeptAdminDashboard
+    participant API as DeptAdminController
+    participant DB as Database
+    participant RS as Receiving Staff
+
+    DA->>UI: Select an in-review claimed stage and recipient
+    UI->>API: PATCH /api/dept-admin/stages/{stage}/reassign
+    API->>API: Verify dept_admin role
+    API->>DB: Resolve admin's primary department
+    API->>DB: BEGIN + lockForUpdate(stage)
+    API->>API: Verify stage belongs to primary department
+    API->>API: Verify status=in_review and handled_by is set
+    API->>API: Verify recipient is staff in that department
+    API->>DB: UPDATE request_stages.handled_by
+    API->>DB: INSERT stage_reassignments
+    API->>DB: COMMIT
+    API->>DB: afterCommit INSERT notifications(type=stage_reassigned)
+    API-->>UI: Updated stage and handler
+    UI-->>DA: Refresh overview and show success
+    RS->>UI: Sees the case in My Active Cases after refresh
+```
+
+### Reassignment decision table
+
+| Condition | Result |
+|---|---|
+| Stage is pending/unclaimed | Rejected; staff must use the normal atomic claim flow |
+| Stage is claimed and `in_review` in primary department | Eligible for reassignment |
+| Stage is approved or rejected | Rejected; resolved work cannot be reassigned |
+| Recipient is a student or staff outside the primary department | Rejected |
+| Admin reassigns their own claimed stage | Allowed, subject to the same recipient rule |
+| Recipient equals existing handler | Rejected as a no-op |
+
+Direct assignment of pending/unclaimed stages is intentionally deferred. It must not bypass the existing claim transaction or sequential-routing guard.
 
 ## Request Lifecycle State Machine
 
@@ -170,6 +208,7 @@ stateDiagram-v2
     forwarded --> in_review : next staff claims
     in_review --> ready : final stage approved
     in_review --> rejected : stage rejected
+    in_review --> in_review : department admin reassigns handler\n(no request-status change)
     rejected --> pending : student or super admin reopens\n(is_reopened=true,\nrejected stage reset and requeued)
     ready --> collected : student marks collected\n❌ NOT YET IMPLEMENTED
     collected --> [*]
@@ -183,6 +222,7 @@ stateDiagram-v2
     pending --> in_review : staff claims\n(predecessor must be\napproved if not first stage)
     in_review --> approved : staff approves
     in_review --> rejected : staff rejects
+    in_review --> in_review : department admin hands off\nclaimed work; status unchanged
     approved --> [*]
     rejected --> [*]
 ```
@@ -249,14 +289,37 @@ sequenceDiagram
     participant ST as Student (email inbox)
 
     RSC->>RSC: stage.update({status: ...})
-    Note over RO: Observer fires on stage 'updated' event
+    RO->>RO: Observer fires after stage update
     RO->>RO: isDirty('status') check
     RO->>RO: Insert stage status_history (authenticated user ID when available)
     RO->>JQ: SendRequestStatusNotification::dispatch(student, request, newStatus)
-    Note over QW: php artisan queue:work
+    QW->>QW: queue worker is running
     QW->>JQ: Pick up job
     QW->>M: Mail::to(student)->send(RequestStatusUpdated)
     M->>ST: Email: "Update on your {request_type} request"
 ```
 
 **Note:** The queue worker must be running. Use `composer run dev` to start it automatically alongside `php artisan serve`.
+
+---
+
+## In-App Reassignment Notification Flow
+
+```mermaid
+sequenceDiagram
+    participant TX as Reassignment transaction
+    participant N as Notification model
+    participant DB as Database
+    participant B as NotificationBell.vue
+    participant Staff as Receiving staff member
+
+    TX->>TX: Commit stage handler update + audit row
+    TX->>N: afterCommit create stage_reassigned notification
+    N->>DB: INSERT notifications(user_id=recipient)
+    Staff->>B: Open or refresh application
+    B->>DB: GET /api/notifications via NotificationController
+    DB-->>B: Recipient's notifications only
+    B-->>Staff: Display reassignment message
+```
+
+The notification is created only after a successful database commit, so a failed or rolled-back reassignment cannot generate a recipient alert. This is an in-app notification; it does not add a staff email notification job.

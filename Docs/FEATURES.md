@@ -237,12 +237,9 @@ Status legend: ✅ IMPLEMENTED · 🟡 PARTIALLY IMPLEMENTED · ❌ PLANNED/TODO
 
 **Purpose:** Dept admins see all requests through their primary department, can reassign stages, view department-level stats.
 
-**Current state:** `DeptAdminView.vue` exists with fully mock-data-driven UI. No backend routes exist. The `dept_admin` middleware group in `api.php` is empty. Additionally, the `is_dept-admin` gate has a naming bug that would prevent the middleware from working even if routes were added.
+**Current state:** `DeptAdminView.vue` renders the real `DeptAdminDashboard.vue`. Department admins see every stage in their primary department, including claimed, unclaimed, and completed work, and may reassign active claimed stages to staff in that department.
 
-**What needs to be built:**
-- Fix `is_dept-admin` gate name in `AppServiceProvider` first
-- Backend: `GET /api/dept-admin/requests`, `PATCH /api/dept-admin/stages/{stage}/reassign`
-- Frontend: replace `useMockData` in `DeptAdminView.vue`
+**Reassignment rules:** Only an `in_review` stage that is already claimed may be reassigned. The stage must be in the administrator's primary department and its recipient must be staff assigned there. The handoff changes only `handled_by`, records an immutable `stage_reassignments` entry, and creates an in-app notification for the receiving staff member. Pending/unclaimed stages cannot be directly assigned; they remain available through the normal atomic claim flow.
 
 **Status:** ❌ NOT IMPLEMENTED.
 
