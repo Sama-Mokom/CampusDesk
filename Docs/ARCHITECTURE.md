@@ -49,7 +49,7 @@ Frontend/
 │   │   └── index.ts               ← ALL TypeScript interfaces (single source of truth)
 │   ├── composables/
 │   │   ├── useAuth.ts             ← token + user state management
-│   │   └── useMockData.ts         ← mock data layer (still referenced by unfinished views)
+│   │   └── useMockData.ts         ← legacy mock data layer; active dashboards use API services
 │   ├── services/
 │   │   ├── api.ts                 ← Axios instance + interceptors
 │   │   ├── auth.ts                ← login/register/logout API calls
@@ -64,12 +64,12 @@ Frontend/
 │   │   ├── RegisterView.vue       ← student registration page
 │   │   ├── StudentView.vue        ← wrapper → StudentDashboard
 │   │   ├── StaffView.vue          ← wrapper → StaffDashboard
-│   │   ├── DeptAdminView.vue      ← dept admin (MOCK ONLY — uses useMockData)
-│   │   └── SuperAdminView.vue     ← super admin (MOCK ONLY — uses useMockData)
+│   │   ├── DeptAdminView.vue      ← department admin API dashboard
+│   │   └── SuperAdminView.vue     ← Super Admin API dashboard
 │   └── components/
 │       ├── StudentDashboard.vue   ← main student UI (WIRED to real API)
 │       ├── StaffDashboard.vue     ← main staff UI (WIRED to real API)
-│       ├── AdminDashboard.vue     ← super admin UI component (MOCK ONLY — uses useMockData)
+│       ├── AdminDashboard.vue     ← Super Admin management and oversight UI
 │       ├── DocumentViewer.vue     ← blob URL file viewer (WIRED)
 │       ├── RequestTimeline.vue    ← stage progression display
 │       ├── NotificationBell.vue   ← notification bell (wired to notification API)
@@ -103,7 +103,7 @@ campusdesk/
 │   │   ├── Controllers/
 │   │   │   ├── Auth/
 │   │   │   │   ├── AuthenticatedSessionController.php  ← login (token response)
-│   │   │   │   │                                         ⚠️ logout() has session bug
+│   │   │   │   │                                         logout revokes current Sanctum token
 │   │   │   │   └── RegisteredUserController.php        ← registration + student profile
 │   │   │   ├── RequestController.php                   ← student request CRUD
 │   │   │   │                                              (uses StageGenerationService)
@@ -115,8 +115,7 @@ campusdesk/
 │   │   │   ├── EnsureIsStudent.php      ← checks is_student gate
 │   │   │   ├── EnsureIsStaff.php        ← checks is_staff gate
 │   │   │   ├── EnsureIsDeptAdmin.php    ← checks is-dept-admin gate
-│   │   │   │                               ⚠️ AppServiceProvider defines is_dept-admin
-│   │   │   │                               (mixed naming — gate never matches — see KNOWN_ISSUES)
+│   │   │   │                               matches is-dept-admin gate
 │   │   │   └── EnsureIsSuperAdmin.php   ← checks is-super-admin gate
 │   │   └── Requests/
 │   │       ├── StoreRequestRequest.php      ← student request validation
@@ -150,7 +149,7 @@ campusdesk/
 │   │   └── UserResource.php
 │   └── Providers/
 │       └── AppServiceProvider.php     ← Gates + Observer registration
-│                                         ⚠️ gate 'is_dept-admin' has mixed naming bug
+│                                         department-admin gate name is aligned
 ├── database/
 │   ├── migrations/                  ← 27 migration files total
 │   ├── factories/
@@ -211,7 +210,7 @@ auth:sanctum middleware validates token on every protected request
 
 **Important:** `EnsureFrontendRequestsAreStateful` was intentionally REMOVED from `bootstrap/app.php`. It caused redirects that broke token-based auth. Only `HandleCors` is prepended to the middleware stack.
 
-**⚠️ Known issue — logout:** `AuthenticatedSessionController::destroy()` currently calls `$request->session()->invalidate()` which will crash in the stateless API context. See KNOWN_ISSUES.md.
+`AuthenticatedSessionController::destroy()` revokes the current Sanctum token. The historical session-method issue is resolved.
 
 ## Authorization Architecture
 
@@ -225,13 +224,13 @@ Gates defined in `AppServiceProvider::boot()`:
 ```php
 Gate::define('is_student', fn(User $user) => $user->role === 'student');
 Gate::define('is_staff',   fn(User $user) => $user->role === 'staff');
-Gate::define('is_dept-admin', fn(User $user) =>          // ⚠️ BUG: mixed naming
+Gate::define('is-dept-admin', fn(User $user) =>
     $user->role === 'staff' && $user->staffProfile?->admin_level === 'dept_admin');
 Gate::define('is-super-admin', fn(User $user) =>
     $user->role === 'staff' && $user->staffProfile?->admin_level === 'super_admin');
 ```
 
-**⚠️ Naming inconsistency:** `is_student` and `is_staff` use underscores. `is-super-admin` uses hyphens. `is_dept-admin` uses a mixed convention (underscore + hyphen). `EnsureIsDeptAdmin` checks `Gate::allows('is-dept-admin')` (all-hyphen) — which does NOT match the mixed-convention definition `'is_dept-admin'`. The `dept_admin` middleware will always deny access until this is fixed.
+`is_student` and `is_staff` use underscores; the two admin gates use hyphens. Each middleware checks the gate name actually defined in `AppServiceProvider`.
 
 Middleware aliases in `bootstrap/app.php`:
 - `student` → `EnsureIsStudent`

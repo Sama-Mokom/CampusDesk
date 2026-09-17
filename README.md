@@ -54,8 +54,8 @@ All diagrams are embedded as Mermaid code within the relevant document (primaril
 | **Frontend location** | `Frontend/src/` |
 | **Backend URL (dev)** | `http://127.0.0.1:8000` |
 | **Frontend URL (dev)** | `http://localhost:5173` |
-| **Current status** | Student + Staff workflows are wired and working. Sequential routing and the rejected-request reopen flow are regression-tested. Dept Admin, Super Admin dashboards, notifications, and collection remain unbuilt. |
-| **Automated tests** | PHPUnit feature tests: sequential routing plus reopen coverage. Vitest frontend unit tests include the Student Dashboard reopen flow. |
+| **Current status** | Student, staff, department admin, and Super Admin workflows are wired to the API. Request collection, notifications, and protected attachment viewing are implemented. The separate administrative action audit remains planned. |
+| **Automated tests** | PHPUnit covers routing, reopen, collection, notifications, department administration, and focused Super Admin behavior. Vitest covers dashboard and component flows. The full suites still have legacy auth and document viewer test failures; see [TESTING.md](./Docs/TESTING.md). |
 
 ---
 

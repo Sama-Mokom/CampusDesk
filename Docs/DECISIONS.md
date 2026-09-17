@@ -73,7 +73,7 @@ Each entry: Decision, Context, Options Considered, Decision Made, Reasoning, Con
 
 **Consequences:** All admin authorization checks must check both `role === 'staff'` AND `admin_level`. Gates encode this compound check. The seeder auto-elevates each department's primary staff to `dept_admin`.
 
-**Status:** ✅ Data model implemented. ❌ Dept Admin and Super Admin backend routes are NOT yet implemented.
+**Status:** Data model and both admin API route groups are implemented. Department-admin scope follows the primary department; Super Admin management uses `/api/admin`.
 
 ---
 

@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Department extends Model
 {
     // Reference data; no public department write endpoint exists.
-    protected $guarded = [];
+    protected $fillable = ['faculty_id', 'name', 'code', 'type'];
 
     public function faculty(): BelongsTo
     {

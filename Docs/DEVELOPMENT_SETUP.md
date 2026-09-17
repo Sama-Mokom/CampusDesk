@@ -198,14 +198,14 @@ See KNOWN_ISSUES.md for the full bug history. Quick reference for common setup i
 | Symptom | Likely Cause | Fix |
 |---------|-------------|-----|
 | CORS error in browser console | `FRONTEND_URL`/`SANCTUM_STATEFUL_DOMAINS` mismatch, or `HandleCors` not prepended | Check `config/cors.php`, `bootstrap/app.php` |
-| "Session store not set on request" | Logout endpoint calls session methods in API context | Known bug — see KNOWN_ISSUES.md |
+| "Session store not set on request" | Historical logout bug in session-based handler | Current logout uses Sanctum token revocation; confirm the running backend is up to date |
 | Field silently null after create/update | Missing `$fillable` entry | Check the model's `$fillable` array first |
 | 401 on every authenticated request | Token not attached, or Axios `Authorization` header issue | Check `api.ts` interceptor |
 | Route model binding passes a string instead of model | Route `{param}` name doesn't match controller argument name | Rename to match exactly |
 | File upload arrives as `{}` | Axios instance has a default `Content-Type: application/json` overriding multipart | Remove default Content-Type from Axios instance |
 | 403 on attachment view | File stored in private storage but treated as public URL | Confirm using `AttachmentController`, not raw storage path |
 | Seeder fails with RuntimeException about missing dept code | `RequestTypeSeeder` cannot find `TRD`/`AOE`/`AOC` departments | Run `DepartmentSeeder` first; confirm it completed without errors |
-| Staff login fails 403 | `dept_admin` users hit the `is_dept-admin` gate bug | Known active bug in `AppServiceProvider` — see KNOWN_ISSUES.md |
+| Department admin route returns 403 | User lacks `dept_admin` level or the required primary department | Check `staff_profiles.admin_level` and `department_staff.is_primary`; the gate-name bug is resolved |
 
 ## Testing the API Manually (Postman)
 

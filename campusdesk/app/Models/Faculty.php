@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Faculty extends Model
 {
     // Reference data; no public faculty write endpoint exists.
-    protected $guarded = [];
+    protected $fillable = ['name', 'code', 'matricule_prefix'];
 
     public function departments(): HasMany
     {

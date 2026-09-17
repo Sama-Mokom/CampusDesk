@@ -194,7 +194,7 @@ $user->delete();
 
 Log in through the normal UI or `POST /api/login` using the email and password selected above. The frontend routes plain staff to `/staff`, department admins to `/dept-admin`, and super admins to `/admin`.
 
-Current scope note: staff queue, claim, and resolve APIs are implemented. Department-admin and super-admin HTTP route groups exist but currently contain no feature routes; their dashboards can still be exercised for role-based UI testing.
+Current scope note: staff claim and resolve, primary-department administration, and Super Admin management are implemented through their protected HTTP routes. Super Admin accounts are intentionally not seeded.
 
 ## Common failures
 

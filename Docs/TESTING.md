@@ -2,7 +2,7 @@
 
 ## Current State
 
-Automated tests exist for both backend and frontend. They were written to lock in the sequential routing concurrency fix and the stage-resolve flow.
+Automated tests exist for the request lifecycle, department administration, Super Admin API, and frontend dashboards. The full suites currently include stale scaffold/preview tests that fail even though the focused Super Admin tests pass; details appear below.
 
 ---
 
@@ -50,7 +50,7 @@ Tests that guard correct behaviour that must not regress:
 | `test_valid_claim_on_second_stage_with_approved_predecessor` | P-3.3 (N=2) |
 | `test_my_cases_returns_in_review_stages_for_authenticated_staff` | P-3.4: myCases endpoint |
 | `test_my_cases_returns_empty_when_no_in_review_stages` | P-3.4 (empty case) |
-| `test_for_request_endpoint_returns_200_for_staff` | P-3.5: forRequest returns 200 (even though response is empty due to binding bug) |
+| `test_for_request_endpoint_returns_200_for_staff` | P-3.5: forRequest returns the bound request's stages |
 | `test_for_request_response_is_wrapped_in_data_key` | P-3.5: response format |
 | `test_approving_non_final_stage_advances_request_to_forwarded` | P-3.6a |
 | `test_approving_final_stage_advances_request_to_ready` | P-3.6b |
@@ -61,7 +61,11 @@ Tests that guard correct behaviour that must not regress:
 | `test_property_n2_only_eligible_stages_in_queue` | Property N=2 |
 | `test_property_n3_only_eligible_stages_in_queue` | Property N=3 |
 
-**Note on `forRequest` tests:** `SequentialRoutingPreservationTest` explicitly documents that `GET /requests/{request}/stages` always returns empty due to the route-model binding mismatch. These tests verify the **current (buggy) behaviour** as a regression anchor — the tests would need updating when the binding bug is fixed.
+**Route binding:** `GET /requests/{docRequest}/stages` now matches the controller parameter; additional timeline tests cover the returned stages.
+
+#### `SuperAdminDashboardTest.php`
+
+Covers the Super Admin gate, reference CRUD and safe deletion, staff creation and elevation, token revocation, self/last-admin protection, profile consistency, routing-template validation, statistics, and paginated request/status-history reads.
 
 ### Existing Default Tests
 
@@ -117,6 +121,10 @@ Unit tests for `RequestTimeline.vue` stage display.
 
 Ensures guests do not request protected notifications and authenticated users load them normally. This prevents a 401-triggered login reload loop.
 
+#### `AdminDashboard.spec.ts`
+
+Covers server-backed collection loading and pagination, rejected-request reopen, protected document viewing, request filtering, and the searchable faculty-grouped staff membership form.
+
 ---
 
 ## Test Infrastructure
@@ -169,14 +177,21 @@ Ensures guests do not request protected notifications and authenticated users lo
 
 | Area | Coverage |
 |------|----------|
-| Sequential routing concurrency (backend) | ✅ Covered by feature tests |
+| Sequential routing and serial claim conflict (backend) | ✅ Covered by feature tests; true parallel claim test remains open |
 | Stage claim/resolve flow (backend) | ✅ Covered by preservation tests |
-| DocumentViewer component (frontend) | ✅ Covered by unit tests |
+| DocumentViewer component (frontend) | ⚠️ Existing tests assume immediate public file paths; four fail against authenticated blob loading |
 | StaffDashboard resolve modal (frontend) | ✅ Covered by unit tests |
 | RequestTimeline component (frontend) | ✅ Covered by unit tests |
-| Authentication flows | ⚠️ Breeze scaffold only; no project-specific tests |
+| Authentication flows | ⚠️ Logout/token revocation has project-specific tests; five older auth scaffold tests fail against current fixtures/API behavior |
 | Attachment security | ❌ Not covered |
 | Student request submission | ❌ Not covered |
-| Notification system | ❌ Not covered (feature not built) |
-| Admin endpoints | ❌ Not covered (endpoints not built) |
+| Notification system | ✅ Backend and bell tests |
+| Admin endpoints | ✅ Focused department and Super Admin feature tests |
 | Frontend E2E | ❌ Not covered |
+
+## Current verification limits
+
+- `php artisan test`: five legacy auth tests fail. Four create a student via `UserFactory` without seeding a faculty, academic department, and undergraduate programme. The registration scaffold test posts to `/register` with no student profile fields and expects session authentication/204; the current API is `/api/register` and returns a token JSON response.
+- `npm test`: four `DocumentViewer.spec.ts` tests expect a preview immediately after click and compare its URL with the attachment's public `file_path`. The viewer instead fetches an authenticated blob asynchronously.
+- `npx vue-tsc --noEmit`: type errors remain in existing mock data and other components. The new Admin Dashboard and admin service do not appear in the type-checker error output.
+- `npm run build`: succeeds. Focused `SuperAdminDashboardTest.php` and `AdminDashboard.spec.ts` suites pass.

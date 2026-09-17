@@ -11,7 +11,7 @@ class RequestType extends Model
      * Request types are managed by trusted seed/admin workflows only. If a
      * public write endpoint is introduced, replace this with an allow-list.
      */
-    protected $guarded = [];
+    protected $fillable = ['name', 'description', 'default_department_sequence'];
 
     public function requests(): HasMany
     {

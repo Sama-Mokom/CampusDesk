@@ -15,7 +15,7 @@ class Programme extends Model
     public const POSTGRADUATE_DEGREE_TYPES = ['MASTER', 'PHD'];
 
     // Reference data; faculty_id remains enforced by booted() below.
-    protected $guarded = [];
+    protected $fillable = ['department_id', 'name', 'code', 'degree_type'];
 
     // faculty_id is retained denormalization (avoids a join on faculty-scoped queries)
     // but is never independently trusted at write time — always derived from department_id

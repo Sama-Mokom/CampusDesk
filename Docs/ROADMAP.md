@@ -33,6 +33,7 @@
 - [x] Mark collected endpoint and Student Dashboard wiring
 - [x] In-app notification API, lifecycle delivery service, and notification bell wiring
 - [x] Department Admin dashboard wiring: primary-department oversight, workflow-aware claimability, active-stage reassignment, immutable handoff audit records, and receiving-staff notifications
+- [x] Super Admin dashboard wiring: protected CRUD, elevation, statistics, request oversight, and request/stage status audit
 
 ## Immediate Fixes Cleared ✅
 
@@ -44,20 +45,20 @@ No remaining tasks in this section. Continue with the Later items.
 
 ## Later
 
-7. **Super Admin dashboard wiring**
-   - This is the largest remaining chunk of work
-   - CRUD endpoints for: faculties, departments, programmes, request types, users
-   - Staff elevation endpoint (assign `admin_level`)
-   - System-wide stats endpoint
-   - Full audit log endpoint (paginated `status_history`)
-   - Frontend wiring of `AdminDashboard.vue` (the mock UI already has a detailed structure)
-
 8. **Automated testing gaps**
+    - Update legacy auth tests for the seeded student factory and current `/api/register` token response
+    - Update DocumentViewer tests for protected asynchronous blob loading
+    - Resolve remaining whole-project `vue-tsc` errors
     - Concurrency test (true multi-connection parallel claim attempt)
     - End-to-end staff requeue test after reopening a stage
     - Attachment security test (ownership enforcement)
     - Student request submission integration test
     - Frontend E2E tests (Cypress or Playwright — not currently installed)
+
+9. **Administrative action audit log**
+   - Add a dedicated, append-only table for Super Admin CRUD and staff elevation/demotion actions, separate from request `status_history` and stage handoff records.
+   - Record actor, action, entity type and ID, timestamp, and appropriate before/after details without storing passwords or tokens.
+   - Add a paginated, Super Admin-only API and dashboard view for these events. This is deferred from task 7 and must not be presented as part of its request-status audit log.
 
 ## Future Strategic Initiatives
 
@@ -93,4 +94,4 @@ These GitHub issues are intentionally deferred. They require design review and m
 
 - **Should `RequestStageController::index()`'s dead code branch (the `$docRequest` path) be removed?** It uses the old PHP-level `filter()` approach and would reintroduce the concurrency bug if accidentally triggered. It is currently unreachable from any registered route, but it is confusing and should be cleaned up.
 
-- **Should the project continue toward full feature completeness** (Dept Admin, Super Admin, notifications), or is the current state — core student/staff workflow fully functional with tests — considered sufficient for the learning objective?
+- **Which remaining initiative should follow the completed admin dashboards:** broader regression coverage, the administrative action audit, or future payment/support work?

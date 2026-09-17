@@ -1,5 +1,9 @@
 # CampusDesk — Database Documentation
 
+## Super Admin data integrity
+
+The dashboard uses the existing faculty, department, programme, request type, user/profile, request, stage, and `status_history` tables. Programme `faculty_id` derives from its department. Staff memberships use `department_staff`, with one primary membership selected through the admin API. Referenced records are checked before deletion and return HTTP 409. `status_history` records request/stage transitions only. A separate administrative action audit table remains roadmap task 9.
+
 ## Technology
 
 - **Database:** MySQL (via XAMPP)
@@ -378,7 +382,7 @@ stateDiagram-v2
     in_review --> ready : final stage approved
     in_review --> rejected : stage rejected
     rejected --> pending : student or super admin reopens\n(is_reopened=true,\nrejected stage reset and requeued)
-    ready --> collected : student marks collected\n❌ NOT YET IMPLEMENTED
+    ready --> collected : student marks collected
     collected --> [*]
 ```
 

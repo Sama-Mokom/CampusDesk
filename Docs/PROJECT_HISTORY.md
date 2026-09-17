@@ -168,7 +168,9 @@ Vitest frontend unit tests were written:
 - Vitest tests: 4 test files covering key frontend components.
 - Documentation audit performed against actual source files (September 2026).
 
-## Known Open Issues (as of documentation audit)
+## Known issues at the earlier documentation audit (historical)
+
+The five items below were subsequently resolved. Current verification limits are listed in [TESTING.md](TESTING.md).
 
 1. `AuthenticatedSessionController::destroy()` crashes in API context — logout does not revoke tokens
 2. `forRequest()` route-model binding mismatch — `GET /requests/{request}/stages` always returns empty

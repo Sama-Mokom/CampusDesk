@@ -1,6 +1,6 @@
 ---
 name: Frontend Integration Specs
-overview: A technical specification document for the Laravel backend team, derived strictly from the CampusDesk `Frontend/` directory. The Vue SPA currently runs entirely on in-memory mock data with no HTTP client, no API configuration, and no persistent auth — integration work is greenfield on the frontend side.
+overview: Historical June 2026 frontend integration snapshot. For current behavior, use the root README and Docs/API.md.
 todos:
   - id: share-spec
     content: Share this specification document with the Laravel backend team
@@ -24,9 +24,11 @@ isProject: false
 
 **Scope:** [`Frontend/`](Frontend/) directory only (primary app: [`Frontend/src/`](Frontend/src/))  
 **Audience:** Laravel backend team  
-**Date:** June 10, 2026
+**Date:** June 10, 2026 (historical snapshot)
 
 ---
+
+> **Historical document:** This specification records the pre-integration Vue frontend as it stood in June 2026. The current app uses Axios, Sanctum tokens, live student/staff/admin dashboards, and protected attachments. Use [`../../README.md`](../../README.md), [`../../Docs/API.md`](../../Docs/API.md), and [`../../Docs/UI_UX.md`](../../Docs/UI_UX.md) for current behavior. The implementation claims and pending todos below are retained as historical context.
 
 ## Executive Summary
 

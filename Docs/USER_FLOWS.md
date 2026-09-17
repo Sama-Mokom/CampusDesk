@@ -15,25 +15,25 @@
 
 | Action | Student | Staff | Dept Admin | Super Admin |
 |---|---|---|---|---|
-| Submit a request | ✅ | ❌ | ❌ | ✅ |
-| View own requests | ✅ | ❌ | ❌ | ✅ |
+| Submit a request | ✅ | ❌ | ❌ | ❌ |
+| View own requests | ✅ | ❌ | ❌ | ❌ |
 | View all requests | ❌ | ❌ | ❌ | ✅ |
 | View department queue | ❌ | ✅ | ✅ | ✅ |
 | Claim a stage | ❌ | ✅ (own dept only) | ✅ | ✅ |
 | Resolve a stage | ❌ | ✅ (own claim only) | ✅ | ✅ |
-| Reassign a claimed stage | ❌ | ❌ | ✅ (own dept) | ✅ |
+| Reassign a claimed stage | ❌ | ❌ | ✅ (own dept) | ❌ |
 | Reopen rejected request | ✅ | ❌ | ❌ | ✅ |
-| Upload attachments | ✅ | ❌ | ❌ | ✅ |
+| Upload attachments | ✅ | ❌ | ❌ | ❌ |
 | View attachments | ✅ (own) | ✅ | ✅ | ✅ |
 | Manage users | ❌ | ❌ | ❌ | ✅ |
 | Manage departments/faculties | ❌ | ❌ | ❌ | ✅ |
 | Manage request types | ❌ | ❌ | ❌ | ✅ |
-| View audit log | ❌ | ❌ | 🟡 (own dept only — planned) | ✅ |
+| View request/stage status audit log | ❌ | ❌ | ❌ | ✅ |
 | Receive email notifications | ✅ | ❌ | ❌ | ❌ |
 
-**Note:** This matrix reflects the INTENDED design. Admin-side permissions (reassign, manage, audit log) have no backend enforcement yet because the admin routes do not exist. The matrix is aspirational for those rows.
+**Note:** Super Admin management and status-history access are enforced by the protected `/api/admin` routes. Department admins can reassign claimed stages in their primary department; they do not have access to the system-wide status log.
 
-**Implementation update:** Department-admin reassignment is now enforced by `GET /api/dept-admin/requests` and `PATCH /api/dept-admin/stages/{stage}/reassign`. The effective scope is the admin's primary department, not every department to which they may be assigned. The `stage_reassignments` audit record and recipient's `stage_reassigned` in-app notification are written only for a successful handoff. Super-admin management and audit endpoints remain planned.
+**Implementation update:** Department-admin reassignment is enforced by `GET /api/dept-admin/requests` and `PATCH /api/dept-admin/stages/{stage}/reassign`. The effective scope is the admin's primary department. Super Admin management and request-status audit endpoints are live under `/api/admin`.
 
 ---
 
@@ -210,7 +210,7 @@ stateDiagram-v2
     in_review --> rejected : stage rejected
     in_review --> in_review : department admin reassigns handler\n(no request-status change)
     rejected --> pending : student or super admin reopens\n(is_reopened=true,\nrejected stage reset and requeued)
-    ready --> collected : student marks collected\n❌ NOT YET IMPLEMENTED
+    ready --> collected : student marks collected
     collected --> [*]
 ```
 

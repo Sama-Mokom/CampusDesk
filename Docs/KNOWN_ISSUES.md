@@ -150,7 +150,7 @@ export type DegreeType = 'BACHELOR' | 'CERTIFICATE' | 'MASTER' | 'PHD'
 
 **Lesson:** **Whenever a field is null after create/update despite being in the input, check `$fillable` first.** Always update `$fillable` immediately when adding a migration column.
 
-**Current status:** All actively-used fields confirmed in `$fillable`. `Notification` model has no `$fillable` — this will matter when notification endpoints are built.
+**Current status:** Active model write fields, including `Notification`, have explicit fillable lists. Check these lists when adding fields.
 
 **Status:** ✅ Resolved for all currently-used fields. Live risk for new fields.
 
@@ -160,9 +160,9 @@ export type DegreeType = 'BACHELOR' | 'CERTIFICATE' | 'MASTER' | 'PHD'
 
 **Symptom:** `EnsureIsStudent` and `EnsureIsStaff` were calling `Gate::allows('is_student')` / `Gate::allows('is_staff')` with mismatched names.
 
-**Current state:** `is_student` and `is_staff` (underscores) are consistent between `AppServiceProvider` and their respective middleware. The `is-super-admin` (all hyphens) is also consistent. However, `is_dept-admin` remains inconsistent (see active bugs above).
+**Current state:** All four route gates match their middleware checks. `is_student` and `is_staff` use underscores; `is-dept-admin` and `is-super-admin` use hyphens.
 
-**Status:** ✅ Partially resolved. `is_student`/`is_staff`/`is-super-admin` work. `is_dept-admin` is still broken.
+**Status:** ✅ Resolved.
 
 ---
 
@@ -224,9 +224,7 @@ export type DegreeType = 'BACHELOR' | 'CERTIFICATE' | 'MASTER' | 'PHD'
 
 **Current routes:** `claim` and `resolve` use `{docRequest}` and `{stage}` matching `DocumentRequest $docRequest` and `RequestStage $stage`. These work correctly.
 
-**Outstanding:** `forRequest()` still has the mismatch (see active bugs above).
-
-**Status:** ✅ Resolved for `claim`/`resolve`. ❌ Still broken for `forRequest`.
+**Status:** Resolved for `claim`, `resolve`, and `forRequest`; route placeholders now match controller parameters.
 
 ---
 
