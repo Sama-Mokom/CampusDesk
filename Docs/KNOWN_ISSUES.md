@@ -79,7 +79,7 @@ if (! Gate::allows('is-dept-admin')) { ... }
 2. Update `StudentLevel` type to match
 3. Verify and update any dropdown options in `RegisterView.vue`
 
-**Status:** ✅ RESOLVED — frontend types, registration options, dashboard values, and mock data use `100` through `600`.
+**Status:** ✅ RESOLVED — frontend types, registration options, and dashboard values use `100` through `600`.
 
 ---
 
@@ -96,7 +96,7 @@ if (! Gate::allows('is-dept-admin')) { ... }
 export type DegreeType = 'BACHELOR' | 'CERTIFICATE' | 'MASTER' | 'PHD'
 ```
 
-**Status:** ✅ RESOLVED — frontend types, dashboard options/defaults, and mock data use the canonical database values.
+**Status:** ✅ RESOLVED — frontend types and dashboard options/defaults use the canonical database values.
 
 ---
 

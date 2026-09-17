@@ -79,7 +79,6 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import NotificationBell from './components/NotificationBell.vue'
-import { useMockData } from './composables/useMockData'
 import { useAuth } from './composables/useAuth'
 
 const route = useRoute()

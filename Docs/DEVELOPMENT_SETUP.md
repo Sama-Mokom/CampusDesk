@@ -43,7 +43,7 @@ CampusDesk/
 └── Docs/               ← This documentation
 ```
 
-**⚠️ Important:** `Frontend/app/` is an abandoned Next.js scaffold — ignore it. All Vue development is in `Frontend/src/`.
+All frontend application code is in `Frontend/src/`; `Frontend/` contains one Vue/Vite project.
 
 ## Backend Setup
 

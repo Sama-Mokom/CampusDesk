@@ -149,7 +149,7 @@ async function onSubmit() {
       department_id: form.department_id,
       programme_id: form.programme_id,
       level: form.level
-    });
+    })
     setUser(registeredUser)
     router.replace(homePath())
   } catch (err: any){
@@ -161,7 +161,4 @@ async function onSubmit() {
   }
 }
 
-// function mockEmailTaken(email: string) {
-//   return mockUsers.value.some(u => u.email.toLowerCase() === email.trim().toLowerCase())
-// }
 </script>

@@ -49,7 +49,6 @@ Frontend/
 │   │   └── index.ts               ← ALL TypeScript interfaces (single source of truth)
 │   ├── composables/
 │   │   ├── useAuth.ts             ← token + user state management
-│   │   └── useMockData.ts         ← legacy mock data layer; active dashboards use API services
 │   ├── services/
 │   │   ├── api.ts                 ← Axios instance + interceptors
 │   │   ├── auth.ts                ← login/register/logout API calls
@@ -75,15 +74,12 @@ Frontend/
 │       ├── NotificationBell.vue   ← notification bell (wired to notification API)
 │       ├── StatusBadge.vue        ← coloured status pill
 │       └── LevelBadge.vue         ← student level display
-├── app/                           ← ABANDONED Next.js scaffold (ignore — do not use)
-├── components/                    ← shadcn/ui component stubs (unused by working app)
-├── hooks/                         ← Next.js-style hooks (unused by working app)
 ├── package.json                   ← Vue/Vite project (correct — use this)
 ├── vite.config.js                 ← Vite config with @ alias → src/
 └── tailwind.config.ts             ← Tailwind config
 ```
 
-**Note:** The `Frontend/app/` subdirectory and several root-level files (`next.config.mjs`, `Frontend/components/`, `Frontend/hooks/`) are remnants of an abandoned Next.js scaffold. They are not part of the working application. All active development is in `Frontend/src/`.
+All frontend application code is contained in `Frontend/src/`; the project is a Vue/Vite SPA.
 
 ## Backend Architecture
 

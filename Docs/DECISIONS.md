@@ -173,7 +173,7 @@ PHPUnit tests in `SequentialRoutingPreservationTest` and `SequentialRoutingBugCo
 
 **Decision:** C — `useAuth.ts` composable with a module-level `ref<User | null>`.
 
-**Reasoning:** The original mock data layer (`useMockData.ts`) already used this pattern. Rather than introducing a new dependency during integration, the same pattern was extended to real auth state, backed by `localStorage` for persistence.
+**Reasoning:** The application uses a small module-level composable for real auth state, backed by `localStorage` for persistence, without introducing a global store dependency.
 
 **Consequences:** Simpler dependency footprint. Less scalable than Pinia if the admin dashboards introduce significant shared state.
 

@@ -27,7 +27,9 @@ return [
 
     'exposed_headers' => [],
 
-    'max_age' => 0,
+    // Cache a successful preflight during local SPA development so repeated
+    // authenticated requests do not each require a separate OPTIONS request.
+    'max_age' => 600,
 
     'supports_credentials' => true,
 

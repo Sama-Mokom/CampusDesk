@@ -17,7 +17,7 @@ CampusDesk is a Laravel 12 and Vue 3 university document request system. Student
 
 See [ROADMAP.md](ROADMAP.md). The main remaining work is test coverage, an administrative action audit table, and future initiatives. `status_history` records request and stage transitions only.
 
-The full test suites are not green: five legacy Laravel auth tests have fixture or API expectation mismatches; four `DocumentViewer` tests still expect immediate public URLs instead of the protected blob-loading flow. `vue-tsc` also reports errors in existing mock data and other components. Focused Super Admin backend and frontend tests pass, and the frontend production build succeeds. See [TESTING.md](TESTING.md).
+Run the backend and frontend suites before extending the application. Attachments are intentionally loaded through the protected blob flow, so tests must not expect immediate public document URLs. See [TESTING.md](TESTING.md).
 
 ## Key implementation files
 

@@ -7,7 +7,7 @@
 Deliver protected CRUD for faculties, departments, programmes, request types, and users; a separate staff `admin_level` endpoint; system statistics; a paginated system-wide request list; a paginated `status_history` audit log; and a live `AdminDashboard.vue`. The existing Super Admin route and Sanctum gate remain the authorization foundation.
 
 1. Hard delete only unused records. A referenced record returns `409 Conflict` with a useful message. Do not rely on database cascades to decide whether deletion is safe. No archive/deactivation feature is included here.
-2. Remove the mock arbitrary request-status override. The dashboard may expose the existing `POST /api/requests/{request}/reopen` action only when a request is rejected. Normal claim, resolve, and collect transitions keep their current owners and rules.
+2. Remove the arbitrary request-status override. The dashboard may expose the existing `POST /api/requests/{request}/reopen` action only when a request is rejected. Normal claim, resolve, and collect transitions keep their current owners and rules.
 3. Create users as either students or staff and edit within the same role. No role conversion. Elevate or demote staff through a dedicated endpoint. Reject deletion or demotion of the signed-in administrator and of the last Super Admin.
 4. The audit log in this task is the request/stage status history in `status_history`. A separate table for Admin CRUD and elevation activity is deferred as roadmap task 9. Do not imply the status log covers those actions.
 5. All list endpoints use server-side pagination and filtering; all writes use validated allow-listed input. Passwords and token values never appear in admin responses.
@@ -15,7 +15,7 @@ Deliver protected CRUD for faculties, departments, programmes, request types, an
 ## Architecture at the time of planning
 
 - `routes/api.php` has an empty `auth:sanctum` + `super_admin` group. `EnsureIsSuperAdmin` uses the `is-super-admin` gate, which checks `role = staff` and `staff_profiles.admin_level = super_admin`.
-- `Frontend/src/views/SuperAdminView.vue` renders `AdminDashboard.vue`. The dashboard currently uses `useMockData`; new calls should go through the shared Axios instance and a dedicated `Frontend/src/services/admin.ts` module.
+- `Frontend/src/views/SuperAdminView.vue` renders `AdminDashboard.vue`. It uses the shared Axios instance through `Frontend/src/services/admin.ts`.
 - `StageGenerationService` resolves request-type sequence entries `STUDENT_DEPARTMENT`, `FACULTY_RECORDS`, and literal department IDs at request creation. Editing a template must not rewrite already generated stages.
 - `Programme` derives `faculty_id` from `department_id` on create and department change. Do not accept an independent programme faculty ID as a trusted write value.
 - Staff can belong to multiple departments through `department_staff`; exactly one assignment per staff profile is primary for this feature. Department-admin powers follow that primary assignment.
@@ -68,7 +68,7 @@ Read/write list shape can be finalized in API tests before frontend wiring. Acce
 ## Frontend implementation order
 
 1. Add `Frontend/src/services/admin.ts` and admin-specific TypeScript response types. Do not reuse mock `User` with its `password` property for server data. Handle nullable `changed_by` as “System”.
-2. Replace the mock data source in `AdminDashboard.vue` section by section: stats/recent activity, requests/detail, users/elevation, reference management, then audit log. Preserve the current design language while adding loading, empty, mutation-pending, and error states.
+2. Preserve the API-backed dashboard sections—stats/recent activity, requests/detail, users/elevation, reference management, and audit log—and their loading, empty, mutation-pending, and error states.
 3. Send request/user/audit filters to the server and reset page number on filter changes. Use returned pagination metadata rather than slicing an in-memory collection. Refresh affected lists and stats after successful writes.
 4. Expand forms for faculty prefix, department type, programme department, and symbolic request-routing tokens. Keep request-type reorder changes in a local draft until Save succeeds; restore the previous order on failure.
 5. Remove the mock override panel and `adminOverrideRequestStatus` call. If a rejected request is shown, use the existing reopen service/action and refresh the detail, list, stats, and audit views after success.

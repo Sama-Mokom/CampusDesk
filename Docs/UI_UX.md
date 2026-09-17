@@ -94,9 +94,9 @@ The header's Log Out button calls `clearAuth()` (clears localStorage) and naviga
 | Dept Admin | `DeptAdminView.vue` | `/dept-admin` | ✅ API-backed |
 | Super Admin | `SuperAdminView.vue` | `/admin` | ✅ API-backed |
 
-## `useMockData.ts` Composable
+## Frontend data sources
 
-`useMockData.ts` is a legacy scaffold module. The active dashboards and notification bell use API services; the mock composable is no longer their data source.
+The active dashboards and notification bell load data through `Frontend/src/services/` and the shared Axios client. Authentication state is managed by `useAuth.ts`; no in-memory mock-data composable is retained.
 
 ## Document Viewer Pattern (Secure Blob)
 

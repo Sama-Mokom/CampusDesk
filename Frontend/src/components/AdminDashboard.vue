@@ -226,8 +226,28 @@ async function loadUsers() { usersLoading.value = true; try { users.value = awai
 async function loadAudit() { auditLoading.value = true; try { audit.value = await listAdmin<AuditRow>('audit-log', { ...auditFilters, page: auditPage.value }) } catch (e) { fail(e) } finally { auditLoading.value = false } }
 async function loadStats() { try { stats.value = await adminStats() } catch (e) { fail(e) } }
 async function allChoices<T>(kind: string): Promise<T[]> { const result: T[] = []; let page = 1; while (true) { const batch = await listAdmin<T>(kind, { page, per_page: 100 }); result.push(...batch.data); if (page >= batch.meta.last_page) return result; page++ } }
-async function loadChoices() { try { const [f, d, p, t] = await Promise.all([allChoices<Faculty>('faculties'), allChoices<Department>('departments'), allChoices<Programme>('programmes'), allChoices<RequestType>('request-types')]); faculties.value = f; departments.value = d; programmes.value = p; requestTypes.value = t } catch (e) { fail(e) } }
-onMounted(async () => { await Promise.all([loadStats(), loadChoices(), loadRequests(), loadUsers(), loadReferences(), loadAudit()]); loading.value = false })
+async function loadChoices() {
+  try {
+    // Keep requests ordered for the PHP development server, which services a
+    // single request at a time. Parallel startup requests otherwise queue long
+    // enough for the browser client timeout to cancel them.
+    faculties.value = await allChoices<Faculty>('faculties')
+    departments.value = await allChoices<Department>('departments')
+    programmes.value = await allChoices<Programme>('programmes')
+    requestTypes.value = await allChoices<RequestType>('request-types')
+  } catch (e) {
+    fail(e)
+  }
+}
+onMounted(async () => {
+  await loadStats()
+  await loadChoices()
+  await loadRequests()
+  await loadUsers()
+  await loadReferences()
+  await loadAudit()
+  loading.value = false
+})
 watch([requestPage, () => ({ ...requestFilters })], loadRequests, { deep: true })
 watch(() => ({ ...requestFilters }), () => { requestPage.value = 1 }, { deep: true })
 watch([userPage, userSearch, userRole], loadUsers)

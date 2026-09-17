@@ -100,14 +100,14 @@ This was the longest and most debugging-intensive phase.
 - Recurring naming collision bug identified and resolved: native browser `Request`/`Response` types colliding with custom domain types — resolved via type aliasing (`Request as DocumentRequest`) on both frontend TypeScript and backend PHP.
 
 ### 9d. Auth Flow Wiring
-- `useAuth.ts` composable created (localStorage-backed, replacing the mock `useMockData` session ref).
-- `router/index.ts` updated to use `useAuth` instead of `useMockData` for route guards.
+- `useAuth.ts` composable created (localStorage-backed, replacing the earlier mock session state).
+- `router/index.ts` updated to use `useAuth` for route guards.
 - `LoginView.vue` and `RegisterView.vue` rewired to call real services, with async/await and try/catch error handling replacing the previous synchronous mock calls.
 - **Backend addition during this phase:** `ReferenceDataController` created (faculties/departments/programmes/request-types public endpoints) — these did not exist before integration began and were needed to unblock the registration form's dropdowns.
 - Login/register response shapes updated to include nested `student_profile`/`staff_profile` — required for role-based routing to function.
 
 ### 9e. Student Dashboard Wiring
-- Extensive step-by-step guided rewrite of `StudentDashboard.vue`, replacing every `useMockData` reference with real service calls (`fetchRequests`, `fetchRequestTypes`, `fetchFaculties`, `fetchDepartments`, `createRequest`).
+- Extensive step-by-step guided rewrite of `StudentDashboard.vue`, replacing the earlier mock layer with real service calls (`fetchRequests`, `fetchRequestTypes`, `fetchFaculties`, `fetchDepartments`, `createRequest`).
 - Multiple response-shape mismatches debugged: Laravel Resource `{data: [...]}` wrapper not being unwrapped, `request_type` type mismatch (object vs string), file upload payload issues (wrong FormData field, Axios `Content-Type` override breaking multipart uploads).
 - File upload flow (`fileList`) rewritten from metadata-only objects to real `File` objects.
 - Detail modal "click to open" bug traced to missing eager-loading on the list endpoint (fixed by calling `fetchRequestById` on click instead of using list-item data directly) and a stale/incorrect route definition (`/request/{requests}` → `/requests/{request}`).

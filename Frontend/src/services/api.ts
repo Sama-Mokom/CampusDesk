@@ -3,7 +3,10 @@ import axios from 'axios';
 // Create the axios instance
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
-  timeout: 10000,
+  // The local Laravel development server handles requests serially. The admin
+  // dashboard needs several initial API calls, so allow a queued request enough
+  // time to reach the server rather than cancelling it after ten seconds.
+  timeout: 30000,
   headers: {
     Accept: 'application/json',
     // Remove Content-Type — let Axios set it per request

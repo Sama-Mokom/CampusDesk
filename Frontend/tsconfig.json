@@ -15,8 +15,6 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "jsx": "preserve",
-
     /* Strict type-checking options */
     "strict": true,
     "noImplicitAny": true,

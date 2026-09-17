@@ -2,13 +2,7 @@
   <div class="min-h-[calc(100vh-8rem)] flex items-center justify-center px-4">
     <div class="card max-w-md w-full">
       <h2 class="text-primary font-semibold text-xl mb-6">Sign in</h2>
-      <p class="text-sm text-neutral-600 mb-4">
-        Use mock accounts: <span class="font-mono text-xs">sama@ub.cm</span> / student ·
-        <span class="font-mono text-xs">tabi@ub.cm</span> / staff ·
-        <span class="font-mono text-xs">mbah@ub.cm</span> / staff ·
-        <span class="font-mono text-xs">admin@ub.cm</span> / admin
-      </p>
-      <form @submit.prevent="onSubmit" class="space-y-4">
+      <form class="space-y-4" @submit.prevent="onSubmit">
         <div>
           <label class="block text-sm text-primary font-medium mb-1">Email</label>
           <input v-model="email" type="email" class="input-field" autocomplete="username" required />
@@ -37,41 +31,30 @@ import { login } from '../services/auth'
 const router = useRouter()
 const route = useRoute()
 const { user, setUser } = useAuth()
-
 const email = ref('')
 const password = ref('')
 const error = ref('')
 
 function homePath(): string {
-  const u = user.value
-  if (!u) return '/login'
-  if (u.role === 'student') return '/student'
-  const level = u.staff_profile?.admin_level
-  if (level === 'super_admin') return '/admin'
-  if (level === 'dept_admin') return '/dept-admin'
+  const currentUser = user.value
+  if (!currentUser) return '/login'
+  if (currentUser.role === 'student') return '/student'
+  if (currentUser.staff_profile?.admin_level === 'super_admin') return '/admin'
+  if (currentUser.staff_profile?.admin_level === 'dept_admin') return '/dept-admin'
   return '/staff'
 }
 
-async function onSubmit(){
-  error.value = '';
+async function onSubmit() {
+  error.value = ''
   try {
-    const loggedInUser = await login({
-      email: email.value.trim(),
-      password: password.value,
-    });
-    setUser(loggedInUser);
-    const redir = route.query.redirect as string | undefined;
-    if (redir && redir.startsWith('/')) {
-      router.replace(redir);
-    } else {
-      router.replace(homePath());
-    }
+    const loggedInUser = await login({ email: email.value.trim(), password: password.value })
+    setUser(loggedInUser)
+    const redirect = route.query.redirect as string | undefined
+    router.replace(redirect?.startsWith('/') ? redirect : homePath())
   } catch (err: any) {
-    if (err.response && err.response.status === 422) {
-      error.value = err.response.data.message || 'Invalid email or password.';
-  } else {
-    error.value = 'A connection error occurred. Please try again.';
-   }
-}
+    error.value = err.response?.status === 422
+      ? err.response.data.message || 'Invalid email or password.'
+      : 'A connection error occurred. Please try again.'
+  }
 }
 </script>

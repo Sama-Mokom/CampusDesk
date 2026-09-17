@@ -67,7 +67,7 @@ No remaining tasks in this section. Continue with the Later items.
 These GitHub issues are intentionally deferred. They require design review and must not bypass the current request lifecycle, authorization, or audit-history rules.
 
 10. **Frontend design-system overhaul**
-    - Translate approved Figma mockups into the active Vue 3 SPA under `Frontend/src/`; do not revive the abandoned Next.js scaffold.
+    - Translate approved Figma mockups into the Vue 3 SPA under `Frontend/src/`.
     - Establish design tokens, accessible shared components, responsive layouts, loading states, and visual regression coverage.
     - Preserve the existing Vue service contracts unless a separately approved API change is required.
 
