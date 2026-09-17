@@ -3,8 +3,6 @@
 namespace App\Observers;
 
 use App\Models\RequestStage;
-use App\Jobs\SendRequestStatusNotification;
-use App\Models\Request as DocumentRequest;
 use Illuminate\Support\Facades\Auth;
 
 
@@ -34,16 +32,6 @@ class RequestStageObserver
         'note'             => $stage->staff_note ?? null,
     ]);
 
-    // Only send notification on meaningful transitions
-    if (in_array($stage->status, ['in_review', 'approved', 'rejected'])) {
-        $request = DocumentRequest::with('requestType')->find($stage->request_id);
-        if ($request) {
-            $student = \App\Models\User::find($request->student_id);
-            if ($student) {
-                SendRequestStatusNotification::dispatch($student, $request, $stage->status);
-            }
-        }
-    }
 }
 
     /**

@@ -26,9 +26,13 @@ class RequestStage extends Model
     {
         return $this->belongsTo(User::class, 'handled_by');
     }
-       public function statusHistories(): HasMany
+    public function statusHistories(): HasMany
     {
         return $this->hasMany(StatusHistory::class);
+    }
+    public function reassignments(): HasMany
+    {
+        return $this->hasMany(StageReassignment::class);
     }
     protected function casts(): array
 {

@@ -11,7 +11,7 @@
 | MySQL | via XAMPP | Primary database | ✅ Implemented |
 | Laravel Queue (database driver) | built-in | Async job processing | ✅ Implemented |
 | Mailtrap | N/A (SaaS) | Development email testing | ✅ Implemented |
-| PHPUnit | 11.x | Backend testing | ✅ Installed; 2 feature test files written |
+| PHPUnit | 11.x | Backend testing | ✅ Installed; request lifecycle and admin feature suites |
 
 **Note on framework version:** The project uses Laravel **12.x** (as declared in `composer.json` `"laravel/framework": "^12.0"`). Earlier documentation incorrectly stated Laravel 11.
 
@@ -33,7 +33,7 @@
 | Tailwind CSS | ^3.4 | Utility-first styling | ✅ Implemented |
 | DaisyUI | ^5.5 | Tailwind component library | ✅ Implemented |
 | date-fns | ^3.0 | Date formatting | ✅ Implemented |
-| Vitest | ^2.1 | Frontend unit testing | ✅ Installed; 4 test files written |
+| Vitest | ^2.1 | Frontend unit testing | ✅ Installed; component and dashboard test suites |
 | @vue/test-utils | ^2.4 | Vue component testing | ✅ Installed (used by Vitest tests) |
 | zod | ^3.24 | Schema validation | ⚠️ Installed but UNUSED in `src/` |
 

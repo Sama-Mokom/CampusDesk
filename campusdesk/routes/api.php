@@ -6,6 +6,11 @@ use App\Http\Controllers\RequestStageController;
 use App\Http\Controllers\RequestController;
 use App\Http\Controllers\ReferenceDataController;
 use App\Http\Controllers\AttachmentController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\DeptAdminController;
+use App\Http\Controllers\AdminReferenceController;
+use App\Http\Controllers\AdminUserController;
+use App\Http\Controllers\AdminOverviewController;
 
 Route::middleware(['auth:sanctum'])->get('/user', function (Request $request) {
     return $request->user();
@@ -16,6 +21,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
 Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     Route::get('/requests/{request}', [RequestController::class, 'show']);
     Route::post('/requests/{request}/reopen', [RequestController::class, 'reopen']);
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::patch('/notifications/{notification}/read', [NotificationController::class, 'markRead']);
 });
 Route::middleware(['auth:sanctum', 'student', 'throttle:60,1'])->group(function () {
     Route::get('/requests', [RequestController::class, 'index']);
@@ -24,22 +31,39 @@ Route::middleware(['auth:sanctum', 'student', 'throttle:60,1'])->group(function 
 
 Route::middleware(['auth:sanctum', 'student', 'throttle:10,1'])->group(function () {
     Route::post('/requests', [RequestController::class, 'store']);
+    Route::patch('/requests/{request}/collect', [RequestController::class, 'collect']);
 });
 
 Route::middleware(['auth:sanctum', 'staff', 'throttle:60,1'])->group(function () {
     // staff-only routes go here
-    Route::get('/requests/{request}/stages', [RequestStageController::class, 'forRequest']);
+    Route::get('/requests/{docRequest}/stages', [RequestStageController::class, 'forRequest']);
     Route::get('/stages', [RequestStageController::class, 'index']);
     Route::get('/stages/my-cases', [RequestStageController::class, 'myCases']);
     Route::post('requests/{docRequest}/stages/{stage}/claim', [RequestStageController::class, 'claim']);
     Route::patch('requests/{docRequest}/stages/{stage}/resolve', [RequestStageController::class, 'resolve']);
 });
-Route::middleware(['auth:sanctum', 'dept_admin'])->group(function () {
-    // dept_admin routes go here
+Route::middleware(['auth:sanctum', 'dept_admin', 'throttle:60,1'])->group(function () {
+    Route::get('/dept-admin/requests', [DeptAdminController::class, 'index']);
+    Route::patch('/dept-admin/stages/{stage}/reassign', [DeptAdminController::class, 'reassign']);
 });
 
-Route::middleware(['auth:sanctum', 'super_admin'])->group(function () {
-    // super_admin-only routes go here
+Route::prefix('admin')->middleware(['auth:sanctum', 'super_admin', 'throttle:60,1'])->group(function () {
+    foreach (['faculties', 'departments', 'programmes', 'request-types'] as $kind) {
+        Route::get($kind, [AdminReferenceController::class, 'index'])->defaults('kind', $kind);
+        Route::post($kind, [AdminReferenceController::class, 'store'])->defaults('kind', $kind);
+        Route::patch("$kind/{id}", [AdminReferenceController::class, 'update'])->defaults('kind', $kind);
+        Route::delete("$kind/{id}", [AdminReferenceController::class, 'destroy'])->defaults('kind', $kind);
+    }
+    Route::get('users', [AdminUserController::class, 'index']);
+    Route::post('users', [AdminUserController::class, 'store']);
+    Route::get('users/{user}', [AdminUserController::class, 'show']);
+    Route::patch('users/{user}', [AdminUserController::class, 'update']);
+    Route::delete('users/{user}', [AdminUserController::class, 'destroy']);
+    Route::patch('users/{user}/admin-level', [AdminUserController::class, 'adminLevel']);
+    Route::get('stats', [AdminOverviewController::class, 'stats']);
+    Route::get('requests', [AdminOverviewController::class, 'requests']);
+    Route::get('requests/{request}', [AdminOverviewController::class, 'show']);
+    Route::get('audit-log', [AdminOverviewController::class, 'audit']);
 });
 
 // Public Reference Data Endpoints

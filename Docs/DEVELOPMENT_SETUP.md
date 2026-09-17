@@ -89,7 +89,7 @@ Create the `campusdesk` database in phpMyAdmin (or via MySQL CLI), then:
 php artisan migrate:fresh --seed
 ```
 
-This seeds: all UB faculties, departments, programmes, 80 staff users, students (~10 per dept), department-staff assignments, and 4 request types. No Tinker required.
+This seeds: all UB faculties, departments, programmes, 80 staff users, students (~10 per eligible academic department), department-staff assignments, four request types, 24 lifecycle-varied requests, attachment fixtures, and in-app notification fixtures. Email is never sent by the seeders. See [IMPLEMENTATION_UPDATES.md](IMPLEMENTATION_UPDATES.md) for lifecycle and data-integrity details.
 
 ```bash
 # One-command startup (server + queue worker + log viewer together)
@@ -107,45 +107,9 @@ php artisan serve
 php artisan queue:work
 ```
 
-## Creating Super Admin (Manual — no seeder)
+## Creating Manual Staff Test Users (Tinker)
 
-Super admin accounts are not seeded. Create via Tinker:
-
-```bash
-php artisan tinker
-```
-
-```php
-$user = App\Models\User::factory()->staff('super_admin')->create([
-    'email' => 'admin@campusdesk.com',
-    'name'  => 'Super Admin',
-]);
-// The factory automatically creates a StaffProfile with admin_level='super_admin'
-
-// Assign to a department (required for staff middleware to work)
-$dept = App\Models\Department::where('code', 'CE')->first();
-$user->staffProfile->departments()->attach($dept->id, ['is_primary' => true]);
-```
-
-## Creating Additional Staff (Tinker)
-
-To create plain staff beyond what's seeded:
-
-```bash
-php artisan tinker
-```
-
-```php
-$user = App\Models\User::factory()->staff()->create([
-    'email' => 'staff@example.com',
-    'name'  => 'Test Staff',
-]);
-// factory creates StaffProfile automatically; admin_level will be null
-
-// Attach to a department
-$dept = App\Models\Department::where('code', 'CS')->first();
-$user->staffProfile->departments()->attach($dept->id, ['is_primary' => true]);
-```
+Public HTTP registration intentionally creates students only. For local manual testing, use the comprehensive [Staff Tinker guide](TINKER_STAFF_USERS.md). It covers plain staff, department admins, super admins, any department assignment, multi-department membership, verification, and cleanup.
 
 ## Frontend Setup
 
@@ -219,6 +183,7 @@ VITE_API_URL=http://127.0.0.1:8000/api
 | `php artisan serve` | Start Laravel dev server only |
 | `php artisan queue:work` | Process queued jobs (required for emails) |
 | `php artisan migrate:fresh --seed` | Reset database completely and reseed all data |
+| `php artisan db:seed --class=Database\\Seeders\\RequestTypeSeeder` | Rerun request-type reference data after departments are seeded |
 | `php artisan route:list` | Verify registered routes and middleware |
 | `php artisan tinker` | Interactive REPL for manual data manipulation |
 | `php artisan test` | Run PHPUnit tests |
@@ -233,14 +198,14 @@ See KNOWN_ISSUES.md for the full bug history. Quick reference for common setup i
 | Symptom | Likely Cause | Fix |
 |---------|-------------|-----|
 | CORS error in browser console | `FRONTEND_URL`/`SANCTUM_STATEFUL_DOMAINS` mismatch, or `HandleCors` not prepended | Check `config/cors.php`, `bootstrap/app.php` |
-| "Session store not set on request" | Logout endpoint calls session methods in API context | Known bug — see KNOWN_ISSUES.md |
+| "Session store not set on request" | Historical logout bug in session-based handler | Current logout uses Sanctum token revocation; confirm the running backend is up to date |
 | Field silently null after create/update | Missing `$fillable` entry | Check the model's `$fillable` array first |
 | 401 on every authenticated request | Token not attached, or Axios `Authorization` header issue | Check `api.ts` interceptor |
 | Route model binding passes a string instead of model | Route `{param}` name doesn't match controller argument name | Rename to match exactly |
 | File upload arrives as `{}` | Axios instance has a default `Content-Type: application/json` overriding multipart | Remove default Content-Type from Axios instance |
 | 403 on attachment view | File stored in private storage but treated as public URL | Confirm using `AttachmentController`, not raw storage path |
 | Seeder fails with RuntimeException about missing dept code | `RequestTypeSeeder` cannot find `TRD`/`AOE`/`AOC` departments | Run `DepartmentSeeder` first; confirm it completed without errors |
-| Staff login fails 403 | `dept_admin` users hit the `is_dept-admin` gate bug | Known active bug in `AppServiceProvider` — see KNOWN_ISSUES.md |
+| Department admin route returns 403 | User lacks `dept_admin` level or the required primary department | Check `staff_profiles.admin_level` and `department_staff.is_primary`; the gate-name bug is resolved |
 
 ## Testing the API Manually (Postman)
 

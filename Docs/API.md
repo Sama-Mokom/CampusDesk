@@ -116,7 +116,7 @@ Revoke the current token.
 
 **Auth:** Bearer token required
 
-**⚠️ Known bug:** `AuthenticatedSessionController::destroy()` currently calls `$request->session()->invalidate()` and `$request->session()->regenerateToken()` — these will crash in the stateless API context because no session is active. The token is NOT being properly revoked. This must be fixed (see KNOWN_ISSUES.md and HANDOFF.md).
+The logout controller deletes the current Sanctum access token and returns HTTP 204. The former session-method bug is resolved.
 
 **Response 204:** No content (when it works).
 
@@ -348,7 +348,7 @@ Returns stages currently claimed by the authenticated staff member (`status = in
 ### GET /api/requests/{request}/stages
 Returns all stages for a specific request in sequence order.
 
-**⚠️ Known bug (route-model binding mismatch):** The route uses `{request}` as the parameter name but the controller method `forRequest(DocumentRequest $docRequest)` uses `$docRequest`. Laravel's implicit binding requires the parameter name to match the variable name, so the model is never resolved — the method always returns an empty collection. This is documented in `SequentialRoutingPreservationTest` as a pre-existing bug. See KNOWN_ISSUES.md.
+The route uses `{docRequest}` to match `forRequest(DocumentRequest $docRequest)`. The endpoint returns the ordered stages for that request.
 
 ---
 
@@ -402,12 +402,12 @@ Resolve a claimed stage (approve or reject).
 **Side effects on approval:**
 - If more stages remain → parent request `status = forwarded`
 - If final stage → parent request `status = ready`
-- `RequestStageObserver::updated()` fires → creates status history + dispatches email notification
+- `RequestStageObserver::updated()` records stage status history; the controller calls `RequestStatusNotificationService` for the student notification and queued email
 - The controller records the parent transition (`in_review → forwarded` or `ready`) with `request_stage_id: null`.
 
 **Side effects on rejection:**
 - Parent request `status = rejected`
-- Observer fires → status history + email notification
+- The observer records stage status history; the controller calls the notification service for the parent transition
 - The controller records the parent transition (`in_review → rejected`) with `request_stage_id: null`.
 
 **Response 200:**
@@ -434,23 +434,41 @@ Stream a protected attachment file.
 
 ---
 
-## Endpoints Not Yet Implemented
+## Endpoint implementation status
+
+### Super Admin API
+
+All `/api/admin/*` routes require Sanctum, the Super Admin gate, and throttling. Lists accept `page` (default 1) and `per_page` (default 20, maximum 100), and return `data`, pagination `meta`, and `links`. Writes return one `data` object or HTTP 204 for deletion. Invalid input returns 422; referenced deletion returns 409.
+
+| Routes | Inputs |
+|---|---|
+| `GET/POST /api/admin/faculties`, `PATCH/DELETE /api/admin/faculties/{id}` | `name`, unique `code`, unique `matricule_prefix` |
+| `GET/POST /api/admin/departments`, `PATCH/DELETE /api/admin/departments/{id}` | `faculty_id`, `name`, unique `code`, `type` (`academic`, `records`, `admin`) |
+| `GET/POST /api/admin/programmes`, `PATCH/DELETE /api/admin/programmes/{id}` | `department_id`, `name`, `code`, `degree_type`; faculty derives from department |
+| `GET/POST /api/admin/request-types`, `PATCH/DELETE /api/admin/request-types/{id}` | `name`, optional `description`, ordered `default_department_sequence` of IDs, `STUDENT_DEPARTMENT`, or `FACULTY_RECORDS` |
+| `GET/POST /api/admin/users`, `GET/PATCH/DELETE /api/admin/users/{user}` | Account and matching role profile. Password required on create, optional on edit; role cannot change. Staff memberships use `department_ids` and `primary_department_id`. |
+| `PATCH /api/admin/users/{user}/admin-level` | `admin_level`: null, `dept_admin`, or `super_admin` |
+| `GET /api/admin/stats` | Total, today, counts by status, average resolution hours or null, recent status activity |
+| `GET /api/admin/requests`, `GET /api/admin/requests/{request}` | List filters: `search`, `faculty_id`, `department_id`, `request_type_id`, `status`, `reopened`, `date_from`, `date_to`. Details include stages and attachment IDs for protected streaming. |
+| `GET /api/admin/audit-log` | Request/stage `status_history` only. Filters: `request_id`, `actor_id`, `new_status`, `date_from`, `date_to`. Null actor stays null. |
+
+Date filters and "today" use the configured application timezone. Lists sort by newest timestamp, then descending ID. Average resolution measures the current lifecycle from latest reopen (or creation) to first `ready` or `rejected` transition. Administrative CRUD and elevation actions are outside `status_history`; their separate audit table is roadmap task 9.
 
 | Feature | Suggested Endpoint | Status |
 |---------|-------------------|--------|
-| Mark collected | `PATCH /api/requests/{request}/collect` | ❌ TODO |
-| Get notifications | `GET /api/notifications` | ❌ TODO |
-| Mark notification read | `PATCH /api/notifications/{id}/read` | ❌ TODO |
-| Reassign stage (dept admin) | `PATCH /api/stages/{stage}/reassign` | ❌ TODO |
-| Dept admin: list department requests | `GET /api/dept-admin/requests` | ❌ TODO |
-| Admin: list all requests | `GET /api/admin/requests` | ❌ TODO |
-| Admin: CRUD faculties | `* /api/admin/faculties` | ❌ TODO |
-| Admin: CRUD departments | `* /api/admin/departments` | ❌ TODO |
-| Admin: CRUD programmes | `* /api/admin/programmes` | ❌ TODO |
-| Admin: CRUD users | `* /api/admin/users` | ❌ TODO |
-| Admin: CRUD request types | `* /api/admin/request-types` | ❌ TODO |
-| System stats | `GET /api/admin/stats` | ❌ TODO |
-| Audit log | `GET /api/admin/audit-log` | ❌ TODO |
+| Mark collected | `PATCH /api/requests/{request}/collect` | ✅ Student-owned ready requests only |
+| Get notifications | `GET /api/notifications` | ✅ Authenticated user's newest notifications |
+| Mark notification read | `PATCH /api/notifications/{notification}/read` | ✅ Authenticated owner only |
+| Reassign stage (dept admin) | `PATCH /api/dept-admin/stages/{stage}/reassign` | ✅ Claimed, in-review primary-department stages only |
+| Dept admin: list department requests | `GET /api/dept-admin/requests` | ✅ Primary-department stages, staff, and summary stats |
+| Admin: list all requests | `GET /api/admin/requests` | Implemented |
+| Admin: CRUD faculties | `* /api/admin/faculties` | Implemented |
+| Admin: CRUD departments | `* /api/admin/departments` | Implemented |
+| Admin: CRUD programmes | `* /api/admin/programmes` | Implemented |
+| Admin: CRUD users | `* /api/admin/users` | Implemented |
+| Admin: CRUD request types | `* /api/admin/request-types` | Implemented |
+| System stats | `GET /api/admin/stats` | Implemented |
+| Audit log | `GET /api/admin/audit-log` | Implemented: request/stage status only |
 
 ---
 
@@ -460,13 +478,25 @@ Stream a protected attachment file.
 GET  /api/user                              auth:sanctum
 GET  /api/attachments/{attachment}          auth:sanctum
 GET  /api/requests/{request}               auth:sanctum, throttle:60,1
+POST /api/requests/{request}/reopen         auth:sanctum, throttle:60,1
 GET  /api/requests                         auth:sanctum, student, throttle:60,1
 POST /api/requests                         auth:sanctum, student, throttle:10,1
-GET  /api/requests/{request}/stages        auth:sanctum, staff, throttle:60,1  ⚠️ binding bug
+PATCH /api/requests/{request}/collect       auth:sanctum, student, throttle:10,1
+GET  /api/notifications                    auth:sanctum, throttle:60,1
+PATCH /api/notifications/{notification}/read auth:sanctum, throttle:60,1
+GET  /api/requests/{docRequest}/stages     auth:sanctum, staff, throttle:60,1
 GET  /api/stages                           auth:sanctum, staff, throttle:60,1
 GET  /api/stages/my-cases                  auth:sanctum, staff, throttle:60,1
 POST /api/requests/{docRequest}/stages/{stage}/claim    auth:sanctum, staff
 PATCH /api/requests/{docRequest}/stages/{stage}/resolve auth:sanctum, staff
+GET  /api/dept-admin/requests              auth:sanctum, dept_admin, throttle:60,1
+PATCH /api/dept-admin/stages/{stage}/reassign auth:sanctum, dept_admin, throttle:60,1
+GET/POST/PATCH/DELETE /api/admin/{faculties|departments|programmes|request-types} auth:sanctum, super_admin, throttle:60,1
+GET/POST/PATCH/DELETE /api/admin/users     auth:sanctum, super_admin, throttle:60,1
+PATCH /api/admin/users/{user}/admin-level  auth:sanctum, super_admin, throttle:60,1
+GET  /api/admin/stats                      auth:sanctum, super_admin, throttle:60,1
+GET  /api/admin/requests[/{request}]       auth:sanctum, super_admin, throttle:60,1
+GET  /api/admin/audit-log                  auth:sanctum, super_admin, throttle:60,1
 GET  /api/faculties                        (public)
 GET  /api/departments                      (public)
 GET  /api/programmes                       (public)

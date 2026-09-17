@@ -48,14 +48,16 @@ This project has two explicit goals:
 - PHPUnit feature tests for sequential routing concurrency
 - Vitest unit tests for key frontend components
 
-## Long-term Vision (planned, not built)
+## Additional implemented workflows
 
-- Department admin oversight and stage reassignment
-- Super admin system management (CRUD for all entities)
-- Notification bell/dropdown in UI
-- Reopen rejected request flow (student/super-admin authorization, audit trail, and Student Dashboard wiring)
-- Mark as collected flow (currently stubbed)
-- Analytics dashboard
+- Primary-department admin oversight and reassignment of claimed stages
+- Super Admin reference and user management, statistics, request oversight, and request/stage status audit
+- API-backed notification bell, rejected-request reopen, and collected-request transition
+
+## Long-term vision (planned)
+
+- Separate audit of administrative CRUD and privilege changes
+- Broader analytics and real-time event delivery
 - Potential adoption by University of Buea
 
 ## Major Constraints

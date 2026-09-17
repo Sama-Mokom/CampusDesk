@@ -4,11 +4,11 @@ This document is a knowledge base of every significant bug encountered during de
 
 ---
 
-## 🔴 ACTIVE BUGS (not yet fixed)
+## ✅ RECENTLY RESOLVED BUGS
 
 ---
 
-### 🔴 ACTIVE — Logout Endpoint Crashes in API Context
+### ✅ RESOLVED — Logout Endpoint Revokes the Current Sanctum Token
 
 **Symptom:** `POST /api/logout` crashes with a session-related error because `AuthenticatedSessionController::destroy()` calls `$request->session()->invalidate()` and `$request->session()->regenerateToken()`. The session driver is not active on API routes.
 
@@ -25,11 +25,11 @@ public function destroy(Request $request): Response
 }
 ```
 
-**Status:** ❌ NOT FIXED — active bug.
+**Status:** ✅ RESOLVED — the logout route uses `auth:sanctum`; the controller deletes the current token. Feature coverage verifies revocation and subsequent API denial.
 
 ---
 
-### 🔴 ACTIVE — `forRequest()` Route-Model Binding Mismatch (Empty Stage Timeline)
+### ✅ RESOLVED — `forRequest()` Route-Model Binding
 
 **Symptom:** `GET /api/requests/{request}/stages` always returns an empty `data` array, regardless of which request ID is in the URL.
 
@@ -42,11 +42,11 @@ public function destroy(Request $request): Response
 Route::get('/requests/{docRequest}/stages', [RequestStageController::class, 'forRequest']);
 ```
 
-**Status:** ❌ NOT FIXED — active bug. The Staff Dashboard works around this by using `GET /api/requests/{id}` (the `show()` endpoint) for viewing full stage timelines instead of this endpoint.
+**Status:** ✅ RESOLVED — the route uses `{docRequest}` and the endpoint returns the ordered stage timeline. The Staff Dashboard may continue using the request-show endpoint.
 
 ---
 
-### 🔴 ACTIVE — `is_dept-admin` Gate Name Inconsistency
+### ✅ RESOLVED — Department-Admin Gate Name Consistency
 
 **Symptom:** The `dept_admin` middleware always returns 403, even for users with `admin_level = 'dept_admin'`.
 
@@ -62,11 +62,11 @@ if (! Gate::allows('is-dept-admin')) { ... }
 
 **Fix needed:** In `AppServiceProvider`, change `'is_dept-admin'` to `'is-dept-admin'`.
 
-**Status:** ❌ NOT FIXED — active bug. Has no user-visible impact yet because no `dept_admin` routes exist.
+**Status:** ✅ RESOLVED — both the provider and middleware use `is-dept-admin`; gate and middleware tests cover allowed and denied staff roles.
 
 ---
 
-### 🔴 ACTIVE — Frontend `RegisterCredentials` Type Mismatch on `level`
+### ✅ RESOLVED — Frontend Student-Level Type Alignment
 
 **Symptom:** The TypeScript type `RegisterCredentials.level` in `Frontend/src/types/index.ts` is typed as `'L100' | 'L200' | 'L300' | 'L400' | 'L500' | 'L600'`. The backend validation rule is `in:100,200,300,400,500,600` (no `L` prefix). If the frontend sends `'L400'`, the backend returns 422 validation error.
 
@@ -79,11 +79,11 @@ if (! Gate::allows('is-dept-admin')) { ... }
 2. Update `StudentLevel` type to match
 3. Verify and update any dropdown options in `RegisterView.vue`
 
-**Status:** ❌ NOT FIXED — active type mismatch.
+**Status:** ✅ RESOLVED — frontend types, registration options, dashboard values, and mock data use `100` through `600`.
 
 ---
 
-### 🔴 ACTIVE — Frontend `DegreeType` Type Uses Old Enum Values
+### ✅ RESOLVED — Frontend Degree-Type Enum Alignment
 
 **Symptom:** The TypeScript type `DegreeType` in `Frontend/src/types/index.ts` is `'BSc' | 'BEng' | 'MEng' | 'MSc' | 'PhD'`. The database enum is now `BACHELOR | CERTIFICATE | MASTER | PHD`.
 
@@ -96,7 +96,7 @@ if (! Gate::allows('is-dept-admin')) { ... }
 export type DegreeType = 'BACHELOR' | 'CERTIFICATE' | 'MASTER' | 'PHD'
 ```
 
-**Status:** ❌ NOT FIXED — active type mismatch.
+**Status:** ✅ RESOLVED — frontend types, dashboard options/defaults, and mock data use the canonical database values.
 
 ---
 
@@ -150,7 +150,7 @@ export type DegreeType = 'BACHELOR' | 'CERTIFICATE' | 'MASTER' | 'PHD'
 
 **Lesson:** **Whenever a field is null after create/update despite being in the input, check `$fillable` first.** Always update `$fillable` immediately when adding a migration column.
 
-**Current status:** All actively-used fields confirmed in `$fillable`. `Notification` model has no `$fillable` — this will matter when notification endpoints are built.
+**Current status:** Active model write fields, including `Notification`, have explicit fillable lists. Check these lists when adding fields.
 
 **Status:** ✅ Resolved for all currently-used fields. Live risk for new fields.
 
@@ -160,9 +160,9 @@ export type DegreeType = 'BACHELOR' | 'CERTIFICATE' | 'MASTER' | 'PHD'
 
 **Symptom:** `EnsureIsStudent` and `EnsureIsStaff` were calling `Gate::allows('is_student')` / `Gate::allows('is_staff')` with mismatched names.
 
-**Current state:** `is_student` and `is_staff` (underscores) are consistent between `AppServiceProvider` and their respective middleware. The `is-super-admin` (all hyphens) is also consistent. However, `is_dept-admin` remains inconsistent (see active bugs above).
+**Current state:** All four route gates match their middleware checks. `is_student` and `is_staff` use underscores; `is-dept-admin` and `is-super-admin` use hyphens.
 
-**Status:** ✅ Partially resolved. `is_student`/`is_staff`/`is-super-admin` work. `is_dept-admin` is still broken.
+**Status:** ✅ Resolved.
 
 ---
 
@@ -224,9 +224,7 @@ export type DegreeType = 'BACHELOR' | 'CERTIFICATE' | 'MASTER' | 'PHD'
 
 **Current routes:** `claim` and `resolve` use `{docRequest}` and `{stage}` matching `DocumentRequest $docRequest` and `RequestStage $stage`. These work correctly.
 
-**Outstanding:** `forRequest()` still has the mismatch (see active bugs above).
-
-**Status:** ✅ Resolved for `claim`/`resolve`. ❌ Still broken for `forRequest`.
+**Status:** Resolved for `claim`, `resolve`, and `forRequest`; route placeholders now match controller parameters.
 
 ---
 

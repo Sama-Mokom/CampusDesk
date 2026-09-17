@@ -7,6 +7,7 @@ vi.mock('../../services/requests', () => ({
   fetchRequestById: vi.fn(),
   createRequest: vi.fn(),
   reopenRequest: vi.fn(),
+  markRequestCollected: vi.fn(),
 }))
 
 vi.mock('../../services/reference', () => ({

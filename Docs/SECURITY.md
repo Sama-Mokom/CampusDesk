@@ -27,7 +27,7 @@ Three layers, in order of enforcement:
 2. **Form Request `authorize()`** — per-endpoint role checks using `$this->user()->role` directly (NOT `Gate::allows()`, which is unreliable in the stateless API context)
 3. **Controller-level ownership/business-rule checks** — e.g., `RequestController::show()` checks `$request->student_id === Auth::id() || Auth::user()->role === 'staff'`; `RequestStageController::claim()` checks department membership and predecessor-stage approval
 
-**⚠️ Active authorization bug:** The `dept_admin` middleware (`EnsureIsDeptAdmin`) checks `Gate::allows('is-dept-admin')` (all hyphens), but `AppServiceProvider` defines the gate as `'is_dept-admin'` (mixed). The gate never matches, so the `dept_admin` middleware always denies access. No `dept_admin` routes currently exist, so this has no visible user impact yet, but it must be fixed before building dept admin features.
+The department-admin gate and middleware both use `is-dept-admin`. The protected department-admin routes are active.
 
 ## File Upload Security
 
@@ -51,6 +51,7 @@ Three layers, in order of enforcement:
 | `POST /api/requests` | 10/minute (`throttle:10,1`) | Multiple DB writes per call |
 | `GET /api/requests`, `GET /api/requests/{id}` | 60/minute (`throttle:60,1`) | Read-only, lower risk |
 | Staff routes (`/stages`, `/claim`, `/resolve`) | 60/minute | Standard limit |
+| Super Admin routes (`/api/admin/*`) | 60/minute | Protected management and oversight |
 | Email verification routes | 6/minute | Breeze default |
 | `GET /api/attachments/{id}` | No explicit rate limit | ⚠️ See gaps below |
 
@@ -85,20 +86,26 @@ PHPUnit regression tests in `SequentialRoutingPreservationTest` lock this behavi
 
 ## Known Security Weaknesses / Gaps
 
-1. **Logout does not revoke the token** — `AuthenticatedSessionController::destroy()` crashes before reaching token revocation. The frontend clears localStorage, but the Sanctum token in `personal_access_tokens` remains valid indefinitely after logout. See KNOWN_ISSUES.md.
+1. **Logout revocation** — `AuthenticatedSessionController::destroy()` deletes the current Sanctum token. Previously documented session-method failures have been resolved.
 
 2. **No token expiration configured** — `sanctum.expiration` is `null` (tokens never expire automatically). No token refresh mechanism exists. A leaked or stolen token remains valid until manually revoked.
 
 3. **No rate limiting on `GET /api/attachments/{id}`** — could theoretically be used to enumerate attachment IDs, though the ownership/staff check blocks unauthorized access to content.
 
-4. **No admin-side authorization implemented** — the `dept_admin` and `super_admin` middleware groups in `api.php` are currently EMPTY. When admin routes are built, careful attention must be paid to scoping (dept_admin should only see/act on their primary department's data).
+4. **Admin authorization** — `/api/admin` requires Sanctum, the Super Admin gate, and throttling. Department-admin endpoints are limited to the primary department.
 
 5. **No CSRF protection needed/considered** — since the app uses Bearer tokens exclusively (stateless), CSRF is not applicable to API routes. This is correct for the chosen auth strategy.
 
-6. **No audit log access control designed yet** — the full audit log endpoint planned for Super Admin does not yet exist. When built, ensure dept_admin is scoped to their department's history only.
+6. **Status history access** — `/api/admin/audit-log` is Super Admin only. It records request/stage transitions, not administrative CRUD or privilege changes; those require the separate task 9 audit table.
 
 7. **Email content includes request details** — `RequestStatusUpdated` mailable includes request type and status. Standard for this kind of system; no additional sensitivity controls have been discussed.
 
 8. **`.env` is gitignored** — confirmed via `campusdesk/.gitignore`. No secrets are committed to the repository.
 
 9. **`personal_access_tokens` table is manually migrated** — Sanctum tokens are stored in `personal_access_tokens` via migration `2026_04_12_232151_create_personal_access_tokens_table`. This is redundant with Sanctum's own migration. Verify this does not cause conflicts (no issues observed in practice).
+
+## Deferred Integration Security Requirements
+
+- **AI support:** External models must never receive passwords, bearer tokens, attachments, or unredacted personal data. AI tools must be read-only and allowlisted; all workflow changes remain human-authorized API actions. Human escalation transcripts require role-scoped access and retention rules.
+- **Event delivery:** Outbound webhooks require per-consumer secrets, HMAC signatures, timestamp/replay protection, idempotency keys, bounded retries, and delivery audit logs. Browser clients should use authenticated, authorization-scoped channels rather than public subscriptions.
+- **Payments:** Provider credentials and webhook secrets belong only in environment configuration. Webhook verification precedes any database write; provider transaction IDs must be unique; payment state changes must be idempotent, locked, logged, and never trusted from the browser redirect alone.

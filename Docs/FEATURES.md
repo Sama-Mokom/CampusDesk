@@ -95,7 +95,7 @@ Status legend: ✅ IMPLEMENTED · 🟡 PARTIALLY IMPLEMENTED · ❌ PLANNED/TODO
 3. Clicking a request card calls `GET /api/requests/{id}` for full detail
 4. Detail modal shows: description, status badge, reopened flag, attachments (via `DocumentViewer`), stage timeline (department name, sequence order, stage status, staff note, handler name), full status history log
 5. If status is `rejected`, a "Reopen Request" button calls the backend and updates the request in place.
-6. If status is `ready`, a "Mark as Collected" button is shown — ❌ NOT WIRED (stub)
+6. If status is `ready`, a "Mark as Collected" button calls the authenticated collection endpoint.
 
 **Database interactions:** SELECT `requests` with eager-loaded `requestType`, `attachments`, `requestStages`, `statusHistories`.
 
@@ -132,7 +132,7 @@ Status legend: ✅ IMPLEMENTED · 🟡 PARTIALLY IMPLEMENTED · ❌ PLANNED/TODO
 3. Backend verifies: stage belongs to request, `handled_by` matches auth user, stage status is `in_review`
 4. On approval: parent request → `forwarded` (if more stages remain) or `ready` (if final stage)
 5. On rejection: parent request → `rejected`
-6. `RequestStageObserver::updated()` fires: logs `status_history`, dispatches email notification
+6. `RequestStageObserver::updated()` records the stage transition; the controller records the parent transition and invokes `RequestStatusNotificationService` for the student notification and queued email.
 
 **Validation:** `status` required (`approved|rejected`), `staff_note` required if rejecting.
 
@@ -149,7 +149,7 @@ Status legend: ✅ IMPLEMENTED · 🟡 PARTIALLY IMPLEMENTED · ❌ PLANNED/TODO
 2. Frontend fetches `GET /api/requests/{id}` (reused from student endpoint — ownership check includes `role === 'staff'`)
 3. Modal shows: description, full stage timeline (ALL stages regardless of status), attachments, status history
 
-**Note:** The `GET /requests/{request}/stages` endpoint (`forRequest()`) is NOT used for this — it always returns empty due to a route-model binding bug. The student `show()` endpoint with relaxed ownership check is used instead.
+**Note:** The staff timeline endpoint uses `{docRequest}` route binding and returns ordered stages. The staff request-detail view can also use the authenticated request show endpoint.
 
 **Database interactions:** SELECT `requests` with `requestStages`, `attachments`, `statusHistories`.
 
@@ -186,7 +186,7 @@ Status legend: ✅ IMPLEMENTED · 🟡 PARTIALLY IMPLEMENTED · ❌ PLANNED/TODO
 
 **Why queued (not synchronous):** Decouples email from the HTTP request cycle; allows automatic retry on mail server failure.
 
-**Database interactions:** INSERT `status_history`, INSERT `jobs` table. The `notifications` table is NOT written by this flow (in-app notifications are a separate unimplemented feature).
+**Database interactions:** Status transitions write `status_history`; parent request transitions create in-app notifications and queue email delivery.
 
 ---
 
@@ -202,65 +202,49 @@ Status legend: ✅ IMPLEMENTED · 🟡 PARTIALLY IMPLEMENTED · ❌ PLANNED/TODO
 
 ---
 
-## Feature 11: Mark Request as Collected ❌ NOT IMPLEMENTED
+## Feature 11: Mark Request as Collected ✅
 
 **Purpose:** Student confirms physical collection, closing the request lifecycle.
 
-**What needs to be built:**
-- Backend: `PATCH /api/requests/{request}/collect`
-  - Guard: request must belong to student, `status` must be `ready`
-  - Set `status = collected`
-  - Log `status_history` entry
-- Frontend: wire `doCollected()` in `StudentDashboard.vue`
+**Implementation:** `PATCH /api/requests/{request}/collect` requires the owning student and `ready` status, then records the `collected` transition. `StudentDashboard.vue` calls this endpoint.
 
-**Status:** ❌ NOT IMPLEMENTED. Frontend stub: `doCollected()` logs to console.
+**Status:** ✅ Implemented. Only the owning student can transition a `ready` request to `collected`; the transition is recorded in status history.
 
 ---
 
-## Feature 12: In-App Notifications (Bell/Dropdown) ❌ NOT IMPLEMENTED
+## Feature 12: In-App Notifications (Bell/Dropdown) ✅
 
 **Purpose:** Show unread notification count and list in the app UI (separate from email).
 
-**Current state:** `notifications` table exists. `Notification` model exists but has no `$fillable`. `NotificationBell.vue` exists but uses `useMockData`. The email-notification observer does NOT write to the `notifications` table.
+**Current state:** The bell uses authenticated API data. Parent request lifecycle transitions create an in-app notification and queue the matching email through `RequestStatusNotificationService`.
 
-**What needs to be built:**
-- Add `$fillable` to `Notification` model
-- Backend: `GET /api/notifications`, `PATCH /api/notifications/{id}/read`
-- Decide: should the email observer also create `notifications` rows for in-app display?
-- Frontend: wire `NotificationBell.vue`
+**Implementation:** `GET /api/notifications` lists the authenticated user's notifications; `PATCH /api/notifications/{notification}/read` marks an owned notification as read. `NotificationBell.vue` consumes these endpoints.
 
-**Status:** ❌ NOT IMPLEMENTED.
+**Status:** Implemented.
 
 ---
 
-## Feature 13: Department Admin Dashboard ❌ NOT IMPLEMENTED (mock UI only)
+## Feature 13: Department Admin Dashboard — IMPLEMENTED
 
 **Purpose:** Dept admins see all requests through their primary department, can reassign stages, view department-level stats.
 
-**Current state:** `DeptAdminView.vue` exists with fully mock-data-driven UI. No backend routes exist. The `dept_admin` middleware group in `api.php` is empty. Additionally, the `is_dept-admin` gate has a naming bug that would prevent the middleware from working even if routes were added.
+**Current state:** `DeptAdminView.vue` renders the real `DeptAdminDashboard.vue`. Department admins see every stage in their primary department, including claimed, unclaimed, and completed work, and may reassign active claimed stages to staff in that department.
 
-**What needs to be built:**
-- Fix `is_dept-admin` gate name in `AppServiceProvider` first
-- Backend: `GET /api/dept-admin/requests`, `PATCH /api/dept-admin/stages/{stage}/reassign`
-- Frontend: replace `useMockData` in `DeptAdminView.vue`
+**Reassignment rules:** Only an `in_review` stage that is already claimed may be reassigned. The stage must be in the administrator's primary department and its recipient must be staff assigned there. The handoff changes only `handled_by`, records an immutable `stage_reassignments` entry, and creates an in-app notification for the receiving staff member. Pending/unclaimed stages cannot be directly assigned; they remain available through the normal atomic claim flow.
 
-**Status:** ❌ NOT IMPLEMENTED.
+**Status:** Implemented for primary-department oversight and claimed-stage reassignment.
 
 ---
 
-## Feature 14: Super Admin Dashboard ❌ NOT IMPLEMENTED (mock UI only)
+## Feature 14: Super Admin Dashboard — IMPLEMENTED
 
 **Purpose:** Full system administration.
 
-**Current state:** `AdminDashboard.vue` and `SuperAdminView.vue` exist with fully mock-driven UI (the mock UI is quite detailed). No backend routes exist.
+**Current state:** `AdminDashboard.vue` uses protected `/api/admin` endpoints for reference data, users, statistics, requests, and request/stage status history. Lists are server-paginated. Rejected requests can be reopened through the existing transition endpoint. Referenced records return 409 on deletion.
 
-**What needs to be built:**
-- CRUD endpoints for faculties, departments, programmes, request types, users
-- Staff elevation endpoint
-- System-wide stats, audit log endpoints
-- Frontend wiring of `AdminDashboard.vue`
+**Implementation:** Protected CRUD, staff elevation, system statistics, request oversight, and the request/stage status audit are wired to `AdminDashboard.vue`. The user form provides searchable, faculty-grouped staff department assignments.
 
-**Status:** ❌ NOT IMPLEMENTED.
+**Status:** Implemented. Administrative action auditing remains roadmap task 9.
 
 ---
 
@@ -278,8 +262,8 @@ Status legend: ✅ IMPLEMENTED · 🟡 PARTIALLY IMPLEMENTED · ❌ PLANNED/TODO
 | View attachments (both roles) | ✅ | ✅ | ✅ |
 | Email notifications | ✅ | N/A | ✅ |
 | Reopen request | ✅ | ✅ | ✅ |
-| Mark collected | ❌ | 🟡 (stub) | ❌ |
-| In-app notifications | ❌ | 🟡 (mock UI) | ❌ |
-| Dept Admin dashboard | ❌ | 🟡 (mock UI) | ❌ |
-| Super Admin dashboard | ❌ | 🟡 (mock UI) | ❌ |
-| Logout (token revocation) | ⚠️ BUG | ✅ (clears localStorage) | ⚠️ |
+| Mark collected | ✅ | ✅ | ✅ |
+| In-app notifications | ✅ | ✅ | ✅ |
+| Dept Admin dashboard | ✅ | ✅ | ✅ |
+| Super Admin dashboard | ✅ | ✅ | ✅ |
+| Logout (token revocation) | ✅ | ✅ | ✅ |

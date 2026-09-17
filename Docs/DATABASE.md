@@ -1,11 +1,15 @@
 # CampusDesk — Database Documentation
 
+## Super Admin data integrity
+
+The dashboard uses the existing faculty, department, programme, request type, user/profile, request, stage, and `status_history` tables. Programme `faculty_id` derives from its department. Staff memberships use `department_staff`, with one primary membership selected through the admin API. Referenced records are checked before deletion and return HTTP 409. `status_history` records request/stage transitions only. A separate administrative action audit table remains roadmap task 9.
+
 ## Technology
 
 - **Database:** MySQL (via XAMPP)
 - **ORM:** Laravel Eloquent
 - **Charset:** `utf8mb4` / `utf8mb4_unicode_ci`
-- **Migrations:** 27 migration files in `database/migrations/`
+- **Migrations:** 28 migration files in `database/migrations/`
 
 ## Entity Relationship Diagram
 
@@ -122,6 +126,14 @@ erDiagram
         timestamp read_at
         timestamps created_at
     }
+    STAGE_REASSIGNMENTS {
+        bigint id PK
+        bigint request_stage_id FK
+        bigint from_user_id FK
+        bigint to_user_id FK
+        bigint reassigned_by FK
+        timestamps created_at
+    }
 
     FACULTIES ||--o{ DEPARTMENTS : "has"
     FACULTIES ||--o{ PROGRAMMES : "offers"
@@ -142,6 +154,10 @@ erDiagram
     REQUEST_STAGES ||--o{ STATUS_HISTORY : "logs"
     USERS ||--o{ STATUS_HISTORY : "changed_by"
     USERS ||--o{ NOTIFICATIONS : "receives"
+    REQUEST_STAGES ||--o{ STAGE_REASSIGNMENTS : "handoff audit"
+    USERS ||--o{ STAGE_REASSIGNMENTS : "previous handler"
+    USERS ||--o{ STAGE_REASSIGNMENTS : "new handler"
+    USERS ||--o{ STAGE_REASSIGNMENTS : "administrator actor"
     DEPARTMENTS ||--o{ PROGRAMMES : "has"
 ```
 
@@ -285,6 +301,20 @@ erDiagram
 
 **Critical:** `handled_by` is null = unclaimed, set when staff claims the stage. The concurrency fix uses `lockForUpdate()` when claiming to prevent two staff members claiming the same stage.
 
+**Reassignment invariant:** A department administrator may change `handled_by` only for a claimed `in_review` stage in that administrator's primary department. The recipient must be a staff user assigned to that same department. Pending/unclaimed stages are not directly assignable; they remain in the atomic claim queue.
+
+### `stage_reassignments`
+| Column | Type | Notes |
+|--------|------|-------|
+| id | bigint PK | auto-increment |
+| request_stage_id | bigint FK | → request_stages.id, cascadeOnDelete |
+| from_user_id | bigint FK nullable | → users.id, nullOnDelete; handler before the handoff |
+| to_user_id | bigint FK | → users.id, restrictOnDelete; receiving handler |
+| reassigned_by | bigint FK nullable | → users.id, nullOnDelete; department-admin actor |
+| created_at / updated_at | timestamps | immutable handoff audit timestamp |
+
+Each successful reassignment writes exactly one row in the same transaction as the `request_stages.handled_by` update. This table is intentionally separate from `status_history`: a handoff does not change the stage or request status, so recording a synthetic `in_review → in_review` status event would be misleading.
+
 ### `status_history`
 | Column | Type | Notes |
 |--------|------|-------|
@@ -321,13 +351,13 @@ Files stored in `storage/app/attachments/` (private). Served through `Attachment
 |--------|------|-------|
 | id | bigint PK | |
 | user_id | bigint FK | → users.id, cascadeOnDelete |
-| type | string | e.g. "stage_update" |
+| type | string | e.g. `request_status_updated` or `stage_reassigned` |
 | message | text | |
 | read | boolean | default false |
 | read_at | timestamp nullable | |
 | created_at / updated_at | timestamps | |
 
-**Status:** Table and model exist. `Notification.$fillable` is NOT set (no entries). No backend endpoints exist to read or write notifications. `NotificationBell.vue` in the frontend uses mock data only.
+**Status:** In-app notifications are active. `Notification.$fillable` permits `user_id`, `type`, `message`, `read`, and `read_at`; authenticated users can list and mark their own notifications as read. A successful stage reassignment creates a `stage_reassigned` notification for the receiving staff member after the handoff transaction commits.
 
 ## Table Name Overrides
 
@@ -352,7 +382,7 @@ stateDiagram-v2
     in_review --> ready : final stage approved
     in_review --> rejected : stage rejected
     rejected --> pending : student or super admin reopens\n(is_reopened=true,\nrejected stage reset and requeued)
-    ready --> collected : student marks collected\n❌ NOT YET IMPLEMENTED
+    ready --> collected : student marks collected
     collected --> [*]
 ```
 
@@ -364,11 +394,25 @@ stateDiagram-v2
     pending --> in_review : staff claims\n(predecessor must be\napproved if not first)
     in_review --> approved : staff approves
     in_review --> rejected : staff rejects
+    in_review --> in_review : department admin reassigns handler\n(status unchanged; handoff audited)
     approved --> [*]
     rejected --> [*]
 ```
 
-## Migration History (27 migrations)
+## Stage Ownership Handoff State Machine
+
+This is intentionally separate from the status machine. Reassignment changes assignment, not workflow status.
+
+```mermaid
+stateDiagram-v2
+    [*] --> unclaimed_pending : stage generated or reopened
+    unclaimed_pending --> claimed_in_review : eligible staff claims atomically
+    claimed_in_review --> claimed_in_review : department admin reassigns\nfrom handler A to handler B\n(primary department only)
+    claimed_in_review --> resolved : handler approves or rejects
+    resolved --> [*]
+```
+
+## Migration History (28 migrations)
 
 | File | Purpose |
 |------|---------|
@@ -397,6 +441,8 @@ stateDiagram-v2
 | `2026_07_27_000002_change_degree_type_enum_on_programmes_table` | BSc/BEng→BACHELOR/CERTIFICATE/etc. |
 | `2026_07_27_000003_fix_programmes_code_unique_constraint` | code unique → (code, dept_id) unique |
 | `2026_07_27_000004_fix_programmes_triple_unique_constraint` | (code, dept_id) → (code, dept_id, degree_type) |
+
+The migration `2026_09_16_000000_create_stage_reassignments_table` adds the immutable handoff-audit table.
 
 ## Seeder Data
 

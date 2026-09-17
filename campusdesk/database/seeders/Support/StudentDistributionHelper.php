@@ -20,7 +20,7 @@ class StudentDistributionHelper
     public static function distribute(int $n): array
     {
         $levels = [];
-        $count  = count(self::LEVELS);
+        $count = count(self::LEVELS);
 
         for ($i = 0; $i < $n; $i++) {
             $levels[] = self::LEVELS[$i % $count];

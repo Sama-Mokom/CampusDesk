@@ -1,7 +1,7 @@
 <template>
-  <StaffDashboard dept-admin-mode />
+  <DeptAdminDashboard />
 </template>
 
 <script setup lang="ts">
-import StaffDashboard from '@/components/StaffDashboard.vue'
+import DeptAdminDashboard from '@/components/DeptAdminDashboard.vue'
 </script>

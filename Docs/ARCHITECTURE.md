@@ -49,12 +49,13 @@ Frontend/
 │   │   └── index.ts               ← ALL TypeScript interfaces (single source of truth)
 │   ├── composables/
 │   │   ├── useAuth.ts             ← token + user state management
-│   │   └── useMockData.ts         ← mock data layer (still referenced by unfinished views)
+│   │   └── useMockData.ts         ← legacy mock data layer; active dashboards use API services
 │   ├── services/
 │   │   ├── api.ts                 ← Axios instance + interceptors
 │   │   ├── auth.ts                ← login/register/logout API calls
 │   │   ├── requests.ts            ← student request API calls
 │   │   ├── stages.ts              ← staff stage API calls
+│   │   ├── notifications.ts        ← in-app notification API calls
 │   │   └── reference.ts           ← dropdown data (faculties, depts, etc.)
 │   ├── router/
 │   │   └── index.ts               ← routes + role-based guards
@@ -63,15 +64,15 @@ Frontend/
 │   │   ├── RegisterView.vue       ← student registration page
 │   │   ├── StudentView.vue        ← wrapper → StudentDashboard
 │   │   ├── StaffView.vue          ← wrapper → StaffDashboard
-│   │   ├── DeptAdminView.vue      ← dept admin (MOCK ONLY — uses useMockData)
-│   │   └── SuperAdminView.vue     ← super admin (MOCK ONLY — uses useMockData)
+│   │   ├── DeptAdminView.vue      ← department admin API dashboard
+│   │   └── SuperAdminView.vue     ← Super Admin API dashboard
 │   └── components/
 │       ├── StudentDashboard.vue   ← main student UI (WIRED to real API)
 │       ├── StaffDashboard.vue     ← main staff UI (WIRED to real API)
-│       ├── AdminDashboard.vue     ← super admin UI component (MOCK ONLY — uses useMockData)
+│       ├── AdminDashboard.vue     ← Super Admin management and oversight UI
 │       ├── DocumentViewer.vue     ← blob URL file viewer (WIRED)
 │       ├── RequestTimeline.vue    ← stage progression display
-│       ├── NotificationBell.vue   ← notification bell (MOCK ONLY — uses useMockData)
+│       ├── NotificationBell.vue   ← notification bell (wired to notification API)
 │       ├── StatusBadge.vue        ← coloured status pill
 │       └── LevelBadge.vue         ← student level display
 ├── app/                           ← ABANDONED Next.js scaffold (ignore — do not use)
@@ -102,19 +103,19 @@ campusdesk/
 │   │   ├── Controllers/
 │   │   │   ├── Auth/
 │   │   │   │   ├── AuthenticatedSessionController.php  ← login (token response)
-│   │   │   │   │                                         ⚠️ logout() has session bug
+│   │   │   │   │                                         logout revokes current Sanctum token
 │   │   │   │   └── RegisteredUserController.php        ← registration + student profile
 │   │   │   ├── RequestController.php                   ← student request CRUD
 │   │   │   │                                              (uses StageGenerationService)
 │   │   │   ├── RequestStageController.php              ← staff queue + claim + resolve
+│   │   │   ├── NotificationController.php               ← list + mark-read notifications
 │   │   │   ├── AttachmentController.php                ← protected file serving
 │   │   │   └── ReferenceDataController.php             ← public dropdown data
 │   │   ├── Middleware/
 │   │   │   ├── EnsureIsStudent.php      ← checks is_student gate
 │   │   │   ├── EnsureIsStaff.php        ← checks is_staff gate
 │   │   │   ├── EnsureIsDeptAdmin.php    ← checks is-dept-admin gate
-│   │   │   │                               ⚠️ AppServiceProvider defines is_dept-admin
-│   │   │   │                               (mixed naming — gate never matches — see KNOWN_ISSUES)
+│   │   │   │                               matches is-dept-admin gate
 │   │   │   └── EnsureIsSuperAdmin.php   ← checks is-super-admin gate
 │   │   └── Requests/
 │   │       ├── StoreRequestRequest.php      ← student request validation
@@ -134,21 +135,21 @@ campusdesk/
 │   │   ├── Attachment.php
 │   │   └── Notification.php
 │   ├── Observers/
-│   │   └── RequestStageObserver.php ← auto status history + email dispatch
+│   │   └── RequestStageObserver.php ← auto stage status history
 │   ├── Jobs/
 │   │   └── SendRequestStatusNotification.php
 │   ├── Mail/
 │   │   └── RequestStatusUpdated.php
 │   ├── Services/
-│   │   └── StageGenerationService.php  ← resolves symbolic department tokens
-│   │                                      and complete department sequences
+│   │   ├── StageGenerationService.php  ← resolves symbolic department tokens
+│   │   └── RequestStatusNotificationService.php ← queues email + creates in-app lifecycle notifications
 │   ├── Http/Resources/
 │   │   ├── RequestResource.php
 │   │   ├── RequestStageResource.php
 │   │   └── UserResource.php
 │   └── Providers/
 │       └── AppServiceProvider.php     ← Gates + Observer registration
-│                                         ⚠️ gate 'is_dept-admin' has mixed naming bug
+│                                         department-admin gate name is aligned
 ├── database/
 │   ├── migrations/                  ← 27 migration files total
 │   ├── factories/
@@ -209,7 +210,7 @@ auth:sanctum middleware validates token on every protected request
 
 **Important:** `EnsureFrontendRequestsAreStateful` was intentionally REMOVED from `bootstrap/app.php`. It caused redirects that broke token-based auth. Only `HandleCors` is prepended to the middleware stack.
 
-**⚠️ Known issue — logout:** `AuthenticatedSessionController::destroy()` currently calls `$request->session()->invalidate()` which will crash in the stateless API context. See KNOWN_ISSUES.md.
+`AuthenticatedSessionController::destroy()` revokes the current Sanctum token. The historical session-method issue is resolved.
 
 ## Authorization Architecture
 
@@ -223,13 +224,13 @@ Gates defined in `AppServiceProvider::boot()`:
 ```php
 Gate::define('is_student', fn(User $user) => $user->role === 'student');
 Gate::define('is_staff',   fn(User $user) => $user->role === 'staff');
-Gate::define('is_dept-admin', fn(User $user) =>          // ⚠️ BUG: mixed naming
+Gate::define('is-dept-admin', fn(User $user) =>
     $user->role === 'staff' && $user->staffProfile?->admin_level === 'dept_admin');
 Gate::define('is-super-admin', fn(User $user) =>
     $user->role === 'staff' && $user->staffProfile?->admin_level === 'super_admin');
 ```
 
-**⚠️ Naming inconsistency:** `is_student` and `is_staff` use underscores. `is-super-admin` uses hyphens. `is_dept-admin` uses a mixed convention (underscore + hyphen). `EnsureIsDeptAdmin` checks `Gate::allows('is-dept-admin')` (all-hyphen) — which does NOT match the mixed-convention definition `'is_dept-admin'`. The `dept_admin` middleware will always deny access until this is fixed.
+`is_student` and `is_staff` use underscores; the two admin gates use hyphens. Each middleware checks the gate name actually defined in `AppServiceProvider`.
 
 Middleware aliases in `bootstrap/app.php`:
 - `student` → `EnsureIsStudent`
@@ -249,14 +250,14 @@ Frontend receives a file ID, fetches it via Axios with `responseType: 'blob'`, c
 
 ## Queue / Async Architecture
 
-Email notifications are dispatched as queued jobs:
+Lifecycle notifications are created and email notifications are dispatched as queued jobs:
 
 ```
-Stage status changes
+Request status transition
   ↓
-RequestStageObserver::updated() fires
+RequestStatusNotificationService::notifyStudent()
   ↓
-SendRequestStatusNotification::dispatch($student, $request, $newStatus)
+INSERT notifications row + SendRequestStatusNotification::dispatch(...)->afterCommit()
   ↓
 Job pushed to `jobs` table (database queue driver)
   ↓
@@ -268,6 +269,15 @@ Mailtrap (dev) receives email
 ```
 
 Queue must be running for notifications to send. Use `composer run dev` to start server + queue worker + log viewer concurrently, or run `php artisan queue:work` in a separate terminal.
+
+## Deferred Integration Architecture
+
+Four future initiatives have been scoped but are not implemented:
+
+- **Design-system overhaul:** The Vue SPA in `Frontend/src/` remains the only frontend target. Figma work should introduce reusable, accessible Vue components and tokens without changing backend business logic by default.
+- **Real-time delivery:** `RequestStatusNotificationService` is the current lifecycle notification seam. Future first-party real-time UI updates should publish domain events from that seam and use WebSockets or SSE; signed webhooks are reserved for third-party consumers. Delivery must be queued, idempotent, retryable, and auditable.
+- **AI support:** An AI gateway must be isolated from request mutation paths. It may receive curated support knowledge and redacted, read-only context only. Escalation requires persisted support conversations/messages and a human handoff ticket associated with a department or super administrator.
+- **Payments:** Mobile Money support must sit behind a provider interface. A `payments` aggregate and verified provider webhook will control an `awaiting_payment` request state; successful-payment handling must lock the payment and request records before releasing the request into the existing stage queue.
 
 ## Stage Sequence Resolution Architecture
 

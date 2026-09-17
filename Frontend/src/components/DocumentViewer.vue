@@ -82,7 +82,8 @@
         <span class="text-4xl">📎</span>
         <p class="text-sm">Preview not available for this file type.</p>
         <a
-          :href="activeFile.file_path"
+          :href="blobUrl ?? undefined"
+          :download="activeFile.original_name"
           target="_blank"
           rel="noopener noreferrer"
           class="btn-primary text-sm"
@@ -104,7 +105,7 @@ import { ref } from "vue";
 import type { Attachment } from "../types";
 import api from "../services/api";
 
-const props = defineProps<{
+defineProps<{
   attachments: Attachment[];
 }>();
 

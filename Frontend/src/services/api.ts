@@ -40,11 +40,16 @@ api.interceptors.response.use(
   },
   (error) => {
     // Check if the server returned a 401 Unauthorized error
-    if (error.response && error.response.status === 401) {
-      // Clear token (and any other auth data) from localStorage
+    if (error.response?.status === 401 && localStorage.getItem('token')) {
+      // A request made with a stale token invalidates the persisted session.
+      // Do not redirect guest requests: doing so remounts the login page and
+      // can create a request/reload loop.
       localStorage.removeItem('token');
-      // Force a page reload or redirect to the login page
-       window.location.href = '/login';
+      localStorage.removeItem('user');
+
+      if (window.location.pathname !== '/login') {
+        window.location.replace('/login');
+      }
     }
     
     // Pass the error back to the calling function so it can still be handled locally if needed

@@ -507,17 +507,33 @@ class SequentialRoutingPreservationTest extends TestCase
      *
      * Validates: Requirements 3.5 (current observable behaviour)
      */
-    public function test_for_request_endpoint_returns_200_for_staff(): void
+    public function test_for_request_endpoint_returns_timeline_in_sequence_order_for_staff(): void
     {
         $deptA = $this->makeDepartment('P5A');
-        [$docRequest, [$stageA]] = $this->seedNStageRequest([$deptA], ['pending']);
+        $deptB = $this->makeDepartment('P5B');
+        [$docRequest, [$stageA, $stageB]] = $this->seedNStageRequest(
+            [$deptA, $deptB],
+            ['approved', 'pending']
+        );
 
         $staffA = $this->makeStaffInDepartment($deptA);
 
         $response = $this->actingAs($staffA, 'sanctum')
                          ->getJson("/api/requests/{$docRequest->id}/stages");
 
-        $response->assertStatus(200);
+        $response->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.id', $stageA->id)
+            ->assertJsonPath('data.0.sequence_order', 1)
+            ->assertJsonPath('data.0.status', 'approved')
+            ->assertJsonPath('data.1.id', $stageB->id)
+            ->assertJsonPath('data.1.sequence_order', 2)
+            ->assertJsonStructure([
+                'data' => [[
+                    'id', 'request_id', 'department_name', 'sequence_order',
+                    'status', 'handled_by', 'staff_note', 'updated_at', 'request',
+                ]],
+            ]);
     }
 
     /**
@@ -525,19 +541,14 @@ class SequentialRoutingPreservationTest extends TestCase
      *
      * Validates: Requirements 3.5 (current observable behaviour)
      */
-    public function test_for_request_response_is_wrapped_in_data_key(): void
+    public function test_for_request_returns_not_found_for_unknown_request(): void
     {
         $deptA = $this->makeDepartment('P5B');
-        [$docRequest, [$stageA]] = $this->seedNStageRequest([$deptA], ['pending']);
-
         $staffA = $this->makeStaffInDepartment($deptA);
 
-        $response = $this->actingAs($staffA, 'sanctum')
-                         ->getJson("/api/requests/{$docRequest->id}/stages");
-
-        $response->assertStatus(200);
-        $this->assertIsArray($response->json('data'),
-            "P-3.5: forRequest response must contain a 'data' key with an array.");
+        $this->actingAs($staffA, 'sanctum')
+            ->getJson('/api/requests/999999/stages')
+            ->assertNotFound();
     }
 
     // =========================================================================

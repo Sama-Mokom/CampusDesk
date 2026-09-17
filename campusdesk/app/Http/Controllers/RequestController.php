@@ -2,16 +2,16 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Auth;
-use App\Models\RequestType;
-use App\Models\Request as UserRequest;
 use App\Http\Requests\StoreRequestRequest;
 use App\Http\Resources\RequestResource;
-use App\Services\StageGenerationService;
+use App\Models\Request as UserRequest;
+use App\Models\RequestType;
+use App\Services\RequestCreationService;
+use App\Services\RequestStatusNotificationService;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use UnexpectedValueException;
-
 
 class RequestController extends Controller
 {
@@ -30,15 +30,15 @@ class RequestController extends Controller
     /**
      * Create a request and its initial department stages.
      */
-    public function store(StoreRequestRequest $request, StageGenerationService $stageGenerationService)
+    public function store(StoreRequestRequest $request, RequestCreationService $requestCreation)
     {
-        return DB::transaction(function () use ($request, $stageGenerationService) {
-            $userRequest = Auth::user()->requests()->create([
-                'request_type_id' => $request->request_type_id,
-                'description' => $request->description,
-                'status' => 'pending',
-                'is_reopened' => false,
-            ]);
+        return DB::transaction(function () use ($request, $requestCreation) {
+            $type = RequestType::findOrFail($request->request_type_id);
+            $userRequest = $requestCreation->createForStudent(
+                Auth::user(),
+                $type,
+                $request->description,
+            );
 
             if ($request->hasFile('attachments')) {
                 foreach ($request->file('attachments', []) as $file) {
@@ -51,35 +51,6 @@ class RequestController extends Controller
                     ]);
                 }
             }
-
-            $type = RequestType::findOrFail($request->request_type_id);
-            $studentProfile = Auth::user()->studentProfile;
-
-            abort_if(
-                is_null($studentProfile),
-                403,
-                'No student profile found for the authenticated user.'
-            );
-
-            $resolvedSequence = $stageGenerationService->resolveSequence(
-                $type->default_department_sequence,
-                $studentProfile
-            );
-
-            foreach ($resolvedSequence as $index => $deptId) {
-                $userRequest->requestStages()->create([
-                    'department_id' => $deptId,
-                    'sequence_order' => $index + 1,
-                    'status' => 'pending',
-                ]);
-            }
-
-            $userRequest->statusHistories()->create([
-                'new_status' => 'pending',
-                'old_status' => null,
-                'changed_by' => null,
-                'note' => 'Request submitted by student.',
-            ]);
 
             return new RequestResource(
                 $userRequest->load(['requestType', 'requestStages.department', 'attachments', 'statusHistories'])
@@ -100,7 +71,7 @@ class RequestController extends Controller
         );
     }
 
-    public function reopen(UserRequest $request)
+    public function reopen(UserRequest $request, RequestStatusNotificationService $notifications)
     {
         $user = Auth::user();
         $isOwner = $request->student_id === $user->id;
@@ -109,7 +80,7 @@ class RequestController extends Controller
 
         abort_unless($isOwner || $isSuperAdmin, 403);
 
-        return DB::transaction(function () use ($request, $user, $isSuperAdmin) {
+        return DB::transaction(function () use ($request, $user, $isSuperAdmin, $notifications) {
             $lockedRequest = UserRequest::query()
                 ->whereKey($request->id)
                 ->lockForUpdate()
@@ -151,6 +122,8 @@ class RequestController extends Controller
                     : 'Request reopened by student.',
             ]);
 
+            $notifications->notifyStudent($lockedRequest, 'pending');
+
             return new RequestResource(
                 $lockedRequest->fresh()->load([
                     'requestType',
@@ -159,6 +132,30 @@ class RequestController extends Controller
                     'statusHistories',
                 ])
             );
+        });
+    }
+
+    public function collect(UserRequest $request)
+    {
+        $user = Auth::user();
+        abort_unless($request->student_id === $user->id, 403);
+
+        return DB::transaction(function () use ($request, $user) {
+            $lockedRequest = UserRequest::query()->whereKey($request->id)->lockForUpdate()->firstOrFail();
+            abort_unless($lockedRequest->status === 'ready', 422, 'Only ready requests can be marked as collected.');
+
+            $lockedRequest->update(['status' => 'collected']);
+            $lockedRequest->statusHistories()->create([
+                'old_status' => 'ready',
+                'new_status' => 'collected',
+                'changed_by' => $user->id,
+                'request_stage_id' => null,
+                'note' => 'Request marked as collected by student.',
+            ]);
+
+            return new RequestResource($lockedRequest->fresh()->load([
+                'requestType', 'requestStages.department', 'attachments', 'statusHistories',
+            ]));
         });
     }
 

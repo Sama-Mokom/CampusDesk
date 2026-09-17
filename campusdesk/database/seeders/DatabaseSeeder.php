@@ -34,8 +34,8 @@ class DatabaseSeeder extends Seeder
     {
         // Parse once — FacultyMarkdownParser performs no database access.
         // DatabaseSeeder reads from database/seeders/support/ (canonical location).
-        $content         = File::get(database_path('seeders/support/university_programs_structure.md'));
-        $parsedFaculties = (new FacultyMarkdownParser())->parse($content, $this->command);
+        $content = File::get(database_path('seeders/Support/university_programs_structure.md'));
+        $parsedFaculties = (new FacultyMarkdownParser)->parse($content, $this->command);
 
         // ------------------------------------------------------------------
         // Tier 0-1: reference data (strict order — each depends on the prior)
@@ -62,16 +62,24 @@ class DatabaseSeeder extends Seeder
         // ------------------------------------------------------------------
         // Tier 3: pivot assignments — depends on Staff + Departments both existing
         // ------------------------------------------------------------------
-        (new DepartmentStaffSeeder())
+        (new DepartmentStaffSeeder)
             ->setContainer($this->container)->setCommand($this->command)->run();
 
         // ------------------------------------------------------------------
         // Tier 4 foundation: request types (depends on Departments for dept IDs)
         // ------------------------------------------------------------------
-        (new RequestTypeSeeder())
+        (new RequestTypeSeeder)
             ->setContainer($this->container)->setCommand($this->command)->run();
 
-        // Tier 4+ (RequestSeeder, stage progression) intentionally not called yet.
+        (new RequestSeeder(requestCount: 24))
+            ->setContainer($this->container)->setCommand($this->command)->run();
+
+        (new AttachmentSeeder)
+            ->setContainer($this->container)->setCommand($this->command)->run();
+
+        (new NotificationSeeder)
+            ->setContainer($this->container)->setCommand($this->command)->run();
+
         // See spec §7.6 and §8 — stage-progression mechanic is NOT READY FOR IMPLEMENTATION.
     }
 }

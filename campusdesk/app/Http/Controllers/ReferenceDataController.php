@@ -15,7 +15,7 @@ class ReferenceDataController extends Controller
      */
     public function faculties(): JsonResponse
     {
-        $faculties = Faculty::all(['id', 'name', 'code', 'created_at']);
+        $faculties = Faculty::all(['id', 'name', 'code', 'matricule_prefix', 'created_at']);
         return response()->json($faculties);
     }
 
@@ -24,7 +24,7 @@ class ReferenceDataController extends Controller
      */
     public function departments(): JsonResponse
     {
-        $departments = Department::all(['id', 'faculty_id', 'name', 'code', 'created_at']);
+        $departments = Department::all(['id', 'faculty_id', 'name', 'code', 'type', 'created_at']);
         return response()->json($departments);
     }
 
@@ -33,7 +33,7 @@ class ReferenceDataController extends Controller
      */
     public function programmes(): JsonResponse
     {
-        $programmes = Programme::all(['id', 'faculty_id', 'name', 'code', 'degree_type']);
+        $programmes = Programme::all(['id', 'faculty_id', 'department_id', 'name', 'code', 'degree_type']);
         return response()->json($programmes);
     }
 

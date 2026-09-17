@@ -35,14 +35,14 @@ const programmes = ref<Programme[]>([
     faculty_id: 1,
     name: 'BEng Computer Engineering',
     code: 'BENG-CE',
-    degree_type: 'BEng'
+    degree_type: 'BACHELOR'
   },
   {
     id: 1,
     faculty_id: 1,
     name: 'BEng Electrical Engineering',
     code: 'BENG-EE',
-    degree_type: 'BEng'
+    degree_type: 'BACHELOR'
   }
 ])
 
@@ -77,7 +77,7 @@ const mockUsers = ref<User[]>([
     created_at: created('2024-09-01T00:00:00Z'),
     student_profile: {
       matricule: 'FE23A118',
-      level: 'L400',
+      level: '400',
       status: 'active',
       faculty: { ...fet },
       department: { ...ceDept },
@@ -93,7 +93,7 @@ const mockUsers = ref<User[]>([
     created_at: created('2024-09-01T00:00:00Z'),
     student_profile: {
       matricule: 'FE22B045',
-      level: 'L300',
+      level: '300',
       status: 'active',
       faculty: { ...fet },
       department: { ...eeDept },

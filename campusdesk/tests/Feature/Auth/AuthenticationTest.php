@@ -12,36 +12,50 @@ class AuthenticationTest extends TestCase
 
     public function test_users_can_authenticate_using_the_login_screen(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->staff()->create();
 
-        $response = $this->post('/login', [
+        $response = $this->postJson('/api/login', [
             'email' => $user->email,
             'password' => 'password',
         ]);
 
-        $this->assertAuthenticated();
-        $response->assertNoContent();
+        $response->assertOk()
+            ->assertJsonStructure(['token', 'user' => ['id', 'name', 'email', 'role']]);
     }
 
     public function test_users_can_not_authenticate_with_invalid_password(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->staff()->create();
 
-        $this->post('/login', [
+        $this->postJson('/api/login', [
             'email' => $user->email,
             'password' => 'wrong-password',
-        ]);
-
-        $this->assertGuest();
+        ])->assertUnprocessable();
     }
 
     public function test_users_can_logout(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->staff()->create();
+        $token = $user->createToken('logout-test');
 
-        $response = $this->actingAs($user)->post('/logout');
+        $response = $this->withToken($token->plainTextToken)->postJson('/api/logout');
 
-        $this->assertGuest();
         $response->assertNoContent();
+        $this->assertDatabaseMissing('personal_access_tokens', [
+            'id' => $token->accessToken->id,
+        ]);
+
+        // Feature tests reuse the application container; reset its cached guard
+        // so this request authenticates from the revoked bearer token again.
+        $this->app['auth']->forgetGuards();
+
+        $this->withToken($token->plainTextToken)
+            ->getJson('/api/user')
+            ->assertUnauthorized();
+    }
+
+    public function test_logout_requires_a_sanctum_token(): void
+    {
+        $this->postJson('/api/logout')->assertUnauthorized();
     }
 }

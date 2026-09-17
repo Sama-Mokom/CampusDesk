@@ -43,15 +43,26 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useMockData } from '@/composables/useMockData'
+import { ref, computed, onMounted } from 'vue'
+import type { Notification } from '@/types'
+import { fetchNotifications, markNotificationRead } from '@/services/notifications'
+import { useAuth } from '@/composables/useAuth'
 import { format } from 'date-fns'
 
-const { sessionNotifications, unreadNotificationCount, markNotificationRead } = useMockData()
-
 const open = ref(false)
-const items = computed(() => sessionNotifications.value)
-const unreadCount = computed(() => unreadNotificationCount.value)
+const items = ref<Notification[]>([])
+const unreadCount = computed(() => items.value.filter(item => !item.read).length)
+const { isAuthenticated } = useAuth()
+
+onMounted(async () => {
+  if (!isAuthenticated.value) return
+
+  try {
+    items.value = await fetchNotifications()
+  } catch {
+    items.value = []
+  }
+})
 
 function formatTime(iso: string) {
   try {
@@ -61,7 +72,16 @@ function formatTime(iso: string) {
   }
 }
 
-function onClick(id: number) {
-  markNotificationRead(id)
+async function onClick(id: number) {
+  if (!isAuthenticated.value) return
+
+  const index = items.value.findIndex(item => item.id === id)
+  if (index === -1 || items.value[index]!.read) return
+
+  try {
+    items.value[index] = await markNotificationRead(id)
+  } catch {
+    // Leave the item unread so the user can retry.
+  }
 }
 </script>

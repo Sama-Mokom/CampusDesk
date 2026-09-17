@@ -49,7 +49,7 @@ The header's Log Out button calls `clearAuth()` (clears localStorage) and naviga
 - Request detail modal: description, status badge, reopened indicator, attachments (via `DocumentViewer`), vertical stage timeline, collapsible status history log
 - Conditional action buttons:
   - "Reopen Request" shown if status is `rejected` — calls the API, disables while in flight, then updates the detail/list state and displays success or error feedback
-  - "Mark as Collected" shown if status is `ready` — ❌ UI exists, backend not wired (`doCollected()` is a console.log stub)
+  - "Mark as Collected" shown if status is `ready` and calls the authenticated collection endpoint
 
 ### Staff Dashboard (`StaffDashboard.vue`)
 - Header: staff name, staff ID, primary department name
@@ -61,16 +61,14 @@ The header's Log Out button calls `clearAuth()` (clears localStorage) and naviga
 - Request detail modal (shared pattern): full stage timeline + attachments before deciding
 
 ### Department Admin View (`DeptAdminView.vue`)
-- 🟡 MOCK ONLY — all data sourced from `useMockData`
-- Shows department stats, all department requests (claimed + unclaimed), stage reassignment UI
-- No backend routes wired
+- Uses the primary-department API for stage statistics, staff, and claimability
+- Allows reassignment of claimed, in-review stages to assigned staff
 
 ### Super Admin View (`SuperAdminView.vue` + `AdminDashboard.vue`)
-- 🟡 MOCK ONLY — all data sourced from `useMockData`
-- `SuperAdminView.vue` is the route wrapper; `AdminDashboard.vue` is the full component
-- Features visible in mock UI: system stats, recent activity, all-requests table with filtering, user management (create/edit/delete), organisational management tabs (faculties, departments, programmes, request types), audit log with pagination
-- No backend routes wired
-- The super admin UI is more complete in its mock form than the dept admin UI
+- `SuperAdminView.vue` wraps the API-backed dashboard
+- Displays system statistics, recent status activity, paginated request cards and filters, user management, reference-data tabs, and paginated request/stage status history
+- The request modal reuses `RequestTimeline` and the protected `DocumentViewer`; rejected requests expose the existing reopen action
+- Staff user forms offer faculty-grouped department search, selected memberships, and a primary-department selector
 
 ## Components Inventory
 
@@ -80,10 +78,10 @@ The header's Log Out button calls `clearAuth()` (clears localStorage) and naviga
 | `LevelBadge` | `LevelBadge.vue` | Small pill showing student level (100–600) | ✅ Implemented |
 | `RequestTimeline` | `RequestTimeline.vue` | Vertical stepper showing stage progression | ✅ Implemented |
 | `DocumentViewer` | `DocumentViewer.vue` | Secure blob-based file preview | ✅ Implemented |
-| `NotificationBell` | `NotificationBell.vue` | Notification bell dropdown | 🟡 UI exists, uses `useMockData` |
+| `NotificationBell` | `NotificationBell.vue` | Notification bell dropdown | ✅ API-backed |
 | `StudentDashboard` | `StudentDashboard.vue` | Main student view | ✅ Fully wired to API |
 | `StaffDashboard` | `StaffDashboard.vue` | Main staff view | ✅ Fully wired to API |
-| `AdminDashboard` | `AdminDashboard.vue` | Super admin view component | 🟡 UI exists, uses `useMockData` |
+| `AdminDashboard` | `AdminDashboard.vue` | Super admin view component | ✅ API-backed |
 
 ## Views Inventory
 
@@ -93,18 +91,12 @@ The header's Log Out button calls `clearAuth()` (clears localStorage) and naviga
 | Register | `RegisterView.vue` | `/register` | ✅ Wired |
 | Student | `StudentView.vue` | `/student` | ✅ Wrapper for StudentDashboard |
 | Staff | `StaffView.vue` | `/staff` | ✅ Wrapper for StaffDashboard |
-| Dept Admin | `DeptAdminView.vue` | `/dept-admin` | 🟡 Mock only |
-| Super Admin | `SuperAdminView.vue` | `/admin` | 🟡 Mock only (renders AdminDashboard) |
+| Dept Admin | `DeptAdminView.vue` | `/dept-admin` | ✅ API-backed |
+| Super Admin | `SuperAdminView.vue` | `/admin` | ✅ API-backed |
 
 ## `useMockData.ts` Composable
 
-`useMockData.ts` is the original mock data composable from the v0/Cursor scaffold. It is still referenced by:
-- `NotificationBell.vue` — for mock notifications
-- `AdminDashboard.vue` — for all admin data
-- `DeptAdminView.vue` — for all dept admin data
-- `SuperAdminView.vue` — indirectly via AdminDashboard
-
-The wired components (`StudentDashboard`, `StaffDashboard`, `LoginView`, `RegisterView`) no longer reference `useMockData` for data.
+`useMockData.ts` is a legacy scaffold module. The active dashboards and notification bell use API services; the mock composable is no longer their data source.
 
 ## Document Viewer Pattern (Secure Blob)
 
