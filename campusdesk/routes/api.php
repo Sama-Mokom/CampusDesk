@@ -7,6 +7,7 @@ use App\Http\Controllers\RequestController;
 use App\Http\Controllers\ReferenceDataController;
 use App\Http\Controllers\AttachmentController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\DeptAdminController;
 
 Route::middleware(['auth:sanctum'])->get('/user', function (Request $request) {
     return $request->user();
@@ -38,8 +39,9 @@ Route::middleware(['auth:sanctum', 'staff', 'throttle:60,1'])->group(function ()
     Route::post('requests/{docRequest}/stages/{stage}/claim', [RequestStageController::class, 'claim']);
     Route::patch('requests/{docRequest}/stages/{stage}/resolve', [RequestStageController::class, 'resolve']);
 });
-Route::middleware(['auth:sanctum', 'dept_admin'])->group(function () {
-    // dept_admin routes go here
+Route::middleware(['auth:sanctum', 'dept_admin', 'throttle:60,1'])->group(function () {
+    Route::get('/dept-admin/requests', [DeptAdminController::class, 'index']);
+    Route::patch('/dept-admin/stages/{stage}/reassign', [DeptAdminController::class, 'reassign']);
 });
 
 Route::middleware(['auth:sanctum', 'super_admin'])->group(function () {
