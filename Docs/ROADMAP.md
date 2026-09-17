@@ -4,7 +4,7 @@
 
 - [x] System modeling (ERD, state machine, permission matrix)
 - [x] Laravel project setup
-- [x] All migrations (27 total) and Eloquent models
+- [x] All migrations (28 total) and Eloquent models
 - [x] Authentication via Sanctum Bearer tokens
 - [x] Core request lifecycle: submit, stage generation, claim, resolve
 - [x] Automatic status history via Observer pattern
@@ -32,6 +32,7 @@
 - [x] Frontend student-level and degree-type enum alignment
 - [x] Mark collected endpoint and Student Dashboard wiring
 - [x] In-app notification API, lifecycle delivery service, and notification bell wiring
+- [x] Department Admin dashboard wiring: primary-department oversight, workflow-aware claimability, active-stage reassignment, immutable handoff audit records, and receiving-staff notifications
 
 ## Immediate Fixes Cleared ✅
 
@@ -43,13 +44,7 @@ No remaining tasks in this section. Continue with the Later items.
 
 ## Later
 
-7. **Department Admin dashboard wiring**
-   - Backend: `GET /api/dept-admin/requests` (all requests in primary department, claimed + unclaimed)
-   - Backend: `PATCH /api/dept-admin/stages/{stage}/reassign` (change `handled_by`)
-   - Frontend: replace `useMockData` references in `DeptAdminView.vue` with real service calls
-   - Direct assignment of pending/unclaimed stages is intentionally deferred; staff must use the normal concurrency-safe claim flow.
-
-8. **Super Admin dashboard wiring**
+7. **Super Admin dashboard wiring**
    - This is the largest remaining chunk of work
    - CRUD endpoints for: faculties, departments, programmes, request types, users
    - Staff elevation endpoint (assign `admin_level`)
@@ -57,7 +52,7 @@ No remaining tasks in this section. Continue with the Later items.
    - Full audit log endpoint (paginated `status_history`)
    - Frontend wiring of `AdminDashboard.vue` (the mock UI already has a detailed structure)
 
-9. **Automated testing gaps**
+8. **Automated testing gaps**
     - Concurrency test (true multi-connection parallel claim attempt)
     - End-to-end staff requeue test after reopening a stage
     - Attachment security test (ownership enforcement)
@@ -65,6 +60,8 @@ No remaining tasks in this section. Continue with the Later items.
     - Frontend E2E tests (Cypress or Playwright — not currently installed)
 
 ## Future Strategic Initiatives
+
+- **Direct assignment of pending/unclaimed stages:** Intentionally deferred. Staff must continue to use the normal concurrency-safe claim flow; any future direct-assignment feature requires separate workflow and audit design.
 
 These GitHub issues are intentionally deferred. They require design review and must not bypass the current request lifecycle, authorization, or audit-history rules.
 
