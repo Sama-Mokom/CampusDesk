@@ -2,7 +2,17 @@
 
 ## Current State
 
-Automated tests exist for the request lifecycle, department administration, Super Admin API, and frontend dashboards. The full suites currently include stale scaffold/preview tests that fail even though the focused Super Admin tests pass; details appear below.
+Automated tests exist for authentication, the request lifecycle, department administration, the Super Admin API, notifications, and frontend dashboards. CI/CD Session 1 repaired the stale authentication and protected-document preview tests and established a fully green local baseline.
+
+Last verified baseline on 24 September 2026:
+
+- `php artisan test`: 54 tests passed with 354 assertions.
+- `npm test`: 37 tests passed.
+- `npm run lint`: passed.
+- `npx vue-tsc --noEmit`: passed.
+- `npm run build`: passed.
+
+These commands are the quality gates planned for the first GitHub Actions workflow.
 
 ---
 
@@ -179,10 +189,10 @@ Covers server-backed collection loading and pagination, rejected-request reopen,
 |------|----------|
 | Sequential routing and serial claim conflict (backend) | ✅ Covered by feature tests; true parallel claim test remains open |
 | Stage claim/resolve flow (backend) | ✅ Covered by preservation tests |
-| DocumentViewer component (frontend) | ⚠️ Existing tests assume immediate public file paths; four fail against authenticated blob loading |
+| DocumentViewer component (frontend) | ✅ Five tests cover empty, image, PDF, fallback, and collapse behavior using the authenticated blob flow |
 | StaffDashboard resolve modal (frontend) | ✅ Covered by unit tests |
 | RequestTimeline component (frontend) | ✅ Covered by unit tests |
-| Authentication flows | ⚠️ Logout/token revocation has project-specific tests; five older auth scaffold tests fail against current fixtures/API behavior |
+| Authentication flows | ✅ Registration, verification, password reset, login, logout, and token behavior pass against the current API and fixtures |
 | Attachment security | ❌ Not covered |
 | Student request submission | ❌ Not covered |
 | Notification system | ✅ Backend and bell tests |
@@ -191,7 +201,8 @@ Covers server-backed collection loading and pagination, rejected-request reopen,
 
 ## Current verification limits
 
-- `php artisan test`: five legacy auth tests fail. Four create a student via `UserFactory` without seeding a faculty, academic department, and undergraduate programme. The registration scaffold test posts to `/register` with no student profile fields and expects session authentication/204; the current API is `/api/register` and returns a token JSON response.
-- `npm test`: four `DocumentViewer.spec.ts` tests expect a preview immediately after click and compare its URL with the attachment's public `file_path`. The viewer instead fetches an authenticated blob asynchronously.
-- `npx vue-tsc --noEmit`: run this strict type check before merging frontend changes.
-- `npm run build`: succeeds with the Vue/Vite source tree and produces a clean `dist/` directory. Focused `SuperAdminDashboardTest.php` and `AdminDashboard.spec.ts` suites pass.
+- True parallel stage-claim behavior still lacks a multi-connection concurrency test.
+- Attachment ownership and invalid/oversized upload behavior still need dedicated feature coverage.
+- Student request submission needs a focused end-to-end backend integration test.
+- Browser-level E2E coverage is not installed.
+- The current green commands were run on the Windows development machine. Session 2 will reproduce them on disposable GitHub-hosted Linux runners.

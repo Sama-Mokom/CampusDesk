@@ -37,6 +37,8 @@ This is the complete knowledge base for the CampusDesk project — a university 
 - **[SECURITY.md](./Docs/SECURITY.md)** — Auth mechanism, authorization layers, known security gaps
 - **[TESTING.md](./Docs/TESTING.md)** — Current test coverage and recommended test checklist
 - **[DEVELOPMENT_SETUP.md](./Docs/DEVELOPMENT_SETUP.md)** — Full environment setup, commands, troubleshooting
+- **[CI_CD_SESSION_1_DOCKER.md](./Docs/CI_CD_SESSION_1_DOCKER.md)** — Verified local Docker architecture, operations, persistence, queue behavior, and troubleshooting
+- **[CI-CD.md](./CI-CD.md)** — CI/CD learning-track status and next checkpoint
 
 ## Diagrams
 
@@ -48,14 +50,15 @@ All diagrams are embedded as Mermaid code within the relevant document (primaril
 
 | | |
 |---|---|
-| **Backend** | Laravel 12, PHP 8.2, MySQL, Sanctum 4.x (Bearer tokens) |
+| **Backend** | Laravel 12, PHP 8.3 container runtime, MySQL, Sanctum 4.x (Bearer tokens) |
 | **Frontend** | Vue 3, TypeScript, Vite 6, Tailwind + DaisyUI, Axios |
 | **Backend location** | `campusdesk/` |
 | **Frontend location** | `Frontend/src/` |
-| **Backend URL (dev)** | `http://127.0.0.1:8000` |
-| **Frontend URL (dev)** | `http://localhost:5173` |
-| **Current status** | Student, staff, department admin, and Super Admin workflows are wired to the API. Request collection, notifications, and protected attachment viewing are implemented. The separate administrative action audit remains planned. |
-| **Automated tests** | PHPUnit covers routing, reopen, collection, notifications, department administration, and focused Super Admin behavior. Vitest covers dashboard and component flows. The full suites still have legacy auth and document viewer test failures; see [TESTING.md](./Docs/TESTING.md). |
+| **Backend URL (bare dev)** | `http://127.0.0.1:8000` |
+| **Frontend URL (bare dev)** | `http://localhost:5173` |
+| **Docker Compose URL** | `http://localhost:8080` |
+| **Current status** | Application workflows are implemented and the verified local Compose stack runs Nginx/Vue, Laravel/Apache, a Laravel queue worker, and MySQL. CI is the next delivery stage. The separate administrative action audit remains planned. |
+| **Automated checks** | Backend: 54 PHPUnit tests and 354 assertions passed. Frontend: 37 Vitest tests, ESLint, `vue-tsc`, and the Vite production build passed during CI/CD Session 1. See [TESTING.md](./Docs/TESTING.md). |
 
 ---
 

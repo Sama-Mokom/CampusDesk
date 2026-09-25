@@ -9,7 +9,7 @@
         <div
           :class="[
             'w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 shrink-0',
-            nodeClass(stage, index)
+            nodeClass(stage)
           ]"
         >
           <span v-if="stage.status === 'approved'" class="text-green-700">✓</span>
@@ -58,7 +58,7 @@ function isActive(stage: RequestStage): boolean {
   return true
 }
 
-function nodeClass(stage: RequestStage, index: number) {
+function nodeClass(stage: RequestStage) {
   if (stage.status === 'approved') return 'bg-green-50 border-green-500'
   if (stage.status === 'rejected') return 'bg-red-50 border-red-500'
   if (isActive(stage)) return 'bg-white border-primary ring-2 ring-primary/30'

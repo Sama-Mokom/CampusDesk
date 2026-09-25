@@ -1,2 +1,4 @@
 .kiro/
+.env.docker
+docker-data/
 UI Prompt Campus desk.txt

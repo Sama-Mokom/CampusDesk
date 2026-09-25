@@ -34,6 +34,10 @@
 - [x] In-app notification API, lifecycle delivery service, and notification bell wiring
 - [x] Department Admin dashboard wiring: primary-department oversight, workflow-aware claimability, active-stage reassignment, immutable handoff audit records, and receiving-staff notifications
 - [x] Super Admin dashboard wiring: protected CRUD, elevation, statistics, request oversight, and request/stage status audit
+- [x] Repair the complete backend and frontend quality gates: 54 PHPUnit tests / 354 assertions, 37 Vitest tests, ESLint, `vue-tsc`, and the production build
+- [x] Dockerize Laravel/Apache and Vue/Nginx with production-style dependency installation
+- [x] Add the local four-service Docker Compose stack: frontend, backend, queue worker, and MySQL 8.4
+- [x] Verify service health, same-origin API proxying, database persistence, private attachment persistence, queued mail processing, upload limits, and graceful worker shutdown
 
 ## Immediate Fixes Cleared ✅
 
@@ -41,14 +45,17 @@ All previously listed immediate fixes are complete.
 
 ## Next (recommended order)
 
-No remaining tasks in this section. Continue with the Later items.
+1. **GitHub Actions continuous integration**
+   - Learn workflows, events, jobs, runners, steps, and actions before writing YAML.
+   - Add an independent backend job: Composer install and the full PHPUnit suite.
+   - Add an independent frontend job: `npm ci`, ESLint, `vue-tsc`, Vitest, and the Vite production build.
+   - Trigger on pull requests and appropriate pushes.
+   - Keep image publishing and deployment out of the first workflow.
+   - Use [CI_CD_SESSION_1_DOCKER.md](CI_CD_SESSION_1_DOCKER.md) as the verified Docker baseline.
 
 ## Later
 
-8. **Automated testing gaps**
-    - Update legacy auth tests for the seeded student factory and current `/api/register` token response
-    - Update DocumentViewer tests for protected asynchronous blob loading
-    - Resolve remaining whole-project `vue-tsc` errors
+8. **Additional automated testing gaps**
     - Concurrency test (true multi-connection parallel claim attempt)
     - End-to-end staff requeue test after reopening a stage
     - Attachment security test (ownership enforcement)

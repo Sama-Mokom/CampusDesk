@@ -3,10 +3,11 @@
  *
  * Validates: Requirements 1.2, 3.4, 3.5, 3.6
  */
-import { describe, it, expect } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { describe, it, expect, vi } from 'vitest'
+import { flushPromises, mount } from '@vue/test-utils'
 import DocumentViewer from '../DocumentViewer.vue'
 import type { Attachment } from '../../types'
+import api from '../../services/api'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -15,7 +16,7 @@ import type { Attachment } from '../../types'
 function makeAttachment(overrides: Partial<Attachment> = {}): Attachment {
   return {
     id: 1,
-    file_path: 'http://localhost/storage/test-file',
+    file_path: 'protected/attachments/test-file',
     original_name: 'test-file.png',
     mime_type: 'image/png',
     ...overrides,
@@ -48,18 +49,31 @@ describe('DocumentViewer', () => {
       id: 2,
       original_name: 'photo.png',
       mime_type: 'image/png',
-      file_path: 'http://localhost/storage/photo.png',
+      file_path: 'protected/attachments/photo.png',
     })
 
     const wrapper = mount(DocumentViewer, {
       props: { attachments: [imageAttachment] },
     })
+    const get = vi.spyOn(api, 'get').mockResolvedValue({
+      data: new Blob(['image data'], { type: 'image/png' }),
+    } as never)
+    const createObjectURL = vi.fn().mockReturnValue('blob:photo-preview')
+    const previousCreateObjectURL = URL.createObjectURL
+    URL.createObjectURL = createObjectURL
 
-    // Click to select the file
-    await wrapper.find('button[type="button"]').trigger('click')
+    try {
+      // The preview is available only after the protected attachment fetch completes.
+      await wrapper.find('button[type="button"]').trigger('click')
+      await flushPromises()
 
-    expect(wrapper.find('img').exists()).toBe(true)
-    expect(wrapper.find('img').attributes('src')).toBe(imageAttachment.file_path)
+      expect(get).toHaveBeenCalledWith('/attachments/2', { responseType: 'blob' })
+      expect(createObjectURL).toHaveBeenCalled()
+      expect(wrapper.find('img').attributes('src')).toBe('blob:photo-preview')
+    } finally {
+      URL.createObjectURL = previousCreateObjectURL
+      get.mockRestore()
+    }
   })
 
   /**
@@ -71,17 +85,27 @@ describe('DocumentViewer', () => {
       id: 3,
       original_name: 'document.pdf',
       mime_type: 'application/pdf',
-      file_path: 'http://localhost/storage/document.pdf',
+      file_path: 'protected/attachments/document.pdf',
     })
 
     const wrapper = mount(DocumentViewer, {
       props: { attachments: [pdfAttachment] },
     })
+    const get = vi.spyOn(api, 'get').mockResolvedValue({
+      data: new Blob(['pdf data'], { type: 'application/pdf' }),
+    } as never)
+    const previousCreateObjectURL = URL.createObjectURL
+    URL.createObjectURL = vi.fn().mockReturnValue('blob:document-preview')
 
-    await wrapper.find('button[type="button"]').trigger('click')
+    try {
+      await wrapper.find('button[type="button"]').trigger('click')
+      await flushPromises()
 
-    expect(wrapper.find('iframe').exists()).toBe(true)
-    expect(wrapper.find('iframe').attributes('src')).toBe(pdfAttachment.file_path)
+      expect(wrapper.find('iframe').attributes('src')).toBe('blob:document-preview')
+    } finally {
+      URL.createObjectURL = previousCreateObjectURL
+      get.mockRestore()
+    }
   })
 
   /**
@@ -93,19 +117,29 @@ describe('DocumentViewer', () => {
       id: 4,
       original_name: 'notes.txt',
       mime_type: 'text/plain',
-      file_path: 'http://localhost/storage/notes.txt',
+      file_path: 'protected/attachments/notes.txt',
     })
 
     const wrapper = mount(DocumentViewer, {
       props: { attachments: [textAttachment] },
     })
+    const get = vi.spyOn(api, 'get').mockResolvedValue({
+      data: new Blob(['text data'], { type: 'text/plain' }),
+    } as never)
+    const previousCreateObjectURL = URL.createObjectURL
+    URL.createObjectURL = vi.fn().mockReturnValue('blob:text-preview')
 
-    await wrapper.find('button[type="button"]').trigger('click')
+    try {
+      await wrapper.find('button[type="button"]').trigger('click')
+      await flushPromises()
 
-    expect(wrapper.text()).toContain('Preview not available for this file type.')
-    // Should not render image or iframe
-    expect(wrapper.find('img').exists()).toBe(false)
-    expect(wrapper.find('iframe').exists()).toBe(false)
+      expect(wrapper.text()).toContain('Preview not available for this file type.')
+      expect(wrapper.find('img').exists()).toBe(false)
+      expect(wrapper.find('iframe').exists()).toBe(false)
+    } finally {
+      URL.createObjectURL = previousCreateObjectURL
+      get.mockRestore()
+    }
   })
 
   /**
@@ -123,14 +157,29 @@ describe('DocumentViewer', () => {
       props: { attachments: [imageAttachment] },
     })
 
-    const fileButton = wrapper.find('button[type="button"]')
+    const get = vi.spyOn(api, 'get').mockResolvedValue({
+      data: new Blob(['image data'], { type: 'image/png' }),
+    } as never)
+    const previousCreateObjectURL = URL.createObjectURL
+    const previousRevokeObjectURL = URL.revokeObjectURL
+    URL.createObjectURL = vi.fn().mockReturnValue('blob:toggle-preview')
+    URL.revokeObjectURL = vi.fn()
+
+    try {
+      const fileButton = wrapper.find('button[type="button"]')
 
     // First click — opens viewer
     await fileButton.trigger('click')
+    await flushPromises()
     expect(wrapper.find('img').exists()).toBe(true)
 
     // Second click — closes viewer
-    await fileButton.trigger('click')
-    expect(wrapper.find('img').exists()).toBe(false)
+      await fileButton.trigger('click')
+      expect(wrapper.find('img').exists()).toBe(false)
+    } finally {
+      URL.createObjectURL = previousCreateObjectURL
+      URL.revokeObjectURL = previousRevokeObjectURL
+      get.mockRestore()
+    }
   })
 })

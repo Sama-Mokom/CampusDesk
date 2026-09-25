@@ -4,13 +4,14 @@
 
 | Tool | Version | Notes |
 |------|---------|-------|
-| PHP | 8.2+ | Required by Laravel 12 |
+| PHP | 8.2+; Docker image uses 8.3 | Required by Laravel 12 |
 | Composer | 2.x | |
-| Node.js | LTS (18+ or 20+) | Compatible with Vite 6 |
-| MySQL | via XAMPP | |
+| Node.js | LTS; Docker build uses Node 22 | Compatible with Vite 6 |
+| MySQL | Docker MySQL 8.4 or an existing local server | |
+| Docker Desktop | Current Linux-container release | Required for the verified Compose workflow |
 | XAMPP | Any recent version | Provides PHP, MySQL, Apache/phpMyAdmin on Windows |
 
-**Confirmed environment:** Windows + XAMPP + VS Code + MySQL via phpMyAdmin.
+**Confirmed environments:** Windows bare development with local PHP/MySQL, plus Docker Desktop using Linux containers for the reproducible Compose stack.
 
 ## Repository Structure
 
@@ -19,7 +20,7 @@ CampusDesk/
 ├── campusdesk/         ← Laravel backend (PHP)
 │   ├── app/
 │   ├── database/
-│   │   ├── migrations/      ← 27 migration files
+│   │   ├── migrations/      ← 28 migration files
 │   │   ├── seeders/         ← automated seeder suite
 │   │   │   └── support/     ← parsers, mappers, university data markdown
 │   │   └── factories/
@@ -44,6 +45,38 @@ CampusDesk/
 ```
 
 All frontend application code is in `Frontend/src/`; `Frontend/` contains one Vue/Vite project.
+
+## Verified Docker Compose Setup
+
+The preferred reproducible local environment is the four-service Docker Compose stack completed on 25 September 2026. It runs:
+
+- Vue production assets on Nginx at `http://localhost:8080`;
+- Laravel on PHP 8.3 and Apache, reachable internally as `backend:80`;
+- a separate Laravel database-queue worker;
+- MySQL 8.4 with a persistent named volume;
+- private attachments in the ignored host directory `docker-data/attachments`.
+
+Create the runtime file from `.env.docker.example`, replace its placeholder passwords, and add a generated `APP_KEY`. Then, on a new database:
+
+```cmd
+docker compose --env-file .env.docker build backend frontend
+docker compose --env-file .env.docker up -d db backend
+docker compose --env-file .env.docker exec backend php artisan migrate
+docker compose --env-file .env.docker up -d worker frontend
+```
+
+For routine use:
+
+```cmd
+docker compose --env-file .env.docker up -d
+docker compose --env-file .env.docker ps
+docker compose --env-file .env.docker logs -f
+docker compose --env-file .env.docker down
+```
+
+Do not use `docker compose down -v` unless the MySQL data is intentionally being deleted. See [CI_CD_SESSION_1_DOCKER.md](CI_CD_SESSION_1_DOCKER.md) for the architecture, full setup, rebuild procedure, verification record, and troubleshooting history.
+
+The bare setup below remains available for fast application development without containers.
 
 ## Backend Setup
 

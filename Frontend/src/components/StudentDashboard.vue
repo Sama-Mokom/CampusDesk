@@ -200,6 +200,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
+import axios from 'axios'
 import { useAuth } from '../composables/useAuth'
 import { fetchRequests, fetchRequestById, createRequest, reopenRequest, markRequestCollected } from '../services/requests'
 import { fetchRequestTypes, fetchFaculties, fetchDepartments } from '../services/reference'
@@ -284,7 +285,7 @@ onMounted(async () => {
     faculties.value = fetchedFaculties
     departments.value = fetchedDepartments
     console.log('requests response:', requests)
-  } catch (err) {
+  } catch {
     error.value = 'Failed to load dashboard data.'
   } finally {
     loading.value = false
@@ -339,9 +340,9 @@ async function submitRequest() {
     form.description = ''
     fileList.value = []
 
-  } catch (err: any) {
+  } catch (err) {
     console.error('Request submission failed:', err);
-    if (err.response && err.response.data && err.response.data.message) {
+    if (axios.isAxiosError(err) && err.response?.data?.message) {
       error.value = err.response.data.message;
     } else {
       error.value = 'Failed to submit the request. Please try again.';
@@ -380,9 +381,11 @@ async function doReopen() {
 
     selectedRequest.value = reopenedRequest
     success.value = 'Request reopened and returned to the pending queue.'
-  } catch (err: any) {
+  } catch (err) {
     success.value = ''
-    error.value = err.response?.data?.message ?? 'Failed to reopen the request. Please try again.'
+    error.value = axios.isAxiosError(err)
+      ? err.response?.data?.message ?? 'Failed to reopen the request. Please try again.'
+      : 'Failed to reopen the request. Please try again.'
   } finally {
     reopening.value = false
   }
@@ -401,8 +404,10 @@ async function doCollected() {
     if (index !== -1) studentRequests.value[index] = collectedRequest
     selectedRequest.value = collectedRequest
     success.value = 'Request marked as collected.'
-  } catch (err: any) {
-    error.value = err.response?.data?.message ?? 'Failed to mark the request as collected. Please try again.'
+  } catch (err) {
+    error.value = axios.isAxiosError(err)
+      ? err.response?.data?.message ?? 'Failed to mark the request as collected. Please try again.'
+      : 'Failed to mark the request as collected. Please try again.'
   } finally {
     collecting.value = false
   }

@@ -198,7 +198,6 @@ import RequestTimeline from './RequestTimeline.vue'
 // import StatusBadge from './StatusBadge.vue'
 import DocumentViewer from './DocumentViewer.vue'
 
-const props = defineProps<{ deptAdminMode?: boolean }>()
 const activeTab = ref<'timeline' | 'attachments'>('timeline')
 const auth = useAuth()
 const staffUser = computed(() => auth.user.value)

@@ -179,3 +179,19 @@ The five items below were subsequently resolved. Current verification limits are
 5. Frontend `DegreeType` uses `BSc/BEng/etc.` but database uses `BACHELOR/CERTIFICATE/etc.`
 
 See KNOWN_ISSUES.md and HANDOFF.md for details and fixes.
+
+## Phase 11: CI/CD Session 1 - Local Docker Foundation
+
+On 25 September 2026, CampusDesk gained its first reproducible container environment. This phase deliberately stopped before GitHub Actions, registry publishing, or AWS deployment.
+
+- Repaired and verified the full local quality baseline: 54 PHPUnit tests with 354 assertions, 37 Vitest tests, ESLint, `vue-tsc`, and the Vite production build.
+- Standardized the frontend on npm, removed the pnpm lock file, and stopped tracking generated `dist/` output.
+- Added a PHP 8.3/Apache backend image with production Composer dependencies, `pdo_mysql`, PCNTL, Laravel's public document root, and aligned upload limits.
+- Added a Node 22 build stage and Nginx runtime image for the Vue SPA.
+- Added Docker Compose services for MySQL 8.4, Laravel, the queue worker, and the frontend.
+- Added database and application health checks, same-origin `/api` proxying, a persistent MySQL named volume, and a private attachment bind mount.
+- Verified real database migrations, queued mail processing through the log driver, attachment survival, database survival after `docker compose down`, and reconstruction of the entire stack.
+- Fixed an Apache-image stop-signal mismatch by overriding the worker with `SIGTERM`; idle worker shutdown fell from approximately 70 seconds to 0.2 seconds.
+- Confirmed that only Nginx publishes a host port and that the backend, worker, and database remain internal to the Compose network.
+
+The complete design, commands, evidence, and limitations are recorded in [CI_CD_SESSION_1_DOCKER.md](CI_CD_SESSION_1_DOCKER.md). The next phase is GitHub Actions CI for the existing checks only.

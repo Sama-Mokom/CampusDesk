@@ -50,10 +50,7 @@ export const createRequest = async (payload: CreateRequestPayload): Promise<Docu
     payload.attachments.forEach((file) => {
       formData.append('attachments[]', file);
     });
-    // Log what FormData actually contains
-    for (const [key, value] of formData.entries()) {
-    }
-   const response: AxiosResponse<{ data: DocumentRequest }> = await api.post('/requests', formData, {
+    const response: AxiosResponse<{ data: DocumentRequest }> = await api.post('/requests', formData, {
   //  headers: {
   //   'Content-Type': 'multipart/form-data',
   // },

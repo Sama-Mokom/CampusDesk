@@ -43,19 +43,20 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import axios from 'axios'
 import { fetchDepartmentAdminRequests, reassignStage, type DepartmentAdminOverview, type DepartmentAdminStage } from '../services/deptAdmin'
 import { claimStage } from '../services/stages'
 
 const loading = ref(false); const error = ref(''); const success = ref('')
-const overview = reactive<Partial<DepartmentAdminOverview>>({ stages: [], stats: { total: 0, unclaimed: 0, claimable: 0, blocked: 0, in_review: 0, completed: 0 }, staff: [] })
+const overview = reactive<DepartmentAdminOverview>({ department: { id: 0, name: '' }, stages: [], stats: { total: 0, unclaimed: 0, claimable: 0, blocked: 0, in_review: 0, completed: 0 }, staff: [] })
 const modal = reactive({ stage: null as DepartmentAdminStage | null, recipientId: 0, submitting: false, error: '' })
 const metrics = computed(() => [{ label: 'All stages', value: overview.stats?.total ?? 0 }, { label: 'Claimable now', value: overview.stats?.claimable ?? 0 }, { label: 'Blocked', value: overview.stats?.blocked ?? 0 }, { label: 'In review', value: overview.stats?.in_review ?? 0 }, { label: 'Completed', value: overview.stats?.completed ?? 0 }])
 const eligibleStaff = computed(() => (overview.staff ?? []).filter(s => s.id !== modal.stage?.handled_by))
-async function load() { loading.value = true; error.value = ''; try { Object.assign(overview, await fetchDepartmentAdminRequests()) } catch (e: any) { error.value = e.response?.data?.message ?? 'Failed to load department work.' } finally { loading.value = false } }
+async function load() { loading.value = true; error.value = ''; try { Object.assign(overview, await fetchDepartmentAdminRequests()) } catch (err) { error.value = axios.isAxiosError(err) ? err.response?.data?.message ?? 'Failed to load department work.' : 'Failed to load department work.' } finally { loading.value = false } }
 function openReassign(stage: DepartmentAdminStage) { modal.stage = stage; modal.recipientId = 0; modal.error = '' }
 function closeModal() { modal.stage = null; modal.error = '' }
-async function submitReassign() { if (!modal.stage || !modal.recipientId) return; modal.submitting = true; modal.error = ''; try { await reassignStage(modal.stage.id, modal.recipientId); success.value = 'Stage reassigned and the receiving staff member notified.'; closeModal(); await load() } catch (e: any) { modal.error = e.response?.data?.message ?? 'Unable to reassign this stage.' } finally { modal.submitting = false } }
-async function pickUp(stage: DepartmentAdminStage) { error.value = ''; try { await claimStage(stage.request_id, stage.id); success.value = 'Stage claimed. You can process it through the standard staff workflow.'; await load() } catch (e: any) { error.value = e.response?.data?.message ?? 'Unable to claim this stage.' } }
+async function submitReassign() { if (!modal.stage || !modal.recipientId) return; modal.submitting = true; modal.error = ''; try { await reassignStage(modal.stage.id, modal.recipientId); success.value = 'Stage reassigned and the receiving staff member notified.'; closeModal(); await load() } catch (err) { modal.error = axios.isAxiosError(err) ? err.response?.data?.message ?? 'Unable to reassign this stage.' : 'Unable to reassign this stage.' } finally { modal.submitting = false } }
+async function pickUp(stage: DepartmentAdminStage) { error.value = ''; try { await claimStage(stage.request_id, stage.id); success.value = 'Stage claimed. You can process it through the standard staff workflow.'; await load() } catch (err) { error.value = axios.isAxiosError(err) ? err.response?.data?.message ?? 'Unable to claim this stage.' : 'Unable to claim this stage.' } }
 function formatDate(value: string) { return new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) }
 onMounted(load)
 </script>

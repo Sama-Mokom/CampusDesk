@@ -26,6 +26,23 @@ CampusDesk is a **decoupled SPA + REST API** architecture:
                                                           └───────────┘
 ```
 
+### Verified local container topology
+
+The bare development ports above remain available. The reproducible Docker Compose topology uses one public entry point instead:
+
+```mermaid
+flowchart LR
+    Browser["Browser<br/>localhost:8080"] --> Frontend["Nginx + compiled Vue"]
+    Frontend -->|"/api/*"| Backend["Apache + Laravel"]
+    Backend --> DB["MySQL 8.4"]
+    Worker["Laravel queue worker"] --> DB
+    Backend --> Files["Private attachment bind mount"]
+    Worker --> Files
+    DB --> Volume["Named database volume"]
+```
+
+Only Nginx publishes a host port. Compose DNS provides the internal `backend` and `db` hostnames. The backend and worker share one image but run different main processes. See [CI_CD_SESSION_1_DOCKER.md](CI_CD_SESSION_1_DOCKER.md) for the complete runtime design and verification record.
+
 ## Frontend Architecture
 
 - **Framework:** Vue 3 with Composition API and `<script setup>`
@@ -147,7 +164,7 @@ campusdesk/
 │       └── AppServiceProvider.php     ← Gates + Observer registration
 │                                         department-admin gate name is aligned
 ├── database/
-│   ├── migrations/                  ← 27 migration files total
+│   ├── migrations/                  ← 28 migration files total
 │   ├── factories/
 │   │   ├── UserFactory.php          ← creates staff + student users with auto profiles
 │   │   └── DepartmentFactory.php

@@ -50,12 +50,16 @@ export interface DepartmentAssignment {
 }
 
 export interface StudentProfile {
+  id: number
+  user_id: number
+  faculty_id: number
+  department_id: number
+  programme_id: number
   matricule: string
   level: StudentLevel
   status: StudentProfileStatus
-  faculty: Faculty
-  department: Department
-  programme: Programme
+  created_at: string
+  updated_at: string
 }
 
 export interface StaffProfile {

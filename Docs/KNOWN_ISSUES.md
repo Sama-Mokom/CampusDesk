@@ -277,3 +277,16 @@ These items were marked UNVERIFIED in the original documentation. They have sinc
 5. ✅ **`RequestStageObserver::created()` logging behaviour** — CONFIRMED that `created()` is empty (no status history logged on stage creation). Only `updated()` logs transitions.
 
 6. ✅ **`.env` gitignore status** — CONFIRMED. `campusdesk/.gitignore` lists `.env`. The `.env` file is not committed.
+
+---
+
+## Containerization lessons resolved in CI/CD Session 1
+
+The full investigation and verification record is in [CI_CD_SESSION_1_DOCKER.md](CI_CD_SESSION_1_DOCKER.md).
+
+- Composer could not install distribution archives in the initial backend image because neither PHP Zip nor `unzip` was available. The image now installs `unzip`.
+- The base PHP image's 2 MB file limit contradicted Laravel's 5 MB attachment rule. A versioned PHP INI file now allows 6 MB per file and a 32 MB POST body, while Nginx limits the total request to 30 MB.
+- Rebuilding `campusdesk-backend:local` did not replace the already-running worker. Backend and worker are now force-recreated together after backend image changes.
+- The shared Apache image declared `STOPSIGNAL SIGWINCH`, which the Laravel worker did not treat as a shutdown request. The worker service now overrides the signal with `SIGTERM` and stops gracefully.
+- Plain curl requests without `Accept: application/json` received an authentication redirect. API smoke tests now send the same JSON accept header as the Axios client and correctly receive 401 JSON responses.
+- Uploaded attachments disappeared conceptually when considered part of a replaceable container. Both backend and worker now mount the ignored host directory `docker-data/attachments`, and persistence was verified across container replacement.

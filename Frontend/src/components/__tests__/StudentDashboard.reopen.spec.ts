@@ -102,9 +102,11 @@ describe('StudentDashboard — reopen request', () => {
   })
 
   it('shows the API error and preserves the rejected request when reopening fails', async () => {
-    vi.mocked(reopenRequest).mockRejectedValue({
+    const apiError = Object.assign(new Error('Request rejected'), {
+      isAxiosError: true,
       response: { data: { message: 'Only rejected requests can be reopened.' } },
     })
+    vi.mocked(reopenRequest).mockRejectedValue(apiError)
     const wrapper = await mountDashboard()
 
     await wrapper.get('[data-testid="reopen-request"]').trigger('click')

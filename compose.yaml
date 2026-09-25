@@ -1,0 +1,109 @@
+services:
+  db:
+    image: mysql:8.4
+
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+
+    volumes:
+      - db_data:/var/lib/mysql
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'mysqladmin ping -h 127.0.0.1 -uroot -p"$${MYSQL_ROOT_PASSWORD}" --silent',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
+  backend:
+    build:
+      context: ./campusdesk
+    image: campusdesk-backend:local
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "php",
+          "-r",
+          "exit(@file_get_contents('http://127.0.0.1/up') === false ? 1 : 0);",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+    environment: &backend-environment
+      APP_NAME: CampusDesk
+      APP_ENV: local
+      APP_KEY: ${APP_KEY}
+      APP_DEBUG: "true"
+      APP_URL: http://localhost:8080
+      FRONTEND_URL: http://localhost:8080
+
+      LOG_CHANNEL: stderr
+
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_DATABASE: ${DB_DATABASE}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+
+      SESSION_DRIVER: database
+      CACHE_STORE: database
+      QUEUE_CONNECTION: database
+      FILESYSTEM_DISK: local
+
+      MAIL_MAILER: log
+      MAIL_FROM_ADDRESS: campusdesk@example.com
+      MAIL_FROM_NAME: CampusDesk
+
+    volumes:
+      - ./docker-data/attachments:/var/www/html/storage/app/private/attachments
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+  worker:
+    image: campusdesk-backend:local
+
+    command: php artisan queue:work --sleep=3 --tries=3 --backoff=5 --timeout=60 -v
+
+    environment: *backend-environment
+
+    volumes:
+      - ./docker-data/attachments:/var/www/html/storage/app/private/attachments
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+    restart: unless-stopped
+    stop_signal: SIGTERM
+    stop_grace_period: 70s
+  frontend:
+    build:
+      context: ./Frontend
+      args:
+        VITE_API_URL: /api
+
+    image: campusdesk-frontend:local
+
+    ports:
+      - "8080:80"
+
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  db_data:

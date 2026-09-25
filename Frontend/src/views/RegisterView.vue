@@ -57,6 +57,7 @@
 
 <script setup lang="ts">
 import { reactive, computed, ref, watch, onMounted } from 'vue'
+import axios from 'axios'
 import { useRouter } from 'vue-router'
 import type { StudentLevel, Faculty, Department, Programme } from '../types'
 import { register } from '../services/auth'
@@ -82,7 +83,7 @@ onMounted(async () =>{
     faculties.value = fetchedFaculties
     departments.value = fetchedDepartments
     programmes.value = fetchedProgrammes
-  } catch (err) {
+  } catch {
     error.value = 'Failed tp load registration data. Please refresh.'
   }
 })
@@ -152,8 +153,8 @@ async function onSubmit() {
     })
     setUser(registeredUser)
     router.replace(homePath())
-  } catch (err: any){
-    if (err.response && err.response.status === 422) {
+  } catch (err) {
+    if (axios.isAxiosError(err) && err.response?.status === 422) {
       error.value = err.response.data.message || 'Registration failed. Please check your details.';
   } else {
     error.value = 'A connection error occurred. Please try again.';

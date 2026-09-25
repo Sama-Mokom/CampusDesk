@@ -24,6 +24,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import axios from 'axios'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 import { login } from '../services/auth'
@@ -51,8 +52,8 @@ async function onSubmit() {
     setUser(loggedInUser)
     const redirect = route.query.redirect as string | undefined
     router.replace(redirect?.startsWith('/') ? redirect : homePath())
-  } catch (err: any) {
-    error.value = err.response?.status === 422
+  } catch (err) {
+    error.value = axios.isAxiosError(err) && err.response?.status === 422
       ? err.response.data.message || 'Invalid email or password.'
       : 'A connection error occurred. Please try again.'
   }

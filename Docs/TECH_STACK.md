@@ -20,7 +20,7 @@ mock-data application in the repository.
 
 | Technology | Use |
 | --- | --- |
-| Laravel 12 / PHP 8.2+ | REST API, business logic, queues, and email |
+| Laravel 12 / PHP 8.3 container runtime | REST API, business logic, queues, and email |
 | MySQL | Relational application database |
 | Eloquent | ORM, relationships, observers, and factories |
 | Laravel Sanctum | Bearer-token authentication |
@@ -40,7 +40,6 @@ mock-data application in the repository.
 
 ## Local tooling
 
-Development is currently Windows/XAMPP oriented. Composer scripts support backend
-setup, development, and tests; npm scripts in `Frontend/package.json` run Vite,
-Vitest, and the production build. No CI/CD, Docker configuration, browser E2E
-suite, or deployment target is configured.
+Development supports both the existing Windows bare-development workflow and a verified Docker Desktop workflow. Docker Compose runs MySQL 8.4, Laravel on PHP 8.3 with Apache, a separate Laravel queue worker, and the compiled Vue application on Nginx. See [CI_CD_SESSION_1_DOCKER.md](CI_CD_SESSION_1_DOCKER.md).
+
+Composer scripts support backend setup, development, and tests. npm scripts in `Frontend/package.json` run Vite, ESLint, Vitest, TypeScript checking, and the production build. Browser E2E coverage is not installed. GitHub Actions, image publishing, and AWS deployment are the next delivery stages and are not yet configured.
