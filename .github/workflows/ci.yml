@@ -80,3 +80,33 @@ jobs:
         run: npm run build
         env:
           VITE_API_URL: /api
+
+  backend-image:
+    name: Backend image build
+    needs:
+      - backend
+      - frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Build backend image
+        run: docker build --tag campusdesk-backend:ci ./campusdesk
+
+  frontend-image:
+    name: Frontend image build
+    needs:
+      - backend
+      - frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Build frontend image
+        run: docker build --build-arg VITE_API_URL=/api --tag campusdesk-frontend:ci ./Frontend
