@@ -110,3 +110,29 @@ jobs:
 
       - name: Build frontend image
         run: docker build --build-arg VITE_API_URL=/api --tag campusdesk-frontend:ci ./Frontend
+
+  aws-identity:
+    name: Verify AWS identity
+    if: github.event_name == 'push' && github.ref == 'refs/heads/development'
+    needs:
+      - backend-image
+      - frontend-image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          allowed-account-ids: ${{ vars.AWS_ACCOUNT_ID }}
+          mask-aws-account-id: true
+          role-session-name: CampusDeskGitHubActions
+
+      - name: Verify assumed role
+        run: aws sts get-caller-identity
