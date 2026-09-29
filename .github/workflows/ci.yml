@@ -83,6 +83,7 @@ jobs:
 
   backend-image:
     name: Backend image build
+    if: github.event_name != 'push'
     needs:
       - backend
       - frontend
@@ -98,6 +99,7 @@ jobs:
 
   frontend-image:
     name: Frontend image build
+    if: github.event_name != 'push'
     needs:
       - backend
       - frontend
@@ -111,14 +113,14 @@ jobs:
       - name: Build frontend image
         run: docker build --build-arg VITE_API_URL=/api --tag campusdesk-frontend:ci ./Frontend
 
-  aws-identity:
-    name: Verify AWS identity
+  backend-publish:
+    name: Publish backend image
     if: github.event_name == 'push' && github.ref == 'refs/heads/development'
     needs:
-      - backend-image
-      - frontend-image
+      - backend
+      - frontend
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 20
 
     permissions:
       contents: read
@@ -132,7 +134,126 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
           allowed-account-ids: ${{ vars.AWS_ACCOUNT_ID }}
           mask-aws-account-id: true
-          role-session-name: CampusDeskGitHubActions
+          role-session-name: CampusDeskBackendPublish
 
-      - name: Verify assumed role
-        run: aws sts get-caller-identity
+      - name: Check for existing backend image
+        id: image
+        shell: bash
+        env:
+          REPOSITORY: ${{ vars.ECR_BACKEND_REPOSITORY }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          set +e
+          output="$(
+            aws ecr describe-images \
+              --repository-name "$REPOSITORY" \
+              --image-ids "imageTag=$IMAGE_TAG" 2>&1
+          )"
+          status=$?
+          set -e
+
+          if [ "$status" -eq 0 ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Backend image $IMAGE_TAG already exists; skipping publication."
+          elif grep -q "ImageNotFoundException" <<< "$output"; then
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "Backend image $IMAGE_TAG does not exist; publishing it."
+          else
+            echo "$output"
+            exit "$status"
+          fi
+
+      - name: Check out repository
+        if: steps.image.outputs.exists == 'false'
+        uses: actions/checkout@v7
+
+      - name: Log in to Amazon ECR
+        if: steps.image.outputs.exists == 'false'
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push backend image
+        if: steps.image.outputs.exists == 'false'
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY: ${{ vars.ECR_BACKEND_REPOSITORY }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          IMAGE_URI="$REGISTRY/$REPOSITORY:$IMAGE_TAG"
+          docker build --tag "$IMAGE_URI" ./campusdesk
+          docker push "$IMAGE_URI"
+          echo "Published $IMAGE_URI"
+
+  frontend-publish:
+    name: Publish frontend image
+    if: github.event_name == 'push' && github.ref == 'refs/heads/development'
+    needs:
+      - backend
+      - frontend
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          allowed-account-ids: ${{ vars.AWS_ACCOUNT_ID }}
+          mask-aws-account-id: true
+          role-session-name: CampusDeskFrontendPublish
+
+      - name: Check for existing frontend image
+        id: image
+        shell: bash
+        env:
+          REPOSITORY: ${{ vars.ECR_FRONTEND_REPOSITORY }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          set +e
+          output="$(
+            aws ecr describe-images \
+              --repository-name "$REPOSITORY" \
+              --image-ids "imageTag=$IMAGE_TAG" 2>&1
+          )"
+          status=$?
+          set -e
+
+          if [ "$status" -eq 0 ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Frontend image $IMAGE_TAG already exists; skipping publication."
+          elif grep -q "ImageNotFoundException" <<< "$output"; then
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "Frontend image $IMAGE_TAG does not exist; publishing it."
+          else
+            echo "$output"
+            exit "$status"
+          fi
+
+      - name: Check out repository
+        if: steps.image.outputs.exists == 'false'
+        uses: actions/checkout@v7
+
+      - name: Log in to Amazon ECR
+        if: steps.image.outputs.exists == 'false'
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push frontend image
+        if: steps.image.outputs.exists == 'false'
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY: ${{ vars.ECR_FRONTEND_REPOSITORY }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          IMAGE_URI="$REGISTRY/$REPOSITORY:$IMAGE_TAG"
+          docker build \
+            --build-arg VITE_API_URL=/api \
+            --tag "$IMAGE_URI" \
+            ./Frontend
+          docker push "$IMAGE_URI"
+          echo "Published $IMAGE_URI"
