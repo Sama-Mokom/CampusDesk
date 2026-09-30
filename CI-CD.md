@@ -9,11 +9,17 @@ This file is the entry point for the CampusDesk CI/CD work. Detailed implementat
 - [x] Dockerize the Vue frontend with an Nginx runtime.
 - [x] Run MySQL, Laravel, the queue worker, and the frontend with Docker Compose.
 - [x] Verify health checks, queue execution, private attachment persistence, database persistence, and same-origin API proxying.
-- [ ] Learn the GitHub Actions execution model.
-- [ ] Add continuous integration for backend and frontend checks.
-- [ ] Build immutable images in CI.
-- [ ] Publish images to Amazon ECR.
-- [ ] Deploy the staging stack to an Ubuntu EC2 instance.
+- [x] Learn the GitHub Actions execution model.
+- [x] Add continuous integration for backend and frontend checks.
+- [x] Build images in CI after the quality gates pass.
+- [x] Publish commit-SHA-tagged images to immutable Amazon ECR repositories through GitHub OIDC.
+- [x] Deploy digest-pinned images to an Ubuntu 24.04 AMD64 EC2 instance.
+- [x] Run migrations and the full demonstration seed explicitly.
+- [x] Create and verify student and Super Admin access.
+- [x] Restrict the staging frontend to EC2 loopback and access it through an SSH tunnel.
+- [ ] Automate backup and restore verification.
+- [ ] Add a protected, manually approved EC2 deployment workflow.
+- [ ] Add DNS and HTTPS before controlled public staging access.
 
 ## Completed Session 1
 
@@ -28,6 +34,18 @@ Read [CI/CD Session 1: Local Docker Foundation](Docs/CI_CD_SESSION_1_DOCKER.md) 
 - operating commands;
 - verification evidence and troubleshooting history;
 - known limitations before AWS staging.
+
+## Completed Session 2
+
+Read [CI/CD and AWS Staging Handoff](Docs/CI_CD_SESSION_2_HANDOFF.md) for:
+
+- the current GitHub Actions workflow and event behavior;
+- GitHub OIDC, least-privilege IAM, and ECR configuration;
+- the EC2 architecture and security boundary;
+- digest-pinned Compose deployment and operating commands;
+- migrations, one-time seeding, and manual Super Admin creation;
+- every significant deployment failure and its resolution; and
+- current limitations and prioritized continuation work.
 
 ## End-to-end direction
 
@@ -45,27 +63,27 @@ flowchart LR
     K[Laravel worker] --> J
 ```
 
-## Local architecture now available
+## Current staging architecture
 
 ```mermaid
 flowchart LR
-    Browser -->|localhost:8080| Web[Frontend: Nginx and Vue]
+    Browser -->|SSH tunnel localhost:18080| Web[Frontend: Nginx and Vue]
     Web -->|/api| API[Laravel: PHP and Apache]
     API --> DB[(MySQL)]
     Worker[Laravel queue worker] --> DB
-    API --> Uploads[(Private attachment bind mount)]
+    API --> Uploads[(Private attachment volume)]
     Worker --> Uploads
     DB --> Data[(Named database volume)]
 ```
 
 ## Next learning checkpoint
 
-Before creating `.github/workflows/ci.yml`, explain and verify the distinction between:
+The next milestone is a controlled deployment workflow rather than more image-publication work. Before implementing it:
 
-- a workflow and a job;
-- a runner and a deployed server;
-- a step and an action;
-- CI test dependencies and production image dependencies;
-- repository variables, GitHub secrets, and values compiled into the frontend.
+1. establish and restore-test database and attachment backups;
+2. remove or rotate the known shared passwords in the demonstration seed;
+3. evaluate AWS Systems Manager as the deployment transport instead of placing an SSH key in GitHub;
+4. define deployment locking, migration failure behavior, health checks, and rollback boundaries; and
+5. require manual approval through a protected staging environment.
 
-The first CI implementation will run existing checks. It will not publish or deploy images.
+The current workflow publishes images only. EC2 deployment remains manual and the application remains private behind an SSH tunnel.

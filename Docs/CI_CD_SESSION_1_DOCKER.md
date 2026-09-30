@@ -1,5 +1,7 @@
 # CI/CD Session 1: Local Docker Foundation
 
+> Historical checkpoint: this document records the state at the end of Session 1. CI, ECR publication, and EC2 staging were completed afterward; see [CI_CD_SESSION_2_HANDOFF.md](CI_CD_SESSION_2_HANDOFF.md) for the current operational state.
+
 **Completed:** 25 September 2026
 
 **Status:** Complete and verified

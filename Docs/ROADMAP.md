@@ -38,6 +38,15 @@
 - [x] Dockerize Laravel/Apache and Vue/Nginx with production-style dependency installation
 - [x] Add the local four-service Docker Compose stack: frontend, backend, queue worker, and MySQL 8.4
 - [x] Verify service health, same-origin API proxying, database persistence, private attachment persistence, queued mail processing, upload limits, and graceful worker shutdown
+- [x] Add GitHub Actions backend and frontend quality gates on Ubuntu 24.04
+- [x] Validate backend and frontend Docker image builds on pull requests
+- [x] Configure GitHub OIDC authentication to AWS without stored access keys
+- [x] Publish commit-SHA-tagged backend and frontend images to immutable Amazon ECR repositories
+- [x] Configure least-privilege, pull-only ECR access for the EC2 runtime role
+- [x] Deploy a digest-pinned four-service staging stack to Ubuntu 24.04 AMD64 on EC2
+- [x] Run staging migrations and the full demonstration seed explicitly
+- [x] Create student and Super Admin profiles and verify tunneled SPA access
+- [x] Configure frontend Nginx to re-resolve the recreated backend through Docker DNS
 
 ## Immediate Fixes Cleared ✅
 
@@ -45,13 +54,25 @@ All previously listed immediate fixes are complete.
 
 ## Next (recommended order)
 
-1. **GitHub Actions continuous integration**
-   - Learn workflows, events, jobs, runners, steps, and actions before writing YAML.
-   - Add an independent backend job: Composer install and the full PHPUnit suite.
-   - Add an independent frontend job: `npm ci`, ESLint, `vue-tsc`, Vitest, and the Vite production build.
-   - Trigger on pull requests and appropriate pushes.
-   - Keep image publishing and deployment out of the first workflow.
-   - Use [CI_CD_SESSION_1_DOCKER.md](CI_CD_SESSION_1_DOCKER.md) as the verified Docker baseline.
+1. **Staging recovery and security baseline**
+   - Verify swap persistence and capture post-seed resource usage.
+   - Create database and attachment backups and complete an isolated restore test.
+   - Remove, disable, or rotate the demonstration users that share the factory password `password` before broader access.
+   - Record deployed image digests in a secure operational location.
+
+2. **Controlled deployment automation**
+   - Use a protected GitHub staging environment with manual approval.
+   - Prefer AWS Systems Manager over storing an SSH private key in GitHub.
+   - Deploy exact ECR digests, acquire a deployment lock, stop the worker gracefully, run migrations once, recreate services, and execute health checks.
+   - Define application rollback behavior and document the limits imposed by backward-incompatible migrations.
+
+3. **Public staging readiness**
+   - Establish stable addressing and DNS.
+   - Add TLS termination and certificate renewal.
+   - Expose only reviewed HTTP/HTTPS ports after the shared seeded credentials are remediated.
+   - Configure final application origins and verify authentication, CORS, uploads, queue processing, and authorization.
+
+See [CI_CD_SESSION_2_HANDOFF.md](CI_CD_SESSION_2_HANDOFF.md) for the complete implementation and troubleshooting record.
 
 ## Later
 
