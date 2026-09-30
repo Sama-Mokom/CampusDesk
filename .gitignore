@@ -3,3 +3,4 @@
 docker-data/
 CampusDesk-staging-key.pem
 UI Prompt Campus desk.txt
+.env.staging

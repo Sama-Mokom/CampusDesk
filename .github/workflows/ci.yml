@@ -81,12 +81,29 @@ jobs:
         env:
           VITE_API_URL: /api
 
+  staging-config:
+    name: Staging Compose configuration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Validate staging Compose configuration
+        run: >
+          docker compose
+          --env-file .env.staging.example
+          --file compose.staging.yaml
+          config --quiet
+
   backend-image:
     name: Backend image build
     if: github.event_name != 'push'
     needs:
       - backend
       - frontend
+      - staging-config
     runs-on: ubuntu-24.04
     timeout-minutes: 15
 
@@ -103,6 +120,7 @@ jobs:
     needs:
       - backend
       - frontend
+      - staging-config
     runs-on: ubuntu-24.04
     timeout-minutes: 15
 
@@ -119,6 +137,7 @@ jobs:
     needs:
       - backend
       - frontend
+      - staging-config
     runs-on: ubuntu-24.04
     timeout-minutes: 20
 
@@ -190,6 +209,7 @@ jobs:
     needs:
       - backend
       - frontend
+      - staging-config
     runs-on: ubuntu-24.04
     timeout-minutes: 20
 
