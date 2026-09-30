@@ -1,0 +1,130 @@
+name: campusdesk-staging
+
+x-backend-environment: &backend-environment
+  APP_NAME: CampusDesk
+  APP_ENV: staging
+  APP_KEY: ${APP_KEY:?APP_KEY must be set}
+  APP_DEBUG: "false"
+  APP_URL: ${APP_URL:?APP_URL must be set}
+  FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL must be set}
+
+  LOG_CHANNEL: stderr
+  LOG_LEVEL: info
+
+  DB_CONNECTION: mysql
+  DB_HOST: db
+  DB_PORT: "3306"
+  DB_DATABASE: ${DB_DATABASE:?DB_DATABASE must be set}
+  DB_USERNAME: ${DB_USERNAME:?DB_USERNAME must be set}
+  DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set}
+
+  SESSION_DRIVER: database
+  CACHE_STORE: database
+  QUEUE_CONNECTION: database
+  FILESYSTEM_DISK: local
+
+  MAIL_MAILER: ${MAIL_MAILER:-log}
+  MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-campusdesk@example.com}
+  MAIL_FROM_NAME: ${MAIL_FROM_NAME:-CampusDesk}
+
+x-logging: &default-logging
+  driver: local
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  db:
+    image: ${MYSQL_IMAGE:?MYSQL_IMAGE must be set}
+    pull_policy: never
+    restart: unless-stopped
+
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:?DB_DATABASE must be set}
+      MYSQL_USER: ${DB_USERNAME:?DB_USERNAME must be set}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD must be set}
+
+    volumes:
+      - db_data:/var/lib/mysql
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mysqladmin ping -h 127.0.0.1 -uroot -p\"$${MYSQL_ROOT_PASSWORD}\" --silent",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+    logging: *default-logging
+
+  backend:
+    image: ${BACKEND_IMAGE:?BACKEND_IMAGE must be set}
+    pull_policy: never
+    restart: unless-stopped
+
+    environment: *backend-environment
+
+    volumes:
+      - attachments_data:/var/www/html/storage/app/private/attachments
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "php",
+          "-r",
+          "exit(@file_get_contents('http://127.0.0.1/up') === false ? 1 : 0);",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+    logging: *default-logging
+
+  worker:
+    image: ${BACKEND_IMAGE:?BACKEND_IMAGE must be set}
+    pull_policy: never
+    restart: unless-stopped
+
+    command: php artisan queue:work --sleep=3 --tries=3 --backoff=5 --timeout=60 -v
+
+    environment: *backend-environment
+
+    volumes:
+      - attachments_data:/var/www/html/storage/app/private/attachments
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+    stop_signal: SIGTERM
+    stop_grace_period: 70s
+
+    logging: *default-logging
+
+  frontend:
+    image: ${FRONTEND_IMAGE:?FRONTEND_IMAGE must be set}
+    pull_policy: never
+    restart: unless-stopped
+
+    ports:
+      - "127.0.0.1:8080:80"
+
+    depends_on:
+      backend:
+        condition: service_healthy
+
+    logging: *default-logging
+
+volumes:
+  db_data:
+  attachments_data:
