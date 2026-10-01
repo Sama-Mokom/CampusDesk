@@ -16,10 +16,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  preflight:
-    name: Validate staging release
+  deploy:
+    name: Deploy staging release
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 30
     environment: staging
 
     permissions:
@@ -63,7 +63,7 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
           allowed-account-ids: ${{ vars.AWS_ACCOUNT_ID }}
           mask-aws-account-id: true
-          role-session-name: CampusDeskStagingPreflight
+          role-session-name: CampusDeskStagingDeploy
 
       - name: Verify release images
         id: images
@@ -111,19 +111,162 @@ jobs:
 
           echo "Both release images exist."
 
-      - name: Write preflight summary
+      - name: Send deployment command
+        id: command
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ inputs.commit_sha }}
+          AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          BACKEND_REPOSITORY: ${{ vars.ECR_BACKEND_REPOSITORY }}
+          FRONTEND_REPOSITORY: ${{ vars.ECR_FRONTEND_REPOSITORY }}
+          BACKEND_DIGEST: ${{ steps.images.outputs.backend_digest }}
+          FRONTEND_DIGEST: ${{ steps.images.outputs.frontend_digest }}
+          SSM_DOCUMENT_NAME: ${{ vars.SSM_DOCUMENT_NAME }}
+          STAGING_INSTANCE_ID: ${{ vars.STAGING_INSTANCE_ID }}
+        run: |
+          set -euo pipefail
+
+          backend_image="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${BACKEND_REPOSITORY}@${BACKEND_DIGEST}"
+          frontend_image="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${FRONTEND_REPOSITORY}@${FRONTEND_DIGEST}"
+
+          echo "::add-mask::$backend_image"
+          echo "::add-mask::$frontend_image"
+
+          parameters_file="${RUNNER_TEMP}/campusdesk-ssm-parameters.json"
+          trap 'rm -f "$parameters_file"' EXIT
+
+          jq -n \
+            --arg release "$RELEASE_SHA" \
+            --arg backend "$backend_image" \
+            --arg frontend "$frontend_image" \
+            '{
+              ReleaseSha: [$release],
+              BackendImage: [$backend],
+              FrontendImage: [$frontend]
+            }' > "$parameters_file"
+
+          command_id="$(
+            aws ssm send-command \
+              --document-name "$SSM_DOCUMENT_NAME" \
+              --document-version "1" \
+              --instance-ids "$STAGING_INSTANCE_ID" \
+              --comment "CampusDesk staging release ${RELEASE_SHA}" \
+              --parameters "file://${parameters_file}" \
+              --timeout-seconds 1200 \
+              --max-concurrency "1" \
+              --max-errors "0" \
+              --query 'Command.CommandId' \
+              --output text
+          )"
+
+          if [[ ! "$command_id" =~ ^[0-9a-f-]{36}$ ]]; then
+            echo "Systems Manager did not return a valid command ID."
+            exit 1
+          fi
+
+          echo "::add-mask::$command_id"
+          echo "command_id=$command_id" >> "$GITHUB_OUTPUT"
+          echo "Deployment command accepted by Systems Manager."
+
+      - name: Wait for deployment
+        id: wait
+        shell: bash
+        env:
+          COMMAND_ID: ${{ steps.command.outputs.command_id }}
+          STAGING_INSTANCE_ID: ${{ vars.STAGING_INSTANCE_ID }}
+        run: |
+          set -euo pipefail
+
+          deadline=$((SECONDS + 1300))
+
+          print_command_output() {
+            local invocation="$1"
+            local standard_output
+            local standard_error
+
+            standard_output="$(
+              jq -r '.StandardOutputContent // empty' <<< "$invocation"
+            )"
+
+            standard_error="$(
+              jq -r '.StandardErrorContent // empty' <<< "$invocation"
+            )"
+
+            if [[ -n "$standard_output" ]]; then
+              printf '%s\n' '--- SSM standard output ---'
+              printf '%s\n' "$standard_output"
+            fi
+
+            if [[ -n "$standard_error" ]]; then
+              printf '%s\n' '--- SSM standard error ---'
+              printf '%s\n' "$standard_error"
+            fi
+          }
+
+          while (( SECONDS < deadline )); do
+            set +e
+
+            invocation="$(
+              aws ssm get-command-invocation \
+                --command-id "$COMMAND_ID" \
+                --instance-id "$STAGING_INSTANCE_ID" \
+                --output json 2>&1
+            )"
+
+            invocation_status=$?
+
+            set -e
+
+            if (( invocation_status != 0 )); then
+              if grep -q 'InvocationDoesNotExist' <<< "$invocation"; then
+                sleep 5
+                continue
+              fi
+
+              printf '%s\n' "$invocation"
+              exit "$invocation_status"
+            fi
+
+            command_status="$(jq -r '.Status' <<< "$invocation")"
+
+            case "$command_status" in
+              Success)
+                print_command_output "$invocation"
+                echo "Deployment completed successfully."
+                exit 0
+                ;;
+
+              Pending|InProgress|Delayed)
+                sleep 5
+                ;;
+
+              *)
+                print_command_output "$invocation"
+                echo "Deployment failed with SSM status: $command_status"
+                exit 1
+                ;;
+            esac
+          done
+
+          echo "Timed out while waiting for the deployment command."
+          echo "The SSM command might still be running; inspect it before retrying."
+          exit 1
+
+      - name: Write deployment summary
+        if: ${{ success() }}
         shell: bash
         env:
           RELEASE_SHA: ${{ inputs.commit_sha }}
         run: |
           {
-            echo "### CampusDesk staging preflight"
+            echo "### CampusDesk staging deployment"
             echo
             echo "- Release: \`$RELEASE_SHA\`"
             echo "- Development history: validated"
-            echo "- Backend ECR image: found"
-            echo "- Frontend ECR image: found"
-            echo "- EC2 deployment executed: no"
-            echo
-            echo "This workflow is currently preflight-only."
+            echo "- Backend ECR image: verified"
+            echo "- Frontend ECR image: verified"
+            echo "- Environment approval: granted"
+            echo "- SSM deployment: successful"
+            echo "- Host health and API smoke tests: successful"
           } >> "$GITHUB_STEP_SUMMARY"
