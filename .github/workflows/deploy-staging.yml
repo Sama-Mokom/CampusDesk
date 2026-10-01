@@ -1,0 +1,129 @@
+name: Deploy CampusDesk staging
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Full development commit SHA to deploy
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: campusdesk-staging-deployment
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    name: Validate staging release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: staging
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Check out development history
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Validate release commit
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ inputs.commit_sha }}
+        run: |
+          set -euo pipefail
+
+          if [[ ! "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "The release must be a full lowercase 40-character Git SHA."
+            exit 1
+          fi
+
+          if ! git cat-file -e "${RELEASE_SHA}^{commit}"; then
+            echo "The requested release does not exist in the repository history."
+            exit 1
+          fi
+
+          if ! git merge-base --is-ancestor "$RELEASE_SHA" HEAD; then
+            echo "The requested release is not part of the selected development history."
+            exit 1
+          fi
+
+          echo "Release commit validated."
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          allowed-account-ids: ${{ vars.AWS_ACCOUNT_ID }}
+          mask-aws-account-id: true
+          role-session-name: CampusDeskStagingPreflight
+
+      - name: Verify release images
+        id: images
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ inputs.commit_sha }}
+          BACKEND_REPOSITORY: ${{ vars.ECR_BACKEND_REPOSITORY }}
+          FRONTEND_REPOSITORY: ${{ vars.ECR_FRONTEND_REPOSITORY }}
+        run: |
+          set -euo pipefail
+
+          backend_digest="$(
+            aws ecr describe-images \
+              --repository-name "$BACKEND_REPOSITORY" \
+              --image-ids "imageTag=$RELEASE_SHA" \
+              --query 'imageDetails[0].imageDigest' \
+              --output text
+          )"
+
+          frontend_digest="$(
+            aws ecr describe-images \
+              --repository-name "$FRONTEND_REPOSITORY" \
+              --image-ids "imageTag=$RELEASE_SHA" \
+              --query 'imageDetails[0].imageDigest' \
+              --output text
+          )"
+
+          digest_pattern='^sha256:[0-9a-f]{64}$'
+
+          if [[ ! "$backend_digest" =~ $digest_pattern ]]; then
+            echo "The backend image did not resolve to a valid digest."
+            exit 1
+          fi
+
+          if [[ ! "$frontend_digest" =~ $digest_pattern ]]; then
+            echo "The frontend image did not resolve to a valid digest."
+            exit 1
+          fi
+
+          echo "::add-mask::$backend_digest"
+          echo "::add-mask::$frontend_digest"
+
+          echo "backend_digest=$backend_digest" >> "$GITHUB_OUTPUT"
+          echo "frontend_digest=$frontend_digest" >> "$GITHUB_OUTPUT"
+
+          echo "Both release images exist."
+
+      - name: Write preflight summary
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ inputs.commit_sha }}
+        run: |
+          {
+            echo "### CampusDesk staging preflight"
+            echo
+            echo "- Release: \`$RELEASE_SHA\`"
+            echo "- Development history: validated"
+            echo "- Backend ECR image: found"
+            echo "- Frontend ECR image: found"
+            echo "- EC2 deployment executed: no"
+            echo
+            echo "This workflow is currently preflight-only."
+          } >> "$GITHUB_STEP_SUMMARY"
