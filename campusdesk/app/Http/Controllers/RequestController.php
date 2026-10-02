@@ -11,6 +11,7 @@ use App\Services\RequestStatusNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use UnexpectedValueException;
 
 class RequestController extends Controller
@@ -32,30 +33,51 @@ class RequestController extends Controller
      */
     public function store(StoreRequestRequest $request, RequestCreationService $requestCreation)
     {
-        return DB::transaction(function () use ($request, $requestCreation) {
-            $type = RequestType::findOrFail($request->request_type_id);
-            $userRequest = $requestCreation->createForStudent(
-                Auth::user(),
-                $type,
-                $request->description,
-            );
+        $storedPaths = [];
 
-            if ($request->hasFile('attachments')) {
-                foreach ($request->file('attachments', []) as $file) {
-                    $path = $file->store('attachments');
-                    $userRequest->attachments()->create([
-                        'file_path' => $path,
-                        'original_name' => $file->getClientOriginalName(),
-                        'mime_type' => $file->getMimeType(),
-                        'file_size' => $file->getSize(),
-                    ]);
+        try {
+            return DB::transaction(function () use ($request, $requestCreation, &$storedPaths) {
+                $type = RequestType::findOrFail($request->request_type_id);
+                $userRequest = $requestCreation->createForStudent(
+                    Auth::user(),
+                    $type,
+                    $request->description,
+                );
+
+                if ($request->hasFile('attachments')) {
+                    foreach ($request->file('attachments', []) as $file) {
+                        $path = $file->store('attachments', 'local');
+
+                        if (! is_string($path) || $path === '') {
+                            throw new \RuntimeException('Failed to store the uploaded attachment.');
+                        }
+
+                        $storedPaths[] = $path;
+
+                        $userRequest->attachments()->create([
+                            'file_path' => $path,
+                            'original_name' => $file->getClientOriginalName(),
+                            'mime_type' => $file->getMimeType(),
+                            'file_size' => $file->getSize(),
+                        ]);
+                    }
+                }
+
+                return new RequestResource(
+                    $userRequest->load(['requestType', 'requestStages.department', 'attachments', 'statusHistories'])
+                );
+            });
+        } catch (\Throwable $exception) {
+            foreach ($storedPaths as $path) {
+                try {
+                    Storage::disk('local')->delete($path);
+                } catch (\Throwable $cleanupException) {
+                    report($cleanupException);
                 }
             }
 
-            return new RequestResource(
-                $userRequest->load(['requestType', 'requestStages.department', 'attachments', 'statusHistories'])
-            );
-        });
+            throw $exception;
+        }
     }
 
     public function show(UserRequest $request)
