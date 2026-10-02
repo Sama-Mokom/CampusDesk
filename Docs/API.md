@@ -1,5 +1,7 @@
 # CampusDesk — API Documentation
 
+**Last reviewed:** 2 October 2026
+
 ## Base URL
 
 ```
@@ -288,8 +290,9 @@ attachments[]: (file, optional, pdf/docx/jpg/png, max 5MB each)
 3. Resolves symbolic tokens in sequence via `StageGenerationService::resolveSequence()`
 4. Creates one `request_stages` row per department in resolved sequence
 5. Creates initial `status_history` entry (`changed_by: null`, note: "Request submitted by student.")
-6. Stores uploaded files in `storage/app/attachments/`
-7. Creates `attachments` rows
+6. Stores uploaded files through the explicit `local` disk under `storage/app/private/attachments/`
+7. Rejects a false/empty storage result; on any failure, rolls back request metadata and removes files already written by that request
+8. Creates `attachments` rows only for successful writes
 
 ---
 
@@ -425,10 +428,14 @@ Stream a protected attachment file.
 **Auth:** Bearer token required (both student and staff — placed in a `auth:sanctum` only group, no role middleware)
 
 **Authorization (controller):**
-- Authenticated user is the request owner (student), OR
-- Authenticated user is staff (`role === 'staff'`)
+- Authenticated user is the request owner, OR
+- Authenticated user is a Super Admin, OR
+- Authenticated user is assigned as the handler of any stage on the request, OR
+- Authenticated user is staff in a department that appears in the request's stage route
 
-**Response:** Binary file stream via `Storage::response()` with correct `Content-Type` header.
+Unrelated students and unrelated staff receive HTTP 403. If authorization succeeds but the physical local-disk object is absent, the endpoint returns HTTP 404.
+
+**Response:** Binary file stream via `Storage::disk('local')->response()` with the original filename and correct `Content-Type` header.
 
 **Frontend usage:** Fetched via Axios with `responseType: 'blob'`, displayed via `URL.createObjectURL()` in `DocumentViewer.vue`.
 

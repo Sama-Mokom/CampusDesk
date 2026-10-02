@@ -1,5 +1,7 @@
 # CampusDesk technology stack
 
+**Last reviewed:** 2 October 2026
+
 ## Frontend
 
 | Technology | Use |
@@ -40,6 +42,8 @@ mock-data application in the repository.
 
 ## Local tooling
 
-Development supports both the existing Windows bare-development workflow and a verified Docker Desktop workflow. Docker Compose runs MySQL 8.4, Laravel on PHP 8.3 with Apache, a separate Laravel queue worker, and the compiled Vue application on Nginx. See [CI_CD_SESSION_1_DOCKER.md](CI_CD_SESSION_1_DOCKER.md).
+Development supports both the existing Windows bare-development workflow and a verified Docker Desktop workflow. Docker Compose runs MySQL 8.4, Laravel on PHP 8.3 with Apache, a separate Laravel queue worker, and the compiled Vue application on Nginx. See the consolidated [CI/CD implementation and operations guide](CI_CD_SESSION_2_HANDOFF.md).
 
-Composer scripts support backend setup, development, and tests. npm scripts in `Frontend/package.json` run Vite, ESLint, Vitest, TypeScript checking, and the production build. Browser E2E coverage is not installed. GitHub Actions, image publishing, and AWS deployment are the next delivery stages and are not yet configured.
+Composer scripts support backend setup, development, and tests. npm scripts in `Frontend/package.json` run Vite, ESLint, Vitest, TypeScript checking, and the production build. Browser E2E coverage is not installed.
+
+GitHub Actions runs the backend/frontend quality gates, validates Compose, builds images, and publishes immutable commit-SHA images to Amazon ECR through OIDC. A separate manual-triggered workflow uses a protected `staging` environment, an environment-scoped OIDC role, and a restricted Systems Manager document to deploy exact digests to EC2. The current staging runtime is one Ubuntu 24.04 AMD64 host running Docker Compose; public DNS/HTTPS and restore-tested backups are not yet implemented.

@@ -63,3 +63,17 @@ cd ../Frontend
 npm test
 npm run build
 ```
+
+## AWS Staging and Attachment Reliability Update — 2 October 2026
+
+The delivery path now includes GitHub Actions quality gates, immutable ECR publication, and a manual-triggered, protected-environment deployment through a restricted Systems Manager document. The EC2 host script deploys exact digests, serializes releases, runs migrations once, checks service health, and supports an idempotent no-op when the requested release is already active.
+
+The staging attachment defect was traced to the named volume being `root:root` mode `0755`, which made the private upload directory unwritable by the Apache `www-data` process. The permanent implementation now:
+
+- runs a network-isolated `attachments-init` service as root to create and verify a `www-data:www-data` mode `0750` directory before backend and worker startup;
+- treats false/empty upload results as errors instead of persisting corrupt attachment rows;
+- removes files already written if a later upload or transaction step fails;
+- serves through the explicit local disk; and
+- authorizes only the owning student, Super Admin, assigned handler, or staff in a department on the request route.
+
+`AttachmentStorageTest` covers the successful upload path, allowed and denied download roles, missing physical files, write-failure rollback, and partial multi-file cleanup. Staging functional testing confirmed a real generated attachment path and HTTP 200 PDF retrieval, along with the complete request lifecycle through collection.

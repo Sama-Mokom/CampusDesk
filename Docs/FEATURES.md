@@ -1,5 +1,7 @@
 # CampusDesk — Features & Implementation Status
 
+**Last reviewed:** 2 October 2026
+
 Status legend: ✅ IMPLEMENTED · 🟡 PARTIALLY IMPLEMENTED · ❌ PLANNED/TODO
 
 ---
@@ -67,7 +69,8 @@ Status legend: ✅ IMPLEMENTED · 🟡 PARTIALLY IMPLEMENTED · ❌ PLANNED/TODO
 3. Frontend submits `POST /api/requests` as `multipart/form-data` (if files) or JSON
 4. Backend, in a DB transaction:
    - Creates `requests` row (status: pending)
-   - Stores uploaded files, creates `attachments` rows
+   - Stores uploaded files through the explicit private local disk and creates `attachments` rows only after successful writes
+   - On storage/transaction failure, rolls back metadata and removes files already written by that request
    - Loads `request_type.default_department_sequence`, resolves symbolic tokens via `resolveSequence()`
    - Creates one `request_stages` row per department in the resolved sequence, in order
    - Creates initial `status_history` entry (old_status: null, new_status: pending, changed_by: null)
@@ -155,21 +158,22 @@ Status legend: ✅ IMPLEMENTED · 🟡 PARTIALLY IMPLEMENTED · ❌ PLANNED/TODO
 
 ---
 
-## Feature 8: View Document Attachments (Both Roles) ✅ IMPLEMENTED
+## Feature 8: View Document Attachments (Authorized Roles) ✅ IMPLEMENTED
 
 **Purpose:** Securely preview uploaded documents inline.
 
-**Actors:** Student (own requests) and Staff (any request)
+**Actors:** Student (own request), Super Admin, assigned stage handler, or staff in a department on the request route
 
 **Main flow:**
 1. User clicks attachment in `DocumentViewer.vue`
 2. Frontend calls `GET /api/attachments/{attachment}` via Axios with `responseType: 'blob'`
-3. Backend verifies ownership (student) or role (staff), streams the file
-4. Frontend creates `URL.createObjectURL(blob)` and displays in `<img>` (images) or `<iframe>` (PDFs)
-5. "Open in new tab" button opens blob URL in a new window
-6. Deselecting calls `URL.revokeObjectURL()` to free memory
+3. Backend verifies ownership or the scoped Super Admin/handler/department relationship; unrelated users receive 403
+4. Backend returns 404 for a missing physical file, otherwise streams it from the explicit local disk
+5. Frontend creates `URL.createObjectURL(blob)` and displays in `<img>` (images) or `<iframe>` (PDFs)
+6. "Open in new tab" button opens blob URL in a new window
+7. Deselecting calls `URL.revokeObjectURL()` to free memory
 
-**Unit tests:** `DocumentViewer.spec.ts` covers empty state, image display, PDF display, unsupported type fallback, and toggle behaviour.
+**Tests:** `DocumentViewer.spec.ts` covers empty state, image display, PDF display, unsupported type fallback, and toggle behaviour. `AttachmentStorageTest` covers successful persistence, allowed/denied access, missing files, failed-write rollback, and partial-upload cleanup.
 
 ---
 

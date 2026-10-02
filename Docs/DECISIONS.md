@@ -1,5 +1,7 @@
 # CampusDesk — Architecture Decision Record (ADR)
 
+**Last reviewed:** 2 October 2026
+
 Each entry: Decision, Context, Options Considered, Decision Made, Reasoning, Consequences, Status.
 
 ---
@@ -150,15 +152,15 @@ PHPUnit tests in `SequentialRoutingPreservationTest` and `SequentialRoutingBugCo
 
 **Options considered:**
 - A. Store in `storage/app/public/`, symlink, serve as static files
-- B. Store in private `storage/app/attachments/`, serve through an authenticated controller
+- B. Store on Laravel's private local disk, serve through an authenticated controller
 
 **Decision:** B.
 
 **Reasoning:** Attachments contain sensitive academic records. A university document system should not expose them via guessable public URLs.
 
-**Consequences:** `AttachmentController::show()` checks ownership or staff role before streaming via `Storage::response()`. Frontend cannot use plain `<img src>` or `<iframe src>` with a Bearer token — instead fetches as a blob via Axios and creates a temporary `URL.createObjectURL()` for display.
+**Consequences:** Files live under `storage/app/private/attachments/`. `AttachmentController::show()` permits the owning student, a Super Admin, an assigned handler, or staff in a department on the request route, then streams from the explicit local disk. Frontend cannot use plain `<img src>` or `<iframe src>` with a Bearer token — instead it fetches as a blob via Axios and creates a temporary `URL.createObjectURL()` for display. Staging must initialize the named volume for `www-data` before backend/worker startup, and failed writes must abort and clean up rather than create attachment rows.
 
-**Status:** ✅ Implemented and working. Unit tests for `DocumentViewer.vue` exist.
+**Status:** ✅ Implemented and verified. `DocumentViewer.vue` unit tests cover display behavior; `AttachmentStorageTest` covers storage success/failure, cleanup, missing files, and role-scoped access. Staging upload/download was functionally verified on 2 October 2026.
 
 ---
 

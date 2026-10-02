@@ -1,5 +1,7 @@
 # CampusDesk — System Architecture
 
+**Last reviewed:** 2 October 2026
+
 ## Overall Architecture
 
 CampusDesk is a **decoupled SPA + REST API** architecture:
@@ -41,7 +43,26 @@ flowchart LR
     DB --> Volume["Named database volume"]
 ```
 
-Only Nginx publishes a host port. Compose DNS provides the internal `backend` and `db` hostnames. The backend and worker share one image but run different main processes. See [CI_CD_SESSION_1_DOCKER.md](CI_CD_SESSION_1_DOCKER.md) for the complete runtime design and verification record.
+Only Nginx publishes a host port. Compose DNS provides the internal `backend` and `db` hostnames. The backend and worker share one image but run different main processes. See the consolidated [CI/CD implementation and operations guide](CI_CD_SESSION_2_HANDOFF.md) for the complete runtime design and verification record.
+
+### Verified AWS staging delivery topology
+
+```mermaid
+flowchart LR
+    Dev[Push to development] --> CI[GitHub Actions quality gates]
+    CI --> ECR[Immutable backend and frontend ECR images]
+    Operator[Operator] -->|manual dispatch and approval| Deploy[Protected staging environment]
+    Deploy --> OIDC[Environment-scoped GitHub OIDC role]
+    OIDC -->|resolve exact digests| ECR
+    OIDC -->|restricted command| SSM[CampusDesk-DeployStaging]
+    SSM --> Script[/usr/local/sbin/campusdesk-deploy]
+    Script --> Stack[Single-host staging Compose stack]
+    Stack --> Init[One-shot attachments-init]
+    Init --> Volume[Private attachments_data volume]
+    Stack --> DBData[db_data volume]
+```
+
+The deployment is automated after a manual workflow dispatch and protected-environment approval. It validates the full release SHA, resolves exact ECR digests, serializes deployments, verifies images before downtime, runs migrations once, recreates application services, and performs health/API smoke tests. Re-dispatching the active release follows a verified no-op path. The workflow does not copy `compose.staging.yaml` or replace the root-owned host script; those host changes require a separate reviewed rollout. See [CI_CD_SESSION_2_HANDOFF.md](CI_CD_SESSION_2_HANDOFF.md).
 
 ## Frontend Architecture
 
@@ -105,7 +126,7 @@ All frontend application code is contained in `Frontend/src/`; the project is a 
 - **Auth:** Laravel Sanctum 4.x (Bearer token mode)
 - **Queue:** Database driver (`jobs` table)
 - **Mail:** SMTP via Mailtrap (development)
-- **File storage:** Laravel Storage facade (local disk, `storage/app/attachments/`)
+- **File storage:** Laravel Storage facade (explicit local disk, `storage/app/private/attachments/`)
 - **ORM:** Eloquent with relationships, observers, and model events
 
 ### Backend Structure
@@ -253,11 +274,14 @@ Middleware aliases in `bootstrap/app.php`:
 
 ## File Storage Architecture
 
-Uploaded attachments are stored in `storage/app/attachments/` (private, NOT in `public/`).
+Uploaded attachments are stored through Laravel's explicit `local` disk in `storage/app/private/attachments/` (private, not under `public/`). In staging, backend and worker mount the shared `attachments_data` volume at that path.
 
 Files are served through `AttachmentController::show()` which:
-1. Validates the authenticated user is the request owner OR is staff
-2. Streams the file using `Storage::response()`
+1. Validates that the authenticated user is the request owner, a Super Admin, an assigned handler, or staff in a department on the request route
+2. Returns 404 if the physical local-disk object is missing
+3. Streams the file using `Storage::disk('local')->response()` with its original filename and MIME type
+
+`RequestController::store()` treats a false or empty storage result as an error, rolls back the request metadata, and removes files written earlier in a failed multi-file transaction. In staging, the network-isolated one-shot `attachments-init` service creates the mounted directory as `www-data:www-data` mode `0750` and must succeed before backend or worker startup.
 
 Frontend receives a file ID, fetches it via Axios with `responseType: 'blob'`, creates a `URL.createObjectURL(blob)` for display in `<img>` and `<iframe>` tags. This sidesteps the Bearer token limitation on HTML src attributes.
 

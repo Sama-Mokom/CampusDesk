@@ -1,10 +1,12 @@
 # CampusDesk — Testing
 
+**Last reviewed:** 2 October 2026
+
 ## Current State
 
-Automated tests exist for authentication, the request lifecycle, department administration, the Super Admin API, notifications, and frontend dashboards. CI/CD Session 1 repaired the stale authentication and protected-document preview tests and established a fully green local baseline.
+Automated tests exist for authentication, the request lifecycle, department administration, the Super Admin API, notifications, attachment storage/access, and frontend dashboards. CI/CD Session 1 repaired the stale authentication and protected-document preview tests and established a fully green local baseline. The documentation was last reconciled with the code and staging evidence on 2 October 2026.
 
-Last verified baseline on 24 September 2026:
+Historical local baseline on 24 September 2026, before the later attachment regression tests were added:
 
 - `php artisan test`: 54 tests passed with 354 assertions.
 - `npm test`: 37 tests passed.
@@ -12,7 +14,11 @@ Last verified baseline on 24 September 2026:
 - `npx vue-tsc --noEmit`: passed.
 - `npm run build`: passed.
 
-These commands are the quality gates planned for the first GitHub Actions workflow.
+These commands now run as GitHub Actions quality gates. The exact current test count may be higher than this historical baseline; rely on the latest successful CI run rather than treating these numbers as permanent.
+
+Focused verification on 2 October 2026:
+
+- `php artisan test --filter AttachmentStorageTest`: 4 tests passed with 19 assertions.
 
 ---
 
@@ -76,6 +82,17 @@ Tests that guard correct behaviour that must not regress:
 #### `SuperAdminDashboardTest.php`
 
 Covers the Super Admin gate, reference CRUD and safe deletion, staff creation and elevation, token revocation, self/last-admin protection, profile consistency, routing-template validation, statistics, and paginated request/status-history reads.
+
+#### `AttachmentStorageTest.php`
+
+Covers the attachment-backed student request path and the staging defect that previously persisted `file_path = 0` after an unwritable-volume failure:
+
+- a student upload creates a non-empty local-disk path and physical file;
+- the owner, a department-route staff member, an assigned handler, and a Super Admin can download it;
+- an unrelated student and unrelated staff member receive HTTP 403;
+- a missing physical file returns HTTP 404;
+- a failed storage write rolls back both the request and attachment record; and
+- a later failure in a multi-file upload removes files already written by that request.
 
 ### Existing Default Tests
 
@@ -164,8 +181,9 @@ Covers server-backed collection loading and pagination, rejected-request reopen,
 - [ ] Student cannot view another student's request (403)
 - [ ] Staff from wrong department cannot claim a stage (403)
 - [ ] File upload validation — invalid types/oversized files return 422
-- [ ] Attachment access control — student can view own attachment; different student cannot; any staff can
-- [ ] Request submission creates correct number of stages matching `default_department_sequence`
+- [x] Attachment access control — owner and related staff roles are allowed; unrelated students and staff are denied
+- [x] Attachment-backed request submission — successful persistence, failed-write rollback, and partial-write cleanup
+- [ ] Broader request submission cases create the correct number of stages for varied `default_department_sequence` templates
 
 ### Lower Priority (auth/validation)
 
@@ -193,8 +211,8 @@ Covers server-backed collection loading and pagination, rejected-request reopen,
 | StaffDashboard resolve modal (frontend) | ✅ Covered by unit tests |
 | RequestTimeline component (frontend) | ✅ Covered by unit tests |
 | Authentication flows | ✅ Registration, verification, password reset, login, logout, and token behavior pass against the current API and fixtures |
-| Attachment security | ❌ Not covered |
-| Student request submission | ❌ Not covered |
+| Attachment storage and authorization | ✅ Covered by `AttachmentStorageTest`; invalid/oversized validation cases remain open |
+| Student request submission | ✅ Attachment-backed creation path covered; broader routing-template cases remain open |
 | Notification system | ✅ Backend and bell tests |
 | Admin endpoints | ✅ Focused department and Super Admin feature tests |
 | Frontend E2E | ❌ Not covered |
@@ -202,7 +220,19 @@ Covers server-backed collection loading and pagination, rejected-request reopen,
 ## Current verification limits
 
 - True parallel stage-claim behavior still lacks a multi-connection concurrency test.
-- Attachment ownership and invalid/oversized upload behavior still need dedicated feature coverage.
-- Student request submission needs a focused end-to-end backend integration test.
+- Invalid and oversized upload validation still needs dedicated feature coverage.
+- Broader request-submission routing-template cases still need focused backend integration coverage.
 - Browser-level E2E coverage is not installed.
-- The current green commands were run on the Windows development machine. Session 2 will reproduce them on disposable GitHub-hosted Linux runners.
+- GitHub Actions runs the backend and frontend quality gates on disposable Ubuntu 24.04 runners.
+
+## Staging Functional Verification — 2 October 2026
+
+Manual end-to-end verification on the private staging deployment confirmed:
+
+- a student can submit a request with a PDF attachment and receives a real `attachments/<generated-name>.pdf` path rather than `/storage/0`;
+- an authenticated and authorized user can retrieve that attachment through `GET /api/attachments/{id}` with HTTP 200, the expected `application/pdf` content type, filename, and content length;
+- staff can claim and approve each sequential department stage;
+- the request reaches `ready`, the student receives the lifecycle notification, and the student can mark it `collected`; and
+- the request, stages, history, notification, and attachment remain visible through their authenticated API flows.
+
+This is functional staging evidence, not an installed browser automation suite. The screenshots and operator observations confirm the tested path; Playwright/Cypress coverage remains open.

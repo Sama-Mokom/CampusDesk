@@ -37,7 +37,7 @@ This is the complete knowledge base for the CampusDesk project — a university 
 - **[SECURITY.md](./Docs/SECURITY.md)** — Auth mechanism, authorization layers, known security gaps
 - **[TESTING.md](./Docs/TESTING.md)** — Current test coverage and recommended test checklist
 - **[DEVELOPMENT_SETUP.md](./Docs/DEVELOPMENT_SETUP.md)** — Full environment setup, commands, troubleshooting
-- **[CI_CD_SESSION_1_DOCKER.md](./Docs/CI_CD_SESSION_1_DOCKER.md)** — Verified local Docker architecture, operations, persistence, queue behavior, and troubleshooting
+- **[CI_CD_SESSION_2_HANDOFF.md](./Docs/CI_CD_SESSION_2_HANDOFF.md)** — Comprehensive local Docker, CI, immutable ECR, AWS staging, protected SSM deployment, attachment hardening, operations, troubleshooting, and recovery guide
 - **[CI-CD.md](./CI-CD.md)** — CI/CD learning-track status and next checkpoint
 
 ## Diagrams
@@ -57,11 +57,11 @@ All diagrams are embedded as Mermaid code within the relevant document (primaril
 | **Backend URL (bare dev)** | `http://127.0.0.1:8000` |
 | **Frontend URL (bare dev)** | `http://localhost:5173` |
 | **Docker Compose URL** | `http://localhost:8080` |
-| **Current status** | Application workflows are implemented and the verified local Compose stack runs Nginx/Vue, Laravel/Apache, a Laravel queue worker, and MySQL. CI is the next delivery stage. The separate administrative action audit remains planned. |
-| **Automated checks** | Backend: 54 PHPUnit tests and 354 assertions passed. Frontend: 37 Vitest tests, ESLint, `vue-tsc`, and the Vite production build passed during CI/CD Session 1. See [TESTING.md](./Docs/TESTING.md). |
+| **Current status** | Application workflows, CI, immutable ECR publication, and the manual-approved SSM staging deployment are implemented. The full request lifecycle and private attachment upload/retrieval were functionally verified in staging on 2 October 2026. Backups/restores, public DNS/HTTPS, and the separate administrative action audit remain open. |
+| **Automated checks** | GitHub Actions runs backend PHPUnit, frontend Vitest/ESLint/TypeScript/build checks, Compose validation, and image builds. The historical Session 1 baseline was 54 PHPUnit tests/354 assertions and 37 Vitest tests; attachment regression tests were added later. See [TESTING.md](./Docs/TESTING.md) and the latest CI run for current counts. |
 
 ---
 
 ## Source of Truth Note
 
-This documentation was originally reconstructed from a conversation history record and has since been reconciled against the actual files on disk. Where source files were directly inspected, claims are marked confirmed. Outstanding concerns from the original reconstruction have been resolved (see KNOWN_ISSUES.md). Cross-check against actual source files before making significant changes — this documentation represents the state as of September 2026.
+This documentation was originally reconstructed from a conversation history record and has since been reconciled against the actual files on disk and the supplied staging evidence. Cross-check against actual source files before making significant changes. The active documentation was last reviewed on 2 October 2026; unresolved work is recorded in [ROADMAP.md](./Docs/ROADMAP.md) and [CI_CD_SESSION_2_HANDOFF.md](./Docs/CI_CD_SESSION_2_HANDOFF.md).

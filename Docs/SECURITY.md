@@ -1,5 +1,7 @@
 # CampusDesk — Security Documentation
 
+**Last reviewed:** 2 October 2026
+
 ## Authentication Mechanism
 
 **Laravel Sanctum 4.x, Bearer token mode** (not cookie/session mode).
@@ -33,12 +35,15 @@ The department-admin gate and middleware both use `is-dept-admin`. The protected
 
 - Validated file types: `pdf`, `docx`, `jpg`, `png` (via `mimes:` validation rule in `StoreRequestRequest`)
 - Max file size: 5MB per file (`max:5120`)
-- Files stored OUTSIDE the public webroot (`storage/app/attachments/`, not `storage/app/public/`)
+- Files stored on Laravel's explicit `local` disk under `storage/app/private/attachments/`, outside the public webroot
+- The staging `attachments-init` one-shot service creates the mounted directory as `www-data:www-data` mode `0750`, verifies those permissions, and must succeed before backend or worker startup
+- A failed or empty storage result raises an error before an attachment record can be committed; a failed multi-file request also deletes files written earlier in that transaction
 - Files served exclusively through `AttachmentController::show()`, which checks:
   - Requester is authenticated (Bearer token via `auth:sanctum`)
-  - Requester is either the owning student OR has `role = 'staff'`
-  - File exists on disk (`Storage::exists($attachment->file_path)`)
+  - Requester is the owning student, a Super Admin, a handler assigned to any stage of the request, or staff belonging to a department in the request route
+  - File exists on the explicit local disk (`Storage::disk('local')->exists(...)`)
 - No direct public URL ever exposes an attachment
+- `AttachmentStorageTest` covers authorized and denied roles, missing physical files, failed-write rollback, and cleanup after a partial multi-file write
 
 ## API Security Measures
 
@@ -90,7 +95,7 @@ PHPUnit regression tests in `SequentialRoutingPreservationTest` lock this behavi
 
 2. **No token expiration configured** — `sanctum.expiration` is `null` (tokens never expire automatically). No token refresh mechanism exists. A leaked or stolen token remains valid until manually revoked.
 
-3. **No rate limiting on `GET /api/attachments/{id}`** — could theoretically be used to enumerate attachment IDs, though the ownership/staff check blocks unauthorized access to content.
+3. **No rate limiting on `GET /api/attachments/{id}`** — sequential IDs can still be probed, although scoped ownership, assignment, department-route, and Super Admin checks deny unrelated users and staff.
 
 4. **Admin authorization** — `/api/admin` requires Sanctum, the Super Admin gate, and throttling. Department-admin endpoints are limited to the primary department.
 
@@ -103,6 +108,18 @@ PHPUnit regression tests in `SequentialRoutingPreservationTest` lock this behavi
 8. **`.env` is gitignored** — confirmed via `campusdesk/.gitignore`. No secrets are committed to the repository.
 
 9. **`personal_access_tokens` table is manually migrated** — Sanctum tokens are stored in `personal_access_tokens` via migration `2026_04_12_232151_create_personal_access_tokens_table`. This is redundant with Sanctum's own migration. Verify this does not cause conflicts (no issues observed in practice).
+
+10. **Staging remains private and single-hosted** — access is still through an SSH tunnel, deployments have planned downtime, and database/attachment backup restoration has not yet been proven. Public exposure must wait for credential remediation, restore testing, DNS, and HTTPS.
+
+## Staging Deployment Security
+
+- GitHub obtains short-lived AWS credentials through OIDC; no long-lived AWS key or SSH private key is stored in GitHub.
+- The deployment role trust policy is limited to the repository's protected `staging` environment.
+- Its permissions are limited to describing the two CampusDesk ECR repositories, invoking the exact restricted SSM document on the exact staging instance, and polling that command.
+- The custom SSM document validates a full release SHA and exact backend/frontend digest references, then calls only the fixed root-owned `/usr/local/sbin/campusdesk-deploy` script.
+- Deployments require a manual workflow dispatch and protected-environment approval and are serialized without cancelling an active deployment.
+- The EC2 runtime role can pull from the two ECR repositories and register with Systems Manager; it cannot push registry content.
+- Repository changes to Compose or the host script are not silently copied by the deployment workflow and require a separate reviewed host update.
 
 ## Deferred Integration Security Requirements
 

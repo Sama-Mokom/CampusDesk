@@ -1,5 +1,7 @@
 # CampusDesk — Database Documentation
 
+**Last reviewed:** 2 October 2026
+
 ## Super Admin data integrity
 
 The dashboard uses the existing faculty, department, programme, request type, user/profile, request, stage, and `status_history` tables. Programme `faculty_id` derives from its department. Staff memberships use `department_staff`, with one primary membership selected through the admin API. Referenced records are checked before deletion and return HTTP 409. `status_history` records request/stage transitions only. A separate administrative action audit table remains roadmap task 9.
@@ -344,7 +346,7 @@ Each successful reassignment writes exactly one row in the same transaction as t
 | file_size | bigint unsigned nullable | bytes |
 | created_at / updated_at | timestamps | |
 
-Files stored in `storage/app/attachments/` (private). Served through `AttachmentController`.
+Files are stored through Laravel's explicit local disk under `storage/app/private/attachments/` (private). `AttachmentController` streams them only after scoped authorization; staging initializes the mounted directory as `www-data:www-data` mode `0750` before the application starts.
 
 ### `notifications`
 | Column | Type | Notes |

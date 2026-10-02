@@ -1,5 +1,7 @@
 # CampusDesk — Roadmap
 
+**Last reviewed:** 2 October 2026
+
 ## Completed ✅
 
 - [x] System modeling (ERD, state machine, permission matrix)
@@ -47,6 +49,13 @@
 - [x] Run staging migrations and the full demonstration seed explicitly
 - [x] Create student and Super Admin profiles and verify tunneled SPA access
 - [x] Configure frontend Nginx to re-resolve the recreated backend through Docker DNS
+- [x] Verify persistent 1 GiB swap and record post-seed host, container, disk, and volume usage
+- [x] Add the protected, manually approved GitHub-to-EC2 deployment workflow using OIDC and a restricted SSM document
+- [x] Deploy exact ECR digests through a locked host script with one migration run, health checks, smoke tests, and explicit recovery boundaries
+- [x] Verify the deployment no-op path by redeploying the already active release
+- [x] Add the one-shot attachment-volume initializer and require it before backend and worker startup
+- [x] Reject failed attachment writes, clean up partial uploads, and scope download authorization to related users and staff
+- [x] Add attachment storage/access regression tests and functionally verify upload and authenticated retrieval in staging
 
 ## Immediate Fixes Cleared ✅
 
@@ -55,16 +64,16 @@ All previously listed immediate fixes are complete.
 ## Next (recommended order)
 
 1. **Staging recovery and security baseline**
-   - Verify swap persistence and capture post-seed resource usage.
    - Create database and attachment backups and complete an isolated restore test.
    - Remove, disable, or rotate the demonstration users that share the factory password `password` before broader access.
    - Record deployed image digests in a secure operational location.
 
-2. **Controlled deployment automation**
-   - Use a protected GitHub staging environment with manual approval.
-   - Prefer AWS Systems Manager over storing an SSH private key in GitHub.
-   - Deploy exact ECR digests, acquire a deployment lock, stop the worker gracefully, run migrations once, recreate services, and execute health checks.
-   - Define application rollback behavior and document the limits imposed by backward-incompatible migrations.
+2. **Controlled deployment maintenance**
+   - Keep the workflow, protected environment, IAM restrictions, SSM document, and root-owned host script synchronized.
+   - Define a repeatable reviewed rollout for `compose.staging.yaml` and host-script changes, which are intentionally not copied by the image deployment workflow.
+   - Re-run the idempotent no-op check whenever deployment behavior changes.
+   - Exercise failure recovery only after database and attachment restore procedures are proven.
+   - Evaluate Systems Manager Session Manager separately so interactive SSH can eventually be removed.
 
 3. **Public staging readiness**
    - Establish stable addressing and DNS.
@@ -79,8 +88,8 @@ See [CI_CD_SESSION_2_HANDOFF.md](CI_CD_SESSION_2_HANDOFF.md) for the complete im
 8. **Additional automated testing gaps**
     - Concurrency test (true multi-connection parallel claim attempt)
     - End-to-end staff requeue test after reopening a stage
-    - Attachment security test (ownership enforcement)
-    - Student request submission integration test
+    - Invalid and oversized attachment validation tests
+    - Broader request-submission routing integration cases beyond the attachment-backed path
     - Frontend E2E tests (Cypress or Playwright — not currently installed)
 
 9. **Administrative action audit log**

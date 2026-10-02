@@ -159,7 +159,7 @@ Vitest frontend unit tests were written:
 - `StaffDashboard.preserve.spec.ts` and `StaffDashboard.resolve.spec.ts` — resolve modal fix
 - `RequestTimeline.spec.ts` — timeline component
 
-## Current State (as of September 2026)
+## State at the September 2026 documentation audit
 
 - Student Dashboard: fully wired and functional.
 - Staff Dashboard: fully wired and functional, with concurrency-safe claim/queue logic.
@@ -194,4 +194,20 @@ On 25 September 2026, CampusDesk gained its first reproducible container environ
 - Fixed an Apache-image stop-signal mismatch by overriding the worker with `SIGTERM`; idle worker shutdown fell from approximately 70 seconds to 0.2 seconds.
 - Confirmed that only Nginx publishes a host port and that the backend, worker, and database remain internal to the Compose network.
 
-The complete design, commands, evidence, and limitations are recorded in [CI_CD_SESSION_1_DOCKER.md](CI_CD_SESSION_1_DOCKER.md). The next phase is GitHub Actions CI for the existing checks only.
+The complete local design, commands, evidence, limitations, and subsequent AWS work are recorded in the consolidated [CI/CD implementation and operations guide](CI_CD_SESSION_2_HANDOFF.md).
+
+## Phase 12: CI, AWS staging, controlled deployment, and attachment hardening
+
+From 30 September through 2 October 2026, CampusDesk progressed from local containers to a verified private AWS staging deployment.
+
+- Added Ubuntu 24.04 GitHub Actions quality gates, Compose validation, and backend/frontend image builds.
+- Configured GitHub OIDC with least-privilege roles and immutable Amazon ECR repositories; pushes to `development` publish commit-SHA-tagged images.
+- Deployed a digest-pinned single-host Compose stack to Ubuntu 24.04 AMD64 EC2 with pull-only runtime ECR access, a persistent MySQL volume, a private attachment volume, health checks, log rotation, and an SSH-tunnel-only frontend.
+- Ran migrations and the full demonstration seed explicitly and verified student and manually created Super Admin access.
+- Added a protected `staging` GitHub environment, environment-scoped deployment role, restricted custom SSM document, and fixed root-owned host deployment script.
+- Verified exact digest resolution, deployment locking, pre-downtime pulls, a single migration run, application recreation, health/API smoke tests, explicit failure boundaries, and the repeated-release no-op path.
+- Diagnosed attachment 404s to a root-owned named-volume directory that caused Laravel's upload operation to return `false` and persist `file_path = 0`.
+- Added `attachments-init`, fail-fast explicit local-disk writes, partial-write cleanup, scoped attachment authorization, and `AttachmentStorageTest` regression coverage.
+- Functionally verified a complete request lifecycle and successful authenticated PDF upload/retrieval in staging on 2 October 2026.
+
+The current authoritative operational record is [CI_CD_SESSION_2_HANDOFF.md](CI_CD_SESSION_2_HANDOFF.md). Restore-tested database and attachment backups, credential remediation, DNS, and HTTPS remain future work.

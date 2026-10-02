@@ -1,5 +1,7 @@
 # CampusDesk — User Roles, Permissions & Flows
 
+**Last reviewed:** 2 October 2026
+
 ## User Roles
 
 | Role | Storage | Description |
@@ -24,7 +26,7 @@
 | Reassign a claimed stage | ❌ | ❌ | ✅ (own dept) | ❌ |
 | Reopen rejected request | ✅ | ❌ | ❌ | ✅ |
 | Upload attachments | ✅ | ❌ | ❌ | ❌ |
-| View attachments | ✅ (own) | ✅ | ✅ | ✅ |
+| View attachments | ✅ (own) | ✅ (request-route department or assigned) | ✅ (request-route department or assigned) | ✅ |
 | Manage users | ❌ | ❌ | ❌ | ✅ |
 | Manage departments/faculties | ❌ | ❌ | ❌ | ✅ |
 | Manage request types | ❌ | ❌ | ❌ | ✅ |
@@ -264,8 +266,8 @@ sequenceDiagram
     DV->>AX: GET /api/attachments/{id} (responseType: blob)
     AX->>AX: Interceptor attaches Bearer token
     AX->>AC: Authenticated request
-    AC->>AC: Check: isOwner (student_id = user.id) OR isStaff (role = 'staff')
-    AC->>AC: Storage::exists(file_path)
+    AC->>AC: Check owner OR Super Admin OR assigned handler OR request-route department staff
+    AC->>AC: Storage::disk('local')->exists(file_path)
     AC-->>AX: Binary file stream + Content-Type header
     AX-->>DV: Blob response
     DV->>DV: URL.createObjectURL(blob)

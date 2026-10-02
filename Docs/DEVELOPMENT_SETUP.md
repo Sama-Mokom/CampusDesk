@@ -74,7 +74,7 @@ docker compose --env-file .env.docker logs -f
 docker compose --env-file .env.docker down
 ```
 
-Do not use `docker compose down -v` unless the MySQL data is intentionally being deleted. See [CI_CD_SESSION_1_DOCKER.md](CI_CD_SESSION_1_DOCKER.md) for the architecture, full setup, rebuild procedure, verification record, and troubleshooting history.
+Do not use `docker compose down -v` unless the MySQL data is intentionally being deleted. See the consolidated [CI/CD implementation and operations guide](CI_CD_SESSION_2_HANDOFF.md) for the architecture, full setup, rebuild procedure, verification record, and troubleshooting history.
 
 The bare setup below remains available for fast application development without containers.
 

@@ -1,10 +1,31 @@
 # CampusDesk — Known Issues, Bugs & Lessons Learned
 
+**Last reviewed:** 2 October 2026
+
 This document is a knowledge base of every significant bug encountered during development, its root cause, and its resolution. Future agents should read this before touching related code to avoid repeating the same mistakes.
 
 ---
 
 ## ✅ RECENTLY RESOLVED BUGS
+
+---
+
+### ✅ RESOLVED — Staging Attachment Writes Silently Persisted `file_path = 0`
+
+**Symptom:** Both student and staff attachment retrieval returned HTTP 404. Request resources exposed a malformed `/storage/0` value even though the database contained an attachment row.
+
+**Root cause:** The staging named volume mounted at `/var/www/html/storage/app/private/attachments` was created as `root:root` mode `0755`. HTTP requests ran as `www-data`, which could not write there. Laravel's non-throwing upload operation returned `false`, and the value was persisted as `0` instead of aborting the request.
+
+**Immediate recovery:** The live volume directory was changed to `www-data:www-data` mode `0750`; a subsequent upload received a real generated path and the protected attachment endpoint returned the PDF with HTTP 200.
+
+**Permanent fix:**
+
+- `compose.staging.yaml` now has a network-isolated, one-shot `attachments-init` service that creates the directory, applies and verifies ownership/mode, and must complete before backend and worker startup.
+- `RequestController` writes explicitly to the local disk, rejects false or empty results, tracks stored paths, rolls back database records, and deletes files already written if any later step fails.
+- `AttachmentController` uses the explicit local disk and permits only the owning student, a Super Admin, an assigned handler, or staff in a department on the request route.
+- `AttachmentStorageTest` locks in successful storage/access, denied unrelated access, missing-file 404, failed-write rollback, and partial-upload cleanup.
+
+**Status:** ✅ RESOLVED and functionally verified in staging on 2 October 2026.
 
 ---
 
@@ -232,7 +253,7 @@ export type DegreeType = 'BACHELOR' | 'CERTIFICATE' | 'MASTER' | 'PHD'
 
 **Symptom:** Clicking to view an uploaded file returned 403.
 
-**Root cause:** Files stored in `storage/app/attachments/` (private) were treated as public URLs.
+**Root cause:** Files stored on Laravel's private local disk were treated as public URLs.
 
 **Fix:** `AttachmentController::show()` authenticates and streams files. Frontend uses Axios blob fetch + `URL.createObjectURL()`.
 
@@ -282,7 +303,7 @@ These items were marked UNVERIFIED in the original documentation. They have sinc
 
 ## Containerization lessons resolved in CI/CD Session 1
 
-The full investigation and verification record is in [CI_CD_SESSION_1_DOCKER.md](CI_CD_SESSION_1_DOCKER.md).
+The full investigation and verification record is in the consolidated [CI/CD implementation and operations guide](CI_CD_SESSION_2_HANDOFF.md).
 
 - Composer could not install distribution archives in the initial backend image because neither PHP Zip nor `unzip` was available. The image now installs `unzip`.
 - The base PHP image's 2 MB file limit contradicted Laravel's 5 MB attachment rule. A versioned PHP INI file now allows 6 MB per file and a 32 MB POST body, while Nginx limits the total request to 30 MB.
