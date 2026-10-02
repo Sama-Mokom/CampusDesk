@@ -61,6 +61,33 @@ services:
 
     logging: *default-logging
 
+  attachments-init:
+    image: ${BACKEND_IMAGE:?BACKEND_IMAGE must be set}
+    pull_policy: never
+    restart: "no"
+    user: "0:0"
+    network_mode: "none"
+
+    entrypoint:
+      - /bin/sh
+      - -ec
+
+    command:
+      - |
+        path=/var/www/html/storage/app/private/attachments
+
+        mkdir -p "$$path"
+        chown www-data:www-data "$$path"
+        chmod 0750 "$$path"
+
+        test "$$(stat -c '%U:%G' "$$path")" = "www-data:www-data"
+        test "$$(stat -c '%a' "$$path")" = "750"
+
+    volumes:
+      - attachments_data:/var/www/html/storage/app/private/attachments
+
+    logging: *default-logging
+
   backend:
     image: ${BACKEND_IMAGE:?BACKEND_IMAGE must be set}
     pull_policy: never
@@ -72,6 +99,8 @@ services:
       - attachments_data:/var/www/html/storage/app/private/attachments
 
     depends_on:
+      attachments-init:
+        condition: service_completed_successfully
       db:
         condition: service_healthy
 
@@ -103,6 +132,8 @@ services:
       - attachments_data:/var/www/html/storage/app/private/attachments
 
     depends_on:
+      attachments-init:
+        condition: service_completed_successfully
       db:
         condition: service_healthy
 

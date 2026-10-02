@@ -2,5 +2,6 @@
 .env.docker
 docker-data/
 CampusDesk-staging-key.pem
+ubuntu@ec2-16-170-168-51.eu-north-1.compute.amazonaws.comec2-13-53-217-222.eu-north-1.compute.amazonaws.com
 UI Prompt Campus desk.txt
 .env.staging
