@@ -106,6 +106,12 @@ Covers the attachment-backed student request path and the staging defect that pr
 
 ## Frontend Tests (Vitest)
 
+### Issue #7 redesign regression coverage
+
+The redesign extends the existing Vitest/jsdom suite with `StudentDashboard.workflow`, `StaffDashboard.workspace`, `DeptAdminDashboard`, `AuthAndShell`, `Registration`, `BaseModal`, `StatusBadge`, and `DocumentViewer.lifecycle` tests. Super Admin tests also cover delete conflicts and preserving the user ID when the student profile ID differs. Existing workflow preservation tests remain in place. All API mocks are confined to tests.
+
+Native dialogs use a jsdom-compatible open-state fallback; tests verify accessible naming, focus wrapping/return, dismissal and pending guards. This is not a replacement for real-browser keyboard or visual checks. See [FRONTEND_REDESIGN.md](FRONTEND_REDESIGN.md) for executed commands and the outstanding 375/768/1024/1440px manual acceptance checks. There is no configured browser E2E runner.
+
 **Location:** `Frontend/src/components/__tests__/`
 
 **Run command:**

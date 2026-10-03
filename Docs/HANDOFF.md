@@ -1,5 +1,9 @@
 # CampusDesk handoff
 
+## Frontend redesign branch (3 October 2026)
+
+Issue #7 is implemented on `development-7` with a shared slate/sky UI, redesigned Student/Staff/Department Admin/Super Admin views, and 95 passing frontend tests. Lint, typecheck, formatter check and production build pass; the backend regression suite passes 58 tests/373 assertions. No backend or CI/CD behavior was changed. Browser access was unavailable during implementation, so the issue remains open pending real-browser visual checks at 375/768/1024/1440px and manual role journeys. See [FRONTEND_REDESIGN.md](FRONTEND_REDESIGN.md) for the crosswalk, commands, commits and exact remaining acceptance work.
+
 ## Current state (2 October 2026)
 
 CampusDesk is a Laravel 12 and Vue 3 university document request system. Students register, submit requests with private attachments, track stages, reopen rejected requests, and mark ready requests as collected. Staff claim and resolve stages. Department admins oversee their primary department and reassign claimed stages. Super Admins manage reference data and users, see system statistics and requests, and review request/stage status history. The notification bell uses the authenticated API. Email dispatch requires a running queue worker.

@@ -46,7 +46,7 @@ public function destroy(Request $request): Response
 }
 ```
 
-**Status:** ✅ RESOLVED — the logout route uses `auth:sanctum`; the controller deletes the current token. Feature coverage verifies revocation and subsequent API denial.
+**Status:** ✅ RESOLVED — the logout route uses `auth:sanctum`; the controller deletes the current token. Feature coverage verifies revocation and subsequent API denial. The Issue #7 shell now calls the existing logout service before clearing local auth; a frontend regression test verifies that call and the pending guard.
 
 ---
 
