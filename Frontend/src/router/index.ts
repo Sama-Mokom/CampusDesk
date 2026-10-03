@@ -23,10 +23,23 @@ function homePathForUser(): string {
 
 export const router = createRouter({
   history: createWebHistory(),
+  scrollBehavior(to) {
+    return to.hash ? { el: to.hash, top: 96 } : { top: 0 }
+  },
   routes: [
     { path: '/', redirect: () => homePathForUser() },
-    { path: '/login', name: 'login', component: LoginView, meta: { guest: true } },
-    { path: '/register', name: 'register', component: RegisterView, meta: { guest: true } },
+    {
+      path: '/login',
+      name: 'login',
+      component: LoginView,
+      meta: { guest: true }
+    },
+    {
+      path: '/register',
+      name: 'register',
+      component: RegisterView,
+      meta: { guest: true }
+    },
     {
       path: '/student',
       name: 'student',
@@ -77,8 +90,10 @@ router.beforeEach((to, _from, next) => {
     const need = to.meta.staffLevel as string
     const level = u.staff_profile?.admin_level
     if (need === 'plain' && level !== null) return next(homePathForUser())
-    if (need === 'dept_admin' && level !== 'dept_admin') return next(homePathForUser())
-    if (need === 'super_admin' && level !== 'super_admin') return next(homePathForUser())
+    if (need === 'dept_admin' && level !== 'dept_admin')
+      return next(homePathForUser())
+    if (need === 'super_admin' && level !== 'super_admin')
+      return next(homePathForUser())
   }
 
   next()

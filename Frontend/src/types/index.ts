@@ -2,7 +2,11 @@ export type DegreeType = 'BACHELOR' | 'CERTIFICATE' | 'MASTER' | 'PHD'
 
 export type StudentLevel = '100' | '200' | '300' | '400' | '500' | '600'
 
-export type StudentProfileStatus = 'active' | 'on_leave' | 'graduated' | 'suspended'
+export type StudentProfileStatus =
+  | 'active'
+  | 'on_leave'
+  | 'graduated'
+  | 'suspended'
 
 export type UserRole = 'student' | 'staff'
 
@@ -37,6 +41,7 @@ export interface Department {
 export interface Programme {
   id: number
   faculty_id: number
+  department_id: number
   name: string
   code: string
   degree_type: DegreeType
@@ -113,9 +118,9 @@ export interface RequestTypeEntity {
 }
 
 export interface CreateRequestPayload {
-  request_type_id: number;
-  description: string;
-  attachments?: File[]; // For handling file uploads if needed
+  request_type_id: number
+  description: string
+  attachments?: File[] // For handling file uploads if needed
 }
 
 export interface Attachment {
@@ -129,7 +134,7 @@ export interface Attachment {
 export interface RequestStage {
   id: number
   request_id: number
-  department_name: string 
+  department_name: string
   sequence_order: number
   status: StageStatus
   handled_by: string | null
@@ -151,18 +156,18 @@ export interface ResolveStagePayload {
   /**
    * The action to perform on this stage.
    */
-  status: 'approved' | 'rejected';
-  
+  status: 'approved' | 'rejected'
+
   /**
    * A staff comment/note documenting the decision.
    */
-  staff_note: string;
-  
+  staff_note: string
+
   /**
-   * Optional: If the overall request needs to transition to a new status 
+   * Optional: If the overall request needs to transition to a new status
    * (e.g. 'rejected' if rejecting, or 'ready' if this is the final stage).
    */
-  request_status?: RequestStatus;
+  request_status?: RequestStatus
 }
 
 export interface StatusHistoryEntry {
@@ -176,7 +181,7 @@ export interface StatusHistoryEntry {
 
 export interface Request {
   id: number
-  request_type: string 
+  request_type: string
   description: string
   status: RequestStatus
   is_reopened: boolean

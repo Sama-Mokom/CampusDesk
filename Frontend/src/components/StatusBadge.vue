@@ -1,5 +1,10 @@
 <template>
-  <span :class="['badge', badgeClass]">{{ label }}</span>
+  <span :class="['badge', badgeClass]"
+    ><span
+      aria-hidden="true"
+      class="h-1.5 w-1.5 shrink-0 rounded-[50%] bg-current opacity-70"
+    />{{ label }}</span
+  >
 </template>
 
 <script setup lang="ts">

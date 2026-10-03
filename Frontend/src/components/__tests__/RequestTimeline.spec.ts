@@ -17,7 +17,7 @@ function makeStage(overrides: Partial<RequestStage> = {}): RequestStage {
     handled_by: null,
     staff_note: null,
     updated_at: null,
-    ...overrides,
+    ...overrides
   }
 }
 
@@ -26,13 +26,27 @@ function makeStage(overrides: Partial<RequestStage> = {}): RequestStage {
 // ---------------------------------------------------------------------------
 
 describe('RequestTimeline', () => {
+  it('does not mark a downstream stage current after a rejection', () => {
+    const wrapper = mount(RequestTimeline, {
+      props: {
+        stages: [
+          makeStage({ id: 1, sequence_order: 1, status: 'rejected' }),
+          makeStage({ id: 2, sequence_order: 2, status: 'pending' })
+        ]
+      }
+    })
+    expect(wrapper.find('[aria-current="step"]').exists()).toBe(false)
+    expect(wrapper.get('ol').attributes('aria-label')).toBe(
+      'Request workflow stages'
+    )
+  })
   /**
    * Test 1: empty stages array — no stage rows rendered, no crash.
    * Validates: Requirement 2.5 (graceful empty list)
    */
   it('renders without error when stages is an empty array', () => {
     const wrapper = mount(RequestTimeline, {
-      props: { stages: [] as RequestStage[] },
+      props: { stages: [] as RequestStage[] }
     })
     // No stage rows should be in the DOM
     expect(wrapper.findAll('.flex.gap-3').length).toBe(0)
@@ -45,7 +59,7 @@ describe('RequestTimeline', () => {
   it('renders a green node with ✓ icon for an approved stage', () => {
     const stage = makeStage({ status: 'approved' })
     const wrapper = mount(RequestTimeline, {
-      props: { stages: [stage] },
+      props: { stages: [stage] }
     })
 
     const node = wrapper.find('.rounded-full')
@@ -61,7 +75,7 @@ describe('RequestTimeline', () => {
   it('renders a red node with ✕ icon for a rejected stage', () => {
     const stage = makeStage({ status: 'rejected' })
     const wrapper = mount(RequestTimeline, {
-      props: { stages: [stage] },
+      props: { stages: [stage] }
     })
 
     const node = wrapper.find('.rounded-full')
@@ -81,7 +95,7 @@ describe('RequestTimeline', () => {
     const stage2 = makeStage({ id: 2, sequence_order: 2, status: 'pending' })
 
     const wrapper = mount(RequestTimeline, {
-      props: { stages: [stage1, stage2] },
+      props: { stages: [stage1, stage2] }
     })
 
     const nodes = wrapper.findAll('.rounded-full')
@@ -100,16 +114,31 @@ describe('RequestTimeline', () => {
    * Validates: Requirement 2.4 (ordered by sequence_order)
    */
   it('renders stages sorted by sequence_order ascending regardless of input order', () => {
-    const stage1 = makeStage({ id: 1, sequence_order: 1, department_name: 'Registry', status: 'approved' })
-    const stage2 = makeStage({ id: 2, sequence_order: 2, department_name: 'Finance', status: 'pending' })
-    const stage3 = makeStage({ id: 3, sequence_order: 3, department_name: 'Dean', status: 'pending' })
+    const stage1 = makeStage({
+      id: 1,
+      sequence_order: 1,
+      department_name: 'Registry',
+      status: 'approved'
+    })
+    const stage2 = makeStage({
+      id: 2,
+      sequence_order: 2,
+      department_name: 'Finance',
+      status: 'pending'
+    })
+    const stage3 = makeStage({
+      id: 3,
+      sequence_order: 3,
+      department_name: 'Dean',
+      status: 'pending'
+    })
 
     // Pass them in reverse order
     const wrapper = mount(RequestTimeline, {
-      props: { stages: [stage3, stage1, stage2] },
+      props: { stages: [stage3, stage1, stage2] }
     })
 
-    const deptNames = wrapper.findAll('.font-semibold').map(el => el.text())
+    const deptNames = wrapper.findAll('.font-semibold').map((el) => el.text())
     expect(deptNames).toEqual(['Registry', 'Finance', 'Dean'])
   })
 })

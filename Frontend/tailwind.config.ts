@@ -1,38 +1,40 @@
-/** @type {import('tailwindcss').Config} */
-module.exports = {
-  content: [
-    './index.html',
-    './src/**/*.{vue,js,ts}',
-  ],
+﻿import type { Config } from 'tailwindcss'
+
+export default {
+  content: ['./index.html', './src/**/*.{vue,js,ts}'],
   theme: {
     extend: {
       colors: {
-        background: '#ffffff',
-        foreground: '#1f2937',
-        /* Navy blue — must stay dark; DaisyUI was overriding `primary` with pale theme vars */
-        primary: '#063251',
-        'primary-light': '#0a4d73',
-        accent: '#d4a574',
-        'accent-light': '#e8d5c4',
+        background: '#F8FAFC',
+        foreground: '#0F172A',
+        primary: '#0369A1',
+        'primary-light': '#0284C7',
+        accent: '#0284C7',
+        'accent-light': '#E0F2FE',
         neutral: {
-          50: '#f9fafb',
-          100: '#f3f4f6',
-          200: '#e5e7eb',
-          300: '#d1d5db',
-          400: '#9ca3af',
-          500: '#6b7280',
-          600: '#4b5563',
-          700: '#374151',
-          800: '#1f2937',
-          900: '#111827',
-        },
+          50: '#F8FAFC',
+          100: '#F1F5F9',
+          200: '#E2E8F0',
+          300: '#CBD5E1',
+          400: '#94A3B8',
+          500: '#64748B',
+          600: '#475569',
+          700: '#334155',
+          800: '#1E293B',
+          900: '#0F172A'
+        }
       },
       fontFamily: {
-        sans: ['Geist', 'system-ui', '-apple-system', 'sans-serif'],
-        mono: ['Geist Mono', 'monospace'],
-      },
-    },
+        sans: [
+          'Inter',
+          'ui-sans-serif',
+          'system-ui',
+          '-apple-system',
+          'sans-serif'
+        ]
+      }
+    }
   },
-  /* daisyUI removed: it extended `primary` to CSS vars and made `text-primary` too light on white */
-  plugins: [],
-}
+  // DaisyUI is intentionally disabled: its theme variables previously reduced contrast.
+  plugins: []
+} satisfies Config

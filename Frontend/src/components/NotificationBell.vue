@@ -1,69 +1,55 @@
-<template>
-  <div class="relative">
-    <button
-      type="button"
-      class="relative p-2 hover:bg-neutral-100 text-primary rounded-lg transition-colors"
-      aria-label="Notifications"
-      @click="open = !open"
-    >
-      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="2"
-          d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-        />
-      </svg>
-      <span
-        v-if="unreadCount > 0"
-        class="absolute top-0 right-0 min-w-[1.1rem] h-4 px-1 flex items-center justify-center text-[10px] font-bold text-white bg-red-500 rounded-full"
-      >
-        {{ unreadCount > 9 ? '9+' : unreadCount }}
-      </span>
-    </button>
-    <div
-      v-if="open"
-      class="absolute right-0 mt-1 w-80 max-h-96 overflow-y-auto bg-white border border-neutral-200 rounded-lg shadow-lg z-50"
-    >
-      <div class="p-2 border-b border-neutral-100 text-sm font-semibold text-primary">Notifications</div>
-      <div v-if="items.length === 0" class="p-4 text-sm text-neutral-500 text-center">No notifications</div>
-      <button
-        v-for="n in items"
-        :key="n.id"
-        type="button"
-        class="w-full text-left px-3 py-2 border-b border-neutral-50 hover:bg-neutral-50 text-sm"
-        :class="n.read ? 'opacity-70' : 'bg-primary/5'"
-        @click="onClick(n.id)"
-      >
-        <p class="text-foreground">{{ n.message }}</p>
-        <p class="text-xs text-neutral-500 mt-1">{{ formatTime(n.created_at) }}</p>
-      </button>
-    </div>
-  </div>
-</template>
-
-<script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+﻿<script setup lang="ts">
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import type { Notification } from '@/types'
-import { fetchNotifications, markNotificationRead } from '@/services/notifications'
+import {
+  fetchNotifications,
+  markNotificationRead
+} from '@/services/notifications'
 import { useAuth } from '@/composables/useAuth'
 import { format } from 'date-fns'
+import SkeletonLoader from './ui/SkeletonLoader.vue'
 
 const open = ref(false)
+const root = ref<HTMLElement | null>(null)
+const trigger = ref<HTMLButtonElement | null>(null)
 const items = ref<Notification[]>([])
-const unreadCount = computed(() => items.value.filter(item => !item.read).length)
+const loading = ref(false)
+const error = ref('')
+const reading = ref<number | null>(null)
+const unreadCount = computed(
+  () => items.value.filter((item) => !item.read).length
+)
 const { isAuthenticated } = useAuth()
-
-onMounted(async () => {
-  if (!isAuthenticated.value) return
-
+async function load() {
+  if (!isAuthenticated.value || loading.value) return
+  loading.value = true
+  error.value = ''
   try {
     items.value = await fetchNotifications()
   } catch {
-    items.value = []
+    error.value = 'Notifications could not be loaded.'
+  } finally {
+    loading.value = false
   }
+}
+function outside(event: MouseEvent) {
+  if (!root.value?.contains(event.target as Node)) open.value = false
+}
+function escape(event: KeyboardEvent) {
+  if (event.key === 'Escape' && open.value) {
+    open.value = false
+    trigger.value?.focus()
+  }
+}
+onMounted(() => {
+  void load()
+  document.addEventListener('click', outside)
+  document.addEventListener('keydown', escape)
 })
-
+onBeforeUnmount(() => {
+  document.removeEventListener('click', outside)
+  document.removeEventListener('keydown', escape)
+})
 function formatTime(iso: string) {
   try {
     return format(new Date(iso), 'MMM d, yyyy · HH:mm')
@@ -71,17 +57,136 @@ function formatTime(iso: string) {
     return iso
   }
 }
-
 async function onClick(id: number) {
-  if (!isAuthenticated.value) return
-
-  const index = items.value.findIndex(item => item.id === id)
+  if (!isAuthenticated.value || reading.value !== null) return
+  const index = items.value.findIndex((item) => item.id === id)
   if (index === -1 || items.value[index]!.read) return
-
+  reading.value = id
+  error.value = ''
   try {
     items.value[index] = await markNotificationRead(id)
   } catch {
-    // Leave the item unread so the user can retry.
+    error.value = 'Could not mark this notification as read. Please try again.'
+  } finally {
+    reading.value = null
   }
 }
 </script>
+
+<template>
+  <div
+    ref="root"
+    class="relative"
+  >
+    <button
+      ref="trigger"
+      type="button"
+      class="icon-button relative"
+      aria-label="Notifications"
+      :aria-expanded="open"
+      aria-controls="notifications-panel"
+      @click="open = !open"
+    >
+      <svg
+        aria-hidden="true"
+        class="h-5 w-5"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+        stroke-width="1.7"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" />
+      </svg>
+      <span
+        v-if="unreadCount > 0"
+        class="absolute right-0 top-0 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-red-700 px-1 text-[10px] font-bold text-white"
+        >{{ unreadCount > 9 ? '9+' : unreadCount
+        }}<span class="sr-only"> unread</span></span
+      >
+    </button>
+    <Transition name="fade">
+      <section
+        v-if="open"
+        id="notifications-panel"
+        aria-label="Notifications"
+        class="notification-panel overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl"
+      >
+        <header
+          class="flex items-center justify-between border-b border-slate-100 p-4"
+        >
+          <h2 class="text-sm">Notifications</h2>
+          <button
+            type="button"
+            class="btn-ghost"
+            :disabled="loading"
+            @click="load"
+          >
+            Refresh
+          </button>
+        </header>
+        <div
+          v-if="loading"
+          class="p-3"
+        >
+          <SkeletonLoader :count="2" />
+        </div>
+        <div
+          v-if="error"
+          role="alert"
+          class="feedback-error m-3"
+        >
+          {{ error
+          }}<button
+            class="btn-secondary mt-2"
+            type="button"
+            @click="load"
+          >
+            Retry
+          </button>
+        </div>
+        <p
+          v-if="!loading && !error && !items.length"
+          class="px-4 py-10 text-center text-sm text-slate-500"
+        >
+          No notifications. You’re all caught up.
+        </p>
+        <button
+          v-for="item in items"
+          :key="item.id"
+          type="button"
+          class="block w-full border-b border-slate-100 px-4 py-4 text-left transition-colors hover:bg-slate-50"
+          :class="item.read ? 'bg-white' : 'bg-sky-50'"
+          :disabled="reading !== null"
+          @click="onClick(item.id)"
+        >
+          <span class="block text-sm text-slate-700">{{ item.message }}</span
+          ><span class="mt-2 block text-xs text-slate-500"
+            >{{ formatTime(item.created_at) }} ·
+            {{ item.read ? 'Read' : 'Mark as read' }}</span
+          >
+        </button>
+      </section>
+    </Transition>
+  </div>
+</template>
+<style scoped>
+.notification-panel {
+  position: absolute;
+  top: calc(100% + 0.75rem);
+  right: 0;
+  width: 23rem;
+  max-height: min(32rem, 75dvh);
+  z-index: 40;
+}
+@media (max-width: 639px) {
+  .notification-panel {
+    position: fixed;
+    top: 5.25rem;
+    right: 1rem;
+    left: 1rem;
+    width: auto;
+  }
+}
+</style>

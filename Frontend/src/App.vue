@@ -1,128 +1,267 @@
-<template>
-  <div class="min-h-screen bg-background">
-    <header
-      v-if="layout !== 'auth'"
-      class="sticky top-0 z-40 bg-white border-b border-neutral-200 shadow-sm"
-    >
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="h-16 flex items-center justify-between">
-          <router-link to="/" class="flex items-center gap-3">
-            <div class="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-              <span class="text-white font-bold text-lg">CD</span>
-            </div>
-            <div>
-              <h1 class="text-xl font-bold text-primary">CampusDesk</h1>
-              <p class="text-xs text-neutral-600">University Request Management System</p>
-            </div>
-          </router-link>
-          <div class="flex items-center gap-3">
-            <NotificationBell v-if="isAuthenticated" />
-            <div class="text-sm text-right hidden sm:block">
-              <p class="font-semibold text-primary">{{ user?.name }}</p>
-              <p class="text-xs text-neutral-600">{{ roleLabel }}</p>
-            </div>
-            <button type="button" class="btn-secondary text-sm" @click="onLogout">Log out</button>
-          </div>
-        </div>
-      </div>
-    </header>
-
-    <header v-else class="sticky top-0 z-40 bg-white border-b border-neutral-200 shadow-sm">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        <router-link to="/login" class="flex items-center gap-3">
-          <div class="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-            <span class="text-white font-bold text-lg">CD</span>
-          </div>
-          <span class="text-xl font-bold text-primary">CampusDesk</span>
-        </router-link>
-      </div>
-    </header>
-
-    <main :class="layout === 'auth' ? '' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'">
-      <router-view v-slot="{ Component }">
-        <transition name="fade" mode="out-in">
-          <component :is="Component" />
-        </transition>
-      </router-view>
-    </main>
-
-    <footer class="mt-16 bg-neutral-50 border-t border-neutral-200">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div>
-            <h3 class="font-semibold text-foreground mb-2">CampusDesk</h3>
-            <p class="text-sm text-neutral-600">Streamlining university student requests and support processes.</p>
-          </div>
-          <div>
-            <h4 class="font-semibold text-foreground mb-2">Quick Links</h4>
-            <ul class="space-y-1">
-              <li><a href="#" class="text-sm text-neutral-600 hover:text-primary">Help Center</a></li>
-              <li><a href="#" class="text-sm text-neutral-600 hover:text-primary">Contact Support</a></li>
-              <li><a href="#" class="text-sm text-neutral-600 hover:text-primary">Documentation</a></li>
-            </ul>
-          </div>
-          <div>
-            <h4 class="font-semibold text-foreground mb-2">System Status</h4>
-            <p class="text-sm text-green-600">All systems operational</p>
-            <p class="text-xs text-neutral-600 mt-2">Last updated: {{ currentTime }}</p>
-          </div>
-        </div>
-        <div class="mt-8 pt-8 border-t border-neutral-200 text-center">
-          <p class="text-sm text-neutral-600">© 2026 CampusDesk. All rights reserved.</p>
-        </div>
-      </div>
-    </footer>
-  </div>
-</template>
-
-<script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+﻿<script setup lang="ts">
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import NotificationBell from './components/NotificationBell.vue'
+import AppIcon from './components/ui/AppIcon.vue'
 import { useAuth } from './composables/useAuth'
+import { logout } from './services/auth'
 
 const route = useRoute()
 const router = useRouter()
 const { user, isAuthenticated, clearAuth } = useAuth()
-
-const currentTime = ref('')
-
-const layout = computed(() => {
-  if (route.name === 'login' || route.name === 'register') return 'auth'
-  return 'app'
-})
-
+const mobileOpen = ref(false)
+const loggingOut = ref(false)
+const isAuthPage = computed(
+  () => route.name === 'login' || route.name === 'register'
+)
 const roleLabel = computed(() => {
-  const u = user.value
-  if (!u) return ''
-  if (u.role === 'student') return 'Student'
-  const al = u.staff_profile?.admin_level
-  if (al === 'super_admin') return 'Super Admin'
-  if (al === 'dept_admin') return 'Department Admin'
-  return 'Staff'
+  if (user.value?.role === 'student') return 'Student portal'
+  const level = user.value?.staff_profile?.admin_level
+  return level === 'super_admin'
+    ? 'System administration'
+    : level === 'dept_admin'
+      ? 'Department administration'
+      : 'Staff workspace'
 })
-
-function onLogout() {
-  clearAuth()
-  router.push({ name: 'login' })
-}
-
-onMounted(() => {
-  const tick = () => {
-    currentTime.value = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+const initials = computed(
+  () =>
+    user.value?.name
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join('')
+      .toUpperCase() || 'CD'
+)
+const home = computed(() =>
+  user.value?.role === 'student'
+    ? '/student'
+    : user.value?.staff_profile?.admin_level === 'super_admin'
+      ? '/admin'
+      : user.value?.staff_profile?.admin_level === 'dept_admin'
+        ? '/dept-admin'
+        : '/staff'
+)
+const navigation = computed(() => {
+  const items: {
+    label: string
+    href: string
+    icon: 'home' | 'requests' | 'plus' | 'users'
+  }[] = [{ label: 'Overview', href: home.value, icon: 'home' }]
+  if (user.value?.role === 'student')
+    items.push(
+      {
+        label: 'My requests',
+        href: `${home.value}#requests`,
+        icon: 'requests'
+      },
+      { label: 'New request', href: `${home.value}#new-request`, icon: 'plus' }
+    )
+  else
+    items.push({
+      label: home.value === '/staff' ? 'Requests & cases' : 'Management',
+      href: `${home.value}#${home.value === '/staff' ? 'staff-workspace' : 'admin-workspace'}`,
+      icon: home.value === '/staff' ? 'requests' : 'users'
+    })
+  return items
+})
+watch(
+  () => route.fullPath,
+  () => {
+    mobileOpen.value = false
   }
-  tick()
-  setInterval(tick, 60000)
-})
+)
+async function onLogout() {
+  if (loggingOut.value) return
+  loggingOut.value = true
+  try {
+    await logout()
+  } finally {
+    clearAuth()
+    mobileOpen.value = false
+    loggingOut.value = false
+    await router.replace('/login')
+  }
+}
 </script>
 
-<style scoped>
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.2s ease;
-}
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-</style>
+<template>
+  <div class="min-h-screen bg-background">
+    <a
+      href="#main-content"
+      class="skip-link"
+      >Skip to main content</a
+    >
+    <aside
+      v-if="!isAuthPage"
+      class="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col bg-slate-900 text-white lg:flex"
+    >
+      <router-link
+        :to="home"
+        class="flex h-20 items-center gap-3 px-6"
+      >
+        <span
+          class="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/15 text-sky-300"
+          ><AppIcon name="building"
+        /></span>
+        <span class="text-xl font-bold tracking-tight"
+          >CampusDesk<span class="text-sky-400">.</span></span
+        >
+      </router-link>
+      <div class="px-6 pb-6 pt-4">
+        <p
+          class="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400"
+        >
+          Your workspace
+        </p>
+        <p class="mt-2 text-sm text-slate-200">{{ roleLabel }}</p>
+      </div>
+      <nav
+        aria-label="Main navigation"
+        class="space-y-2 px-3"
+      >
+        <router-link
+          v-for="item in navigation"
+          :key="item.href"
+          :to="item.href"
+          :aria-current="route.fullPath === item.href ? 'page' : undefined"
+          class="flex min-h-12 items-center gap-3 rounded-lg px-4 py-3 text-sm transition-colors"
+          :class="
+            route.fullPath === item.href
+              ? 'bg-sky-800 font-semibold text-white'
+              : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+          "
+        >
+          <AppIcon :name="item.icon" />{{ item.label }}
+        </router-link>
+      </nav>
+      <div class="mx-5 mt-auto mb-6 border-t border-slate-700 pt-5">
+        <div class="flex items-start gap-3 text-slate-400">
+          <AppIcon name="shield" />
+          <p class="text-xs leading-relaxed">
+            Your requests, documents, and progress. All in one place.
+          </p>
+        </div>
+        <p class="mt-6 text-[11px] text-slate-400">
+          CampusDesk · University services
+        </p>
+      </div>
+    </aside>
+    <div :class="{ 'lg:pl-60': !isAuthPage }">
+      <header
+        class="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur"
+      >
+        <div
+          class="mx-auto flex h-20 max-w-[1440px] items-center justify-between gap-3 px-4 sm:px-6 lg:px-8"
+        >
+          <div class="flex min-w-0 items-center gap-2">
+            <button
+              v-if="!isAuthPage"
+              class="icon-button lg:hidden"
+              type="button"
+              :aria-expanded="mobileOpen"
+              aria-controls="mobile-navigation"
+              :aria-label="mobileOpen ? 'Close navigation' : 'Open navigation'"
+              @click="mobileOpen = !mobileOpen"
+            >
+              <AppIcon :name="mobileOpen ? 'close' : 'menu'" />
+            </button>
+            <router-link
+              :to="isAuthPage ? '/login' : home"
+              class="flex items-center gap-2 font-bold text-slate-900"
+              :class="isAuthPage ? 'text-xl' : 'text-lg lg:hidden'"
+              ><AppIcon name="building" />CampusDesk<span class="text-sky-600"
+                >.</span
+              ></router-link
+            >
+            <div
+              v-if="!isAuthPage"
+              class="hidden lg:block"
+            >
+              <p class="text-sm font-semibold text-slate-900">
+                {{ roleLabel }}
+              </p>
+              <p class="mt-0.5 text-xs text-slate-500">
+                University request management
+              </p>
+            </div>
+          </div>
+          <div
+            v-if="isAuthenticated && !isAuthPage"
+            class="flex shrink-0 items-center gap-2 sm:gap-4"
+          >
+            <NotificationBell />
+            <div
+              class="hidden items-center gap-3 border-l border-slate-200 pl-4 sm:flex"
+            >
+              <span
+                class="flex h-9 w-9 items-center justify-center rounded-full bg-sky-100 text-xs font-bold text-sky-800"
+                >{{ initials }}</span
+              ><span class="max-w-44 truncate text-sm font-semibold">{{
+                user?.name
+              }}</span>
+            </div>
+            <button
+              type="button"
+              class="icon-button"
+              :disabled="loggingOut"
+              :aria-label="loggingOut ? 'Logging out' : 'Log out'"
+              title="Log out"
+              @click="onLogout"
+            >
+              <AppIcon name="logout" />
+            </button>
+          </div>
+          <span
+            v-else
+            class="hidden text-xs text-slate-500 sm:block"
+            >University services, connected.</span
+          >
+        </div>
+        <nav
+          v-if="mobileOpen && !isAuthPage"
+          id="mobile-navigation"
+          aria-label="Mobile navigation"
+          class="space-y-1 border-t border-slate-100 bg-white p-4 lg:hidden"
+          @keydown.esc="mobileOpen = false"
+        >
+          <p class="mb-3 px-3 text-xs text-slate-500">
+            {{ user?.name }} · {{ roleLabel }}
+          </p>
+          <router-link
+            v-for="item in navigation"
+            :key="item.href"
+            :to="item.href"
+            class="flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-700 hover:bg-slate-50"
+            :class="{ 'bg-sky-50 text-sky-800': route.fullPath === item.href }"
+            @click="mobileOpen = false"
+            ><AppIcon :name="item.icon" />{{ item.label }}</router-link
+          >
+        </nav>
+      </header>
+      <main
+        id="main-content"
+        tabindex="-1"
+        :class="
+          isAuthPage
+            ? 'px-4 py-6 sm:p-8'
+            : 'mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:p-8'
+        "
+      >
+        <router-view v-slot="{ Component }"
+          ><transition
+            name="fade"
+            mode="out-in"
+            ><component :is="Component" /></transition
+        ></router-view>
+      </main>
+      <footer class="mx-auto max-w-[1440px] px-6 py-6 text-xs text-slate-500">
+        <div
+          class="flex flex-wrap justify-between gap-2 border-t border-slate-200 pt-5"
+        >
+          <span>CampusDesk · University request management</span
+          ><span>Designed around your next step.</span>
+        </div>
+      </footer>
+    </div>
+  </div>
+</template>
