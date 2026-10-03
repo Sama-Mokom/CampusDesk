@@ -7,26 +7,28 @@ vi.mock('../../services/requests', () => ({
   fetchRequestById: vi.fn(),
   createRequest: vi.fn(),
   reopenRequest: vi.fn(),
-  markRequestCollected: vi.fn(),
+  markRequestCollected: vi.fn()
 }))
 
 vi.mock('../../services/reference', () => ({
   fetchRequestTypes: vi.fn().mockResolvedValue([]),
   fetchFaculties: vi.fn().mockResolvedValue([]),
-  fetchDepartments: vi.fn().mockResolvedValue([]),
+  fetchDepartments: vi.fn().mockResolvedValue([])
 }))
 
 vi.mock('../../composables/useAuth', () => ({
   useAuth: () => ({
-    user: { value: {
-      id: 1,
-      name: 'Test Student',
-      email: 'student@example.test',
-      role: 'student',
-      created_at: '2026-01-01T00:00:00Z',
-      student_profile: null,
-    }},
-  }),
+    user: {
+      value: {
+        id: 1,
+        name: 'Test Student',
+        email: 'student@example.test',
+        role: 'student',
+        created_at: '2026-01-01T00:00:00Z',
+        student_profile: null
+      }
+    }
+  })
 }))
 
 import StudentDashboard from '../StudentDashboard.vue'
@@ -41,25 +43,26 @@ const rejectedRequest: DocumentRequest = {
   created_at: '2026-01-01T00:00:00Z',
   attachments: [],
   stages: [],
-  status_history: [],
+  status_history: []
 }
 
 const reopenedRequest: DocumentRequest = {
   ...rejectedRequest,
   status: 'pending',
-  is_reopened: true,
+  is_reopened: true
 }
 
 async function mountDashboard() {
   const wrapper = mount(StudentDashboard, {
     global: {
       stubs: {
+        teleport: true,
         StatusBadge: true,
         LevelBadge: true,
         RequestTimeline: true,
-        DocumentViewer: true,
-      },
-    },
+        DocumentViewer: true
+      }
+    }
   })
   await flushPromises()
 
@@ -98,13 +101,15 @@ describe('StudentDashboard — reopen request', () => {
     expect(vm.selectedRequest).toEqual(reopenedRequest)
     expect(vm.studentRequests).toEqual([reopenedRequest])
     expect(wrapper.find('[data-testid="reopen-request"]').exists()).toBe(false)
-    expect(wrapper.get('[role="status"]').text()).toContain('Request reopened and returned to the pending queue.')
+    expect(wrapper.get('[role="status"]').text()).toContain(
+      'Request reopened and returned to the pending queue.'
+    )
   })
 
   it('shows the API error and preserves the rejected request when reopening fails', async () => {
     const apiError = Object.assign(new Error('Request rejected'), {
       isAxiosError: true,
-      response: { data: { message: 'Only rejected requests can be reopened.' } },
+      response: { data: { message: 'Only rejected requests can be reopened.' } }
     })
     vi.mocked(reopenRequest).mockRejectedValue(apiError)
     const wrapper = await mountDashboard()
@@ -115,7 +120,11 @@ describe('StudentDashboard — reopen request', () => {
     const vm = wrapper.vm as any
     expect(vm.selectedRequest).toEqual(rejectedRequest)
     expect(vm.studentRequests).toEqual([rejectedRequest])
-    expect(wrapper.get('[role="alert"]').text()).toContain('Only rejected requests can be reopened.')
-    expect(wrapper.get('[data-testid="reopen-request"]').text()).toBe('Reopen request')
+    expect(wrapper.get('[role="alert"]').text()).toContain(
+      'Only rejected requests can be reopened.'
+    )
+    expect(wrapper.get('[data-testid="reopen-request"]').text()).toBe(
+      'Reopen request'
+    )
   })
 })
