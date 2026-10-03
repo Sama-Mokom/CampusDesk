@@ -1,305 +1,211 @@
-<template>
-  <div class="space-y-6">
-    <!-- Header Card -->
-    <div class="card">
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h2 class="text-xl text-primary font-semibold">{{ staffUser?.name }}</h2>
-          <p class="text-sm text-neutral-600 mt-1">
-            <span class="font-mono">{{ sp?.staff_id }}</span>
-            <span v-if="primaryDeptName"> · Primary: {{ primaryDeptName }}</span>
-          </p>
-        </div>
-        <div v-if="deptOptions.length > 1" class="flex flex-wrap gap-2 items-center">
-          <span class="text-sm text-neutral-600">Department:</span>
-          <select v-model.number="deptSelect" class="input-field max-w-xs">
-            <option v-for="d in deptOptions" :key="d.id" :value="d.id">{{ d.name }}</option>
-          </select>
-        </div>
-      </div>
-    </div>
-
-    <!-- Error Banner -->
-    <div v-if="queueError" class="p-4 bg-red-100 text-red-700 rounded-lg">
-      {{ queueError }}
-    </div>
-
-    <!-- Main Metrics -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <div class="card">
-        <p class="text-sm text-neutral-600">Unclaimed (this dept)</p>
-        <p class="text-3xl font-bold text-yellow-600">{{ unclaimedStages.length }}</p>
-      </div>
-      <div class="card">
-        <p class="text-sm text-neutral-600">My active cases</p>
-        <p class="text-3xl font-bold text-blue-600">{{ myActiveStages.length }}</p>
-      </div>
-      <div class="card">
-        <p class="text-sm text-neutral-600">Resolved today</p>
-        <p class="text-3xl font-bold text-green-600">{{ resolvedTodayCount }}</p>
-      </div>
-    </div>
-
-    <!-- Unclaimed Queue -->
-    <div>
-      <h2 class="text-xl text-primary font-semibold mb-3">Unclaimed queue</h2>
-      <div v-if="loading" class="card text-center text-neutral-500">Loading queue...</div>
-      <div v-else-if="unclaimedStages.length === 0" class="card text-center text-neutral-500">
-        <p>No unclaimed stages for this department.</p>
-      </div>
-      <div v-else class="space-y-3">
-        <div v-for="stage in unclaimedStages" :key="stage.id" class="card">
-          <div class="flex flex-col sm:flex-row sm:justify-between gap-4">
-            <div class="flex-1">
-              <div class="flex flex-wrap items-center gap-2">
-                <h3 class="font-semibold text-foreground">{{ stage.request?.student_name ?? 'Unknown' }}</h3>
-                <span class="text-xs font-mono text-neutral-600">{{ stage.request?.student_matricule }}</span>
-                <LevelBadge v-if="stage.request?.student_level" :level="stage.request.student_level" />
-              </div>
-              <p class="text-sm text-primary font-medium mt-1">{{ stage.request?.request_type }}</p>
-              <p class="text-sm text-foreground mt-2 line-clamp-3">{{ stage.request?.description }}</p>
-              <p class="text-xs text-neutral-500 mt-2">{{ stage.request?.created_at ? formatDate(stage.request.created_at) : '' }}</p>
-            </div>
-            <button type="button" class="btn-primary self-start shrink-0" @click="pickUp(stage)">Pick up</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- My Active Cases -->
-    <div>
-      <div class="flex gap-2 shrink-0">
-     </div>
-      <h2 class="text-xl text-primary font-semibold mb-3">My active cases</h2>
-      <div v-if="myActiveStages.length === 0" class="card text-center text-neutral-500">
-        <p>No stages in review assigned to you.</p>
-      </div>
-      <div v-else class="space-y-3">
-        <div v-for="stage in myActiveStages" :key="stage.id" class="card">
-          <div class="flex flex-col sm:flex-row sm:justify-between gap-4">
-            <div class="flex-1">
-              <h3 class="font-semibold text-foreground">{{ stage.request?.student_name ?? 'Unknown' }}</h3>
-              <p class="text-xs text-neutral-600">{{ stage.request?.student_matricule }}</p>
-              <p class="text-sm text-primary font-medium mt-1">{{ stage.request?.request_type }}</p>
-              <p class="text-sm text-foreground mt-2 line-clamp-3">{{ stage.request?.description }}</p>
-              <p class="text-xs text-neutral-500 mt-2">{{ stage.request?.created_at ? formatDate(stage.request.created_at) : '' }}</p>
-            </div>
-            <div class="flex gap-2 shrink-0">
-              <button type="button" class="btn-primary text-sm" @click="openResolve(stage)">Update status</button>
-              <button type="button" class="btn-secondary text-sm" @click="openDetails(stage)">Details</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
- <!-- Details Modal -->
-  <div
-    v-if="detailsModal.open && detailsModal.stage"
-    class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-    @click.self="detailsModal.open = false"
-  >
-    <div class="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden">
-      <!-- Header -->
-      <div class="p-6 border-b border-neutral-200 flex justify-between items-start bg-white shrink-0">
-        <div>
-          <h2 class="text-xl font-bold text-primary">{{ detailsModal.stage.request?.request_type }}</h2>
-          <p class="text-sm text-neutral-600 mt-1">
-            Student: <span class="font-semibold">{{ detailsModal.stage.request?.student_name }}</span> 
-            ({{ detailsModal.stage.request?.student_matricule }})
-          </p>
-        </div>
-        <button type="button" class="text-neutral-500 hover:text-foreground text-2xl" @click="detailsModal.open = false">×</button>
-      </div>
-
-      <!-- Description & Tab Navigation -->
-      <div class="px-6 pt-4 bg-neutral-50 border-b border-neutral-200 shrink-0">
-        <p class="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1">Description</p>
-        <p class="text-sm text-foreground mb-4">{{ detailsModal.stage.request?.description }}</p>
-
-        <div class="flex gap-4 border-b border-neutral-200">
-          <button
-            type="button"
-            class="pb-2 text-sm font-medium border-b-2 transition-colors"
-            :class="activeTab === 'timeline' ? 'border-primary text-primary' : 'border-transparent text-neutral-500 hover:text-foreground'"
-            @click="activeTab = 'timeline'"
-          >
-            Progression Timeline
-          </button>
-          <button
-            type="button"
-            class="pb-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5"
-            :class="activeTab === 'attachments' ? 'border-primary text-primary' : 'border-transparent text-neutral-500 hover:text-foreground'"
-            @click="activeTab = 'attachments'"
-          >
-            Attachments
-            <span 
-              v-if="detailsModal.stage.request?.attachments?.length" 
-              class="px-1.5 py-0.5 text-xs bg-neutral-200 rounded-full font-bold"
-            >
-              {{ detailsModal.stage.request.attachments.length }}
-            </span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Tab Body -->
-      <div class="p-6 overflow-y-auto flex-1">
-        <!-- Timeline Tab -->
-        <div v-if="activeTab === 'timeline'">
-          <div v-if="detailsModal.loading" class="text-center py-6 text-neutral-500">Loading timeline...</div>
-          <RequestTimeline v-else :stages="detailsModal.stages" />
-        </div>
-
-        <!-- Attachments Tab -->
-        <div v-else-if="activeTab === 'attachments'">
-          <DocumentViewer :attachments="detailsModal.stage.request?.attachments ?? []" />
-        </div>
-      </div>
-    </div>
-  </div>
-
-    <!-- Resolve Modal -->
-    <div
-      v-if="resolveModal.open && resolveModal.stage"
-      class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-    >
-      <div class="bg-white rounded-lg max-w-md w-full">
-        <div class="border-b border-neutral-200 p-4">
-          <h2 class="text-lg text-primary font-bold">Update stage status</h2>
-        </div>
-        <div class="p-4 space-y-4">
-          <p class="text-sm text-neutral-600">{{ resolveModal.stage.request?.request_type }}</p>
-          <label class="block text-sm text-primary font-medium">Resolution</label>
-          <select v-model="resolveStatus" class="input-field">
-            <option value="approved">Approve</option>
-            <option value="rejected">Reject</option>
-          </select>
-          <label class="block text-sm text-primary font-medium">Staff note</label>
-          <textarea v-model="resolveModal.note" class="input-field" rows="3" placeholder="Required if rejecting" />
-          <p v-if="resolveError" class="text-sm text-red-600">{{ resolveError }}</p>
-          <div class="flex gap-2 justify-end">
-            <button type="button" class="btn-secondary" @click="resolveModal.open = false">Cancel</button>
-            <button type="button" class="btn-primary" @click="submitResolve">Submit</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</template>
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
+import { isAxiosError } from 'axios'
 import { useAuth } from '../composables/useAuth'
-import { fetchStaffQueue, resolveStage, claimStage, fetchMyCases } from '../services/stages'
+import {
+  fetchStaffQueue,
+  resolveStage,
+  claimStage,
+  fetchMyCases
+} from '../services/stages'
 import { fetchRequestById } from '../services/requests'
-import type { RequestStage } from '../types'
-import LevelBadge from './LevelBadge.vue'
+import type { RequestStage, Request as DocumentRequest } from '../types'
+import StatusBadge from './StatusBadge.vue'
 import RequestTimeline from './RequestTimeline.vue'
-// import StatusBadge from './StatusBadge.vue'
 import DocumentViewer from './DocumentViewer.vue'
+import StaffCaseCard from './staff/StaffCaseCard.vue'
+import BaseModal from './ui/BaseModal.vue'
+import EmptyState from './ui/EmptyState.vue'
+import SkeletonLoader from './ui/SkeletonLoader.vue'
+import PageHeader from './ui/PageHeader.vue'
 
-const activeTab = ref<'timeline' | 'attachments'>('timeline')
 const auth = useAuth()
 const staffUser = computed(() => auth.user.value)
 const sp = computed(() => staffUser.value?.staff_profile)
-
+const deptOptions = computed(() => sp.value?.departments ?? [])
+const deptSelect = ref(0)
+const selectedDeptName = computed(
+  () => deptOptions.value.find((d) => d.id === deptSelect.value)?.name ?? ''
+)
+const primaryDeptName = computed(
+  () =>
+    deptOptions.value.find((d) => d.is_primary)?.name ??
+    deptOptions.value[0]?.name ??
+    ''
+)
 const allStages = ref<RequestStage[]>([])
 const activeCases = ref<RequestStage[]>([])
 const loading = ref(false)
 const queueError = ref('')
+const casesError = ref('')
+const successMessage = ref('')
+const workspaceTab = ref<'queue' | 'active'>('queue')
+const search = ref('')
+const typeFilter = ref('')
+const unclaimedStages = computed(() =>
+  allStages.value.filter(
+    (stage) =>
+      stage.status === 'pending' &&
+      !stage.handled_by &&
+      (!selectedDeptName.value ||
+        stage.department_name === selectedDeptName.value)
+  )
+)
+// My cases intentionally spans every assigned department, as the endpoint does.
+const myActiveStages = computed(() => activeCases.value)
+const currentStages = computed(() =>
+  workspaceTab.value === 'queue' ? unclaimedStages.value : myActiveStages.value
+)
+const currentError = computed(() =>
+  workspaceTab.value === 'queue' ? queueError.value : casesError.value
+)
+const requestTypes = computed(() =>
+  [
+    ...new Set(
+      [...allStages.value, ...activeCases.value]
+        .map((stage) => stage.request?.request_type)
+        .filter((name): name is string => Boolean(name))
+    )
+  ].sort()
+)
+const filteredStages = computed(() => {
+  const query = search.value.trim().toLowerCase()
+  return currentStages.value.filter((stage) => {
+    const request = stage.request
+    const searchable = [
+      stage.request_id,
+      stage.department_name,
+      request?.student_name,
+      request?.student_matricule,
+      request?.description,
+      request?.request_type
+    ]
+      .join(' ')
+      .toLowerCase()
+    return (
+      (!query || searchable.includes(query)) &&
+      (!typeFilter.value || request?.request_type === typeFilter.value)
+    )
+  })
+})
 
-const deptSelect = ref<number>(0)
+function errorMessage(error: unknown, fallback: string) {
+  if (
+    isAxiosError<{ message?: string; errors?: Record<string, string[]> }>(error)
+  ) {
+    const validation = Object.values(error.response?.data?.errors ?? {})
+      .flat()
+      .join(' ')
+    return validation || error.response?.data?.message || fallback
+  }
+  return fallback
+}
+async function loadQueue() {
+  if (loading.value) return
+  loading.value = true
+  queueError.value = ''
+  casesError.value = ''
+  const [queue, cases] = await Promise.allSettled([
+    fetchStaffQueue(),
+    fetchMyCases()
+  ])
+  if (queue.status === 'fulfilled') allStages.value = queue.value
+  else
+    queueError.value = errorMessage(
+      queue.reason,
+      'Unable to load the department queue. Please try again.'
+    )
+  if (cases.status === 'fulfilled') activeCases.value = cases.value
+  else
+    casesError.value = errorMessage(
+      cases.reason,
+      'Unable to load your active cases. Please try again.'
+    )
+  loading.value = false
+}
+function clearFilters() {
+  search.value = ''
+  typeFilter.value = ''
+}
+function moveTab(event: KeyboardEvent) {
+  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
+  event.preventDefault()
+  workspaceTab.value =
+    event.key === 'Home'
+      ? 'queue'
+      : event.key === 'End'
+        ? 'active'
+        : workspaceTab.value === 'queue'
+          ? 'active'
+          : 'queue'
+  document.getElementById(`staff-tab-${workspaceTab.value}`)?.focus()
+}
 
-const deptOptions = computed(() => sp.value?.departments ?? [])
+const claimModal = reactive({
+  open: false,
+  stage: null as RequestStage | null,
+  error: ''
+})
+const claiming = ref(false)
+function openClaim(stage: RequestStage) {
+  claimModal.stage = stage
+  claimModal.error = ''
+  claimModal.open = true
+}
+async function pickUp(stage: RequestStage) {
+  if (claiming.value) return
+  claiming.value = true
+  claimModal.error = ''
+  successMessage.value = ''
+  try {
+    await claimStage(stage.request_id, stage.id)
+    claimModal.open = false
+    successMessage.value = `Request #${stage.request_id} is now assigned to you.`
+    workspaceTab.value = 'active'
+    clearFilters()
+    await loadQueue()
+  } catch (error) {
+    claimModal.error = errorMessage(
+      error,
+      'Unable to claim this stage. Refresh the queue and try again.'
+    )
+  } finally {
+    claiming.value = false
+  }
+}
 
 const detailsModal = reactive({
   open: false,
   stage: null as RequestStage | null,
+  request: null as DocumentRequest | null,
   stages: [] as RequestStage[],
-  loading: false
+  loading: false,
+  error: ''
 })
-
-function openDetails(stage: RequestStage) {
+const activeTab = ref<'timeline' | 'attachments' | 'history'>('timeline')
+let detailsLoadId = 0
+async function openDetails(stage: RequestStage) {
+  const loadId = ++detailsLoadId
   detailsModal.stage = stage
+  detailsModal.request = null
   detailsModal.stages = []
-  activeTab.value = 'timeline'
+  detailsModal.error = ''
   detailsModal.open = true
   detailsModal.loading = true
-  
-  fetchRequestById(stage.request_id)
-    .then(data => { 
-      detailsModal.stages = data.stages ?? []
-    })
-    .catch(() => { 
-      detailsModal.stages = [stage] 
-    })
-    .finally(() => { 
-      detailsModal.loading = false 
-    })
-}
-
-
-const primaryDeptName = computed(() => {
-  const p = sp.value?.departments?.find(d => d.is_primary)
-  return p?.name ?? sp.value?.departments?.[0]?.name ?? ''
-})
-
-const selectedDeptName = computed(() => {
-  return deptOptions.value.find(d => d.id === deptSelect.value)?.name ?? ''
-})
-
-async function loadQueue() {
-  loading.value = true
+  activeTab.value = 'timeline'
   try {
-    const [queue, cases] = await Promise.all([
-      fetchStaffQueue(),
-      fetchMyCases()
-    ])
-    allStages.value = queue
-    activeCases.value = cases
-  } catch {
-    queueError.value = 'Failed to load queue.'
+    const data = await fetchRequestById(stage.request_id)
+    if (loadId !== detailsLoadId) return
+    detailsModal.request = data
+    detailsModal.stages = data.stages ?? []
+  } catch (error) {
+    if (loadId === detailsLoadId)
+      detailsModal.error = errorMessage(
+        error,
+        'Unable to load request details. Please try again.'
+      )
   } finally {
-    loading.value = false
-  }
-}
-
-const unclaimedStages = computed(() =>
-  allStages.value.filter(s => 
-    s.status === 'pending' && 
-    !s.handled_by &&
-    (!selectedDeptName.value || s.department_name === selectedDeptName.value)
-  )
-)
-
-const myActiveStages = computed(() => activeCases.value)
-
-
-const resolvedTodayCount = computed(() => {
-  const today = new Date().toDateString()
-  return allStages.value.filter(s => 
-    (s.status === 'approved' || s.status === 'rejected') &&
-    s.updated_at &&
-    new Date(s.updated_at).toDateString() === today
-  ).length
-})
-
-onMounted(async () => {
-  const primary = sp.value?.departments?.find(d => d.is_primary)
-  deptSelect.value = primary?.id ?? sp.value?.departments?.[0]?.id ?? 0
-  await loadQueue()
-})
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-}
-
-async function pickUp(stage: RequestStage) {
-  try {
-    await claimStage(stage.request_id, stage.id)
-    await loadQueue()
-  } catch {
-    queueError.value = 'Failed to claim stage.'
+    if (loadId === detailsLoadId) detailsModal.loading = false
   }
 }
 
@@ -310,7 +216,7 @@ const resolveModal = reactive({
 })
 const resolveStatus = ref<'approved' | 'rejected'>('approved')
 const resolveError = ref('')
-
+const resolving = ref(false)
 function openResolve(stage: RequestStage) {
   resolveModal.stage = stage
   resolveStatus.value = 'approved'
@@ -318,32 +224,662 @@ function openResolve(stage: RequestStage) {
   resolveError.value = ''
   resolveModal.open = true
 }
-
 async function submitResolve() {
+  if (resolving.value) return
   resolveError.value = ''
   const stage = resolveModal.stage
   if (!stage) return
-
-  const validStatuses = ['approved', 'rejected'] as const
-  let status: 'approved' | 'rejected' = resolveStatus.value
-  if (!validStatuses.includes(status)) {
-    console.warn('[submitResolve] resolveStatus.value was unexpected:', status, '— defaulting to "approved"')
-    status = 'approved'
-  }
-
+  const status = resolveStatus.value === 'rejected' ? 'rejected' : 'approved'
   if (status === 'rejected' && !resolveModal.note.trim()) {
     resolveError.value = 'A staff note is required when rejecting.'
     return
   }
+  if (resolveModal.note.trim().length > 1000) {
+    resolveError.value = 'Keep the staff note to 1,000 characters or fewer.'
+    return
+  }
+  resolving.value = true
+  successMessage.value = ''
   try {
     await resolveStage(stage.request_id, stage.id, {
       status,
       staff_note: resolveModal.note.trim()
     })
     resolveModal.open = false
+    successMessage.value = `Request #${stage.request_id}: stage ${status}.`
     await loadQueue()
-  } catch {
-    resolveError.value = 'Failed to resolve stage.'
+  } catch (error) {
+    resolveError.value = errorMessage(
+      error,
+      'Unable to update this stage. Your note has been kept; please try again.'
+    )
+  } finally {
+    resolving.value = false
   }
 }
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+onMounted(() => {
+  deptSelect.value =
+    deptOptions.value.find((d) => d.is_primary)?.id ??
+    deptOptions.value[0]?.id ??
+    0
+  void loadQueue()
+})
 </script>
+
+<template>
+  <div class="space-y-6">
+    <PageHeader
+      eyebrow="STAFF WORKSPACE"
+      title="Make every request count"
+      description="Review your department queue and keep student requests moving."
+    >
+      <template #actions
+        ><button
+          type="button"
+          class="btn-secondary"
+          :disabled="loading"
+          @click="loadQueue"
+        >
+          {{ loading ? 'Refreshing…' : 'Refresh workspace' }}
+        </button></template
+      >
+    </PageHeader>
+    <section
+      class="staff-identity"
+      aria-label="Staff profile and department"
+    >
+      <div class="flex min-w-0 items-center gap-3">
+        <div
+          class="staff-avatar"
+          aria-hidden="true"
+        >
+          {{ staffUser?.name?.charAt(0) ?? 'S' }}
+        </div>
+        <div class="min-w-0">
+          <h2 class="break-words text-base font-semibold text-slate-900">
+            {{ staffUser?.name }}
+          </h2>
+          <p class="mt-1 text-xs text-slate-500">
+            <span class="font-mono">{{ sp?.staff_id }}</span
+            ><span v-if="primaryDeptName"> · {{ primaryDeptName }}</span>
+          </p>
+        </div>
+      </div>
+      <div class="w-full sm:w-auto sm:max-w-xs">
+        <label
+          v-if="deptOptions.length > 1"
+          for="staff-department"
+          class="mb-1.5 block text-xs font-semibold text-slate-500"
+          >QUEUE DEPARTMENT</label
+        >
+        <select
+          v-if="deptOptions.length > 1"
+          id="staff-department"
+          v-model.number="deptSelect"
+          class="input-field"
+        >
+          <option
+            v-for="department in deptOptions"
+            :key="department.id"
+            :value="department.id"
+          >
+            {{ department.name }}{{ department.is_primary ? ' (Primary)' : '' }}
+          </option>
+        </select>
+        <p
+          v-else
+          class="text-sm font-medium text-slate-700"
+        >
+          {{ selectedDeptName || 'No department assigned' }}
+        </p>
+      </div>
+    </section>
+    <div
+      v-if="successMessage"
+      class="staff-success"
+      role="status"
+    >
+      {{ successMessage }}
+    </div>
+    <div
+      class="grid grid-cols-2 gap-3 lg:grid-cols-3"
+      aria-label="Workspace overview"
+    >
+      <div class="staff-stat">
+        <p>Unclaimed requests</p>
+        <strong>{{
+          loading ? '—' : queueError ? '—' : unclaimedStages.length
+        }}</strong
+        ><span>{{
+          queueError ? 'Unavailable' : 'In the selected department'
+        }}</span>
+      </div>
+      <div class="staff-stat">
+        <p>My active cases</p>
+        <strong class="!text-sky-700">{{
+          loading ? '—' : casesError ? '—' : myActiveStages.length
+        }}</strong
+        ><span>{{
+          casesError ? 'Unavailable' : 'Across your departments'
+        }}</span>
+      </div>
+      <div class="staff-stat col-span-2 lg:col-span-1">
+        <p>My departments</p>
+        <strong>{{ deptOptions.length }}</strong
+        ><span>{{
+          deptOptions.length === 1
+            ? 'Department assigned'
+            : 'Departments assigned'
+        }}</span>
+      </div>
+    </div>
+    <section
+      id="staff-workspace"
+      class="overflow-hidden rounded-2xl border border-slate-200 bg-white"
+      aria-label="Request workspace"
+    >
+      <div
+        class="staff-tabs"
+        role="tablist"
+        aria-label="Case lists"
+        @keydown="moveTab"
+      >
+        <button
+          id="staff-tab-queue"
+          type="button"
+          role="tab"
+          :aria-selected="workspaceTab === 'queue'"
+          :tabindex="workspaceTab === 'queue' ? 0 : -1"
+          aria-controls="staff-case-panel"
+          :class="{ selected: workspaceTab === 'queue' }"
+          @click="workspaceTab = 'queue'"
+        >
+          Unclaimed Queue <span>{{ unclaimedStages.length }}</span>
+        </button>
+        <button
+          id="staff-tab-active"
+          type="button"
+          role="tab"
+          :aria-selected="workspaceTab === 'active'"
+          :tabindex="workspaceTab === 'active' ? 0 : -1"
+          aria-controls="staff-case-panel"
+          :class="{ selected: workspaceTab === 'active' }"
+          @click="workspaceTab = 'active'"
+        >
+          My Active Cases <span>{{ myActiveStages.length }}</span>
+        </button>
+      </div>
+      <div
+        id="staff-case-panel"
+        role="tabpanel"
+        :aria-labelledby="`staff-tab-${workspaceTab}`"
+        :aria-busy="loading"
+        class="p-4 sm:p-6"
+      >
+        <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end">
+          <div class="min-w-0 flex-1">
+            <label
+              for="staff-search"
+              class="mb-1.5 block text-xs font-medium text-slate-600"
+              >Search requests</label
+            ><input
+              id="staff-search"
+              v-model="search"
+              type="search"
+              class="input-field"
+              placeholder="Search student, matricule or request…"
+            />
+          </div>
+          <div class="sm:w-52">
+            <label
+              for="staff-type"
+              class="mb-1.5 block text-xs font-medium text-slate-600"
+              >Request type</label
+            ><select
+              id="staff-type"
+              v-model="typeFilter"
+              class="input-field"
+            >
+              <option value="">All request types</option>
+              <option
+                v-for="type in requestTypes"
+                :key="type"
+                :value="type"
+              >
+                {{ type }}
+              </option>
+            </select>
+          </div>
+        </div>
+        <p class="mb-4 text-xs text-slate-500">
+          {{
+            workspaceTab === 'queue'
+              ? `${selectedDeptName || 'Your departments'} · Ready to be claimed`
+              : 'Assigned to you · All your departments'
+          }}
+        </p>
+        <SkeletonLoader
+          v-if="loading"
+          :count="3"
+        />
+        <div
+          v-else-if="currentError"
+          class="staff-error"
+          role="alert"
+        >
+          <p>{{ currentError }}</p>
+          <button
+            type="button"
+            class="btn-secondary mt-3"
+            @click="loadQueue"
+          >
+            Try again
+          </button>
+        </div>
+        <EmptyState
+          v-else-if="currentStages.length === 0"
+          :title="
+            workspaceTab === 'queue'
+              ? 'Your queue is clear'
+              : 'No active cases yet'
+          "
+          :description="
+            workspaceTab === 'queue'
+              ? 'There are no unclaimed stages in this department. Refresh to check for new requests.'
+              : 'Claim a request from the unclaimed queue to start reviewing it.'
+          "
+          ><button
+            v-if="workspaceTab === 'active'"
+            type="button"
+            class="btn-primary mt-4"
+            @click="workspaceTab = 'queue'"
+          >
+            Browse queue
+          </button></EmptyState
+        >
+        <EmptyState
+          v-else-if="filteredStages.length === 0"
+          title="No matching requests"
+          description="Try a different search or clear your filters to see all requests."
+          ><button
+            type="button"
+            class="btn-secondary mt-4"
+            @click="clearFilters"
+          >
+            Clear filters
+          </button></EmptyState
+        >
+        <div
+          v-else
+          class="space-y-3"
+        >
+          <p
+            class="sr-only"
+            role="status"
+          >
+            {{ filteredStages.length }} requests shown
+          </p>
+          <StaffCaseCard
+            v-for="stage in filteredStages"
+            :key="stage.id"
+            :stage="stage"
+            :active="workspaceTab === 'active'"
+            @claim="openClaim(stage)"
+            @resolve="openResolve(stage)"
+            @details="openDetails(stage)"
+          />
+        </div>
+      </div>
+    </section>
+
+    <BaseModal
+      :open="claimModal.open"
+      title="Claim this request"
+      size="md"
+      :busy="claiming"
+      @close="claimModal.open = false"
+    >
+      <div
+        v-if="claimModal.stage"
+        class="space-y-4"
+      >
+        <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <p class="text-xs text-slate-500">
+            Request #{{ claimModal.stage.request_id }} · Stage
+            {{ claimModal.stage.sequence_order }}
+          </p>
+          <h3 class="mt-2 text-base font-semibold">
+            {{ claimModal.stage.request?.request_type }}
+          </h3>
+          <p class="mt-1 text-sm text-slate-600">
+            {{ claimModal.stage.request?.student_name }} ·
+            {{ claimModal.stage.department_name }}
+          </p>
+        </div>
+        <p class="text-sm text-slate-600">
+          This stage will be assigned to you and moved into My Active Cases,
+          where you can review the documents and record a decision.
+        </p>
+        <p
+          v-if="claimModal.error"
+          class="staff-error"
+          role="alert"
+        >
+          {{ claimModal.error }}
+        </p>
+      </div>
+      <template #footer
+        ><button
+          type="button"
+          class="btn-secondary"
+          :disabled="claiming"
+          @click="claimModal.open = false"
+        >
+          Cancel</button
+        ><button
+          type="button"
+          class="btn-primary"
+          :disabled="claiming"
+          @click="claimModal.stage && pickUp(claimModal.stage)"
+        >
+          {{ claiming ? 'Claiming…' : 'Claim request' }}
+        </button></template
+      >
+    </BaseModal>
+
+    <BaseModal
+      :open="detailsModal.open"
+      :title="detailsModal.stage?.request?.request_type || 'Request details'"
+      size="xl"
+      @close="detailsModal.open = false"
+    >
+      <div
+        v-if="detailsModal.stage"
+        class="space-y-5"
+      >
+        <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="text-xs font-medium text-slate-500"
+              >REQUEST #{{ detailsModal.stage.request_id }}</span
+            ><StatusBadge
+              kind="stage"
+              :status="detailsModal.stage.status"
+            />
+          </div>
+          <p class="mt-3 font-semibold text-slate-900">
+            {{ detailsModal.stage.request?.student_name }}
+          </p>
+          <p class="mt-1 text-xs text-slate-500">
+            {{ detailsModal.stage.request?.student_matricule }} ·
+            {{ detailsModal.stage.department_name }} · Stage
+            {{ detailsModal.stage.sequence_order }}
+          </p>
+          <p
+            class="mt-4 whitespace-pre-wrap break-words text-sm text-slate-700"
+          >
+            {{
+              detailsModal.request?.description ??
+              detailsModal.stage.request?.description
+            }}
+          </p>
+          <p
+            v-if="detailsModal.stage.request?.created_at"
+            class="mt-3 text-xs text-slate-500"
+          >
+            Submitted {{ formatDate(detailsModal.stage.request.created_at) }}
+          </p>
+        </div>
+        <div
+          class="flex flex-wrap gap-2"
+          aria-label="Request detail sections"
+        >
+          <button
+            v-for="tab in ['timeline', 'attachments', 'history'] as const"
+            :key="tab"
+            type="button"
+            class="staff-detail-tab"
+            :class="{ selected: activeTab === tab }"
+            :aria-pressed="activeTab === tab"
+            @click="activeTab = tab"
+          >
+            {{
+              tab === 'timeline'
+                ? 'Progression timeline'
+                : tab === 'attachments'
+                  ? 'Documents'
+                  : 'History'
+            }}
+          </button>
+        </div>
+        <SkeletonLoader
+          v-if="detailsModal.loading"
+          :count="2"
+        />
+        <div
+          v-else-if="detailsModal.error"
+          class="staff-error"
+          role="alert"
+        >
+          <p>{{ detailsModal.error }}</p>
+          <button
+            type="button"
+            class="btn-secondary mt-3"
+            @click="openDetails(detailsModal.stage)"
+          >
+            Retry details
+          </button>
+        </div>
+        <RequestTimeline
+          v-else-if="activeTab === 'timeline'"
+          :stages="detailsModal.stages"
+        />
+        <DocumentViewer
+          v-else-if="activeTab === 'attachments'"
+          :attachments="
+            detailsModal.request?.attachments ??
+            detailsModal.stage.request?.attachments ??
+            []
+          "
+        />
+        <div v-else>
+          <h3 class="mb-4 text-base font-semibold">Status history</h3>
+          <ol
+            v-if="detailsModal.request?.status_history?.length"
+            class="space-y-4"
+          >
+            <li
+              v-for="entry in detailsModal.request.status_history"
+              :key="entry.id"
+              class="border-l-2 border-slate-200 pl-4"
+            >
+              <StatusBadge
+                kind="request"
+                :status="entry.new_status"
+              />
+              <p class="mt-2 text-xs text-slate-500">
+                {{ formatDate(entry.changed_at) }} ·
+                {{ entry.changed_by?.name || 'System' }}
+              </p>
+              <p
+                v-if="entry.note"
+                class="mt-2 whitespace-pre-wrap break-words text-sm text-slate-700"
+              >
+                {{ entry.note }}
+              </p>
+            </li>
+          </ol>
+          <EmptyState
+            v-else
+            title="No history recorded"
+            description="Status changes will appear here as this request moves through its workflow."
+          />
+        </div>
+      </div>
+    </BaseModal>
+
+    <BaseModal
+      :open="resolveModal.open"
+      title="Update stage status"
+      size="md"
+      :busy="resolving"
+      @close="resolveModal.open = false"
+    >
+      <form
+        id="staff-resolution-form"
+        class="space-y-5"
+        novalidate
+        @submit.prevent="submitResolve"
+      >
+        <div
+          v-if="resolveModal.stage"
+          class="rounded-xl bg-slate-50 p-4"
+        >
+          <p class="text-xs text-slate-500">
+            Request #{{ resolveModal.stage.request_id }} ·
+            {{ resolveModal.stage.department_name }}
+          </p>
+          <p class="mt-1 font-semibold">
+            {{ resolveModal.stage.request?.request_type }}
+          </p>
+          <p class="mt-1 text-sm text-slate-600">
+            {{ resolveModal.stage.request?.student_name }}
+          </p>
+        </div>
+        <div>
+          <label
+            for="staff-resolution"
+            class="mb-2 block text-sm font-medium text-slate-700"
+            >Resolution</label
+          ><select
+            id="staff-resolution"
+            v-model="resolveStatus"
+            class="input-field"
+            :disabled="resolving"
+          >
+            <option value="approved">Approve stage</option>
+            <option value="rejected">Reject request</option>
+          </select>
+          <p class="mt-2 text-xs leading-relaxed text-slate-500">
+            {{
+              resolveStatus === 'approved'
+                ? 'Approval forwards the request to the next department, or marks it ready when this is the final stage.'
+                : 'The request will be rejected. Give the student a clear reason and explain what needs to change.'
+            }}
+          </p>
+        </div>
+        <div>
+          <label
+            for="staff-note"
+            class="mb-2 block text-sm font-medium text-slate-700"
+            >Staff note
+            <span class="font-normal text-slate-500"
+              >({{
+                resolveStatus === 'rejected' ? 'required' : 'optional'
+              }})</span
+            ></label
+          ><textarea
+            id="staff-note"
+            v-model="resolveModal.note"
+            class="input-field"
+            rows="4"
+            :disabled="resolving"
+            :required="resolveStatus === 'rejected'"
+            :aria-invalid="Boolean(resolveError)"
+            :aria-describedby="
+              resolveError ? 'staff-resolution-error' : undefined
+            "
+            placeholder="Add context for the student and the next reviewer…"
+          />
+        </div>
+        <p
+          v-if="resolveError"
+          id="staff-resolution-error"
+          class="staff-error"
+          role="alert"
+        >
+          {{ resolveError }}
+        </p>
+      </form>
+      <template #footer
+        ><button
+          type="button"
+          class="btn-secondary"
+          :disabled="resolving"
+          @click="resolveModal.open = false"
+        >
+          Cancel</button
+        ><button
+          type="submit"
+          form="staff-resolution-form"
+          :class="resolveStatus === 'rejected' ? 'btn-danger' : 'btn-primary'"
+          :disabled="resolving"
+        >
+          {{
+            resolving
+              ? 'Saving…'
+              : resolveStatus === 'rejected'
+                ? 'Reject request'
+                : 'Approve stage'
+          }}
+        </button></template
+      >
+    </BaseModal>
+  </div>
+</template>
+
+<style scoped>
+.staff-identity {
+  @apply flex flex-col justify-between gap-5 rounded-2xl border border-slate-200 bg-white p-5 sm:flex-row sm:items-center sm:p-6;
+}
+.staff-avatar {
+  @apply flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-xl font-semibold text-sky-700;
+}
+.staff-stat {
+  @apply min-w-0 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5;
+}
+.staff-stat p {
+  @apply text-xs font-medium text-slate-600 sm:text-sm;
+}
+.staff-stat strong {
+  @apply my-2 block break-words text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl;
+}
+.staff-stat span {
+  @apply text-xs text-slate-500;
+}
+.staff-success {
+  @apply rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800;
+}
+.staff-error {
+  @apply rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800;
+}
+.staff-tabs {
+  @apply grid grid-cols-2 border-b border-slate-200 px-2 sm:flex sm:gap-6 sm:px-6;
+}
+.staff-tabs button {
+  @apply flex min-h-14 items-center justify-center gap-2 border-b-2 border-transparent px-1 py-3 text-xs font-semibold text-slate-500 transition-colors sm:text-sm;
+}
+.staff-tabs button.selected {
+  @apply border-sky-600 text-sky-700;
+}
+.staff-tabs button span {
+  @apply rounded-full bg-slate-100 px-2 py-0.5 text-xs;
+}
+.staff-tabs button.selected span {
+  @apply bg-sky-50 text-sky-700;
+}
+.staff-detail-tab {
+  @apply min-h-11 rounded-lg px-3 py-2 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-50;
+}
+.staff-detail-tab.selected {
+  @apply bg-sky-50 text-sky-700;
+}
+</style>
