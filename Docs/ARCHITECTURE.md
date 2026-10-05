@@ -66,6 +66,8 @@ The deployment is automated after a manual workflow dispatch and protected-envir
 
 ## Frontend Architecture
 
+The Issue #7 presentation refactor adds the shared `components/ui` layer, `components/layout/AuthLayout.vue`, and domain components under `components/student`, `components/staff`, and `components/admin`. The four dashboard routes still use their existing service modules and singleton `useAuth`; no new store or backend API was introduced. See [UI_UX.md](UI_UX.md) and the [verification record](FRONTEND_REDESIGN.md).
+
 - **Framework:** Vue 3 with Composition API and `<script setup>`
 - **Language:** TypeScript (strict mode)
 - **Build tool:** Vite 6

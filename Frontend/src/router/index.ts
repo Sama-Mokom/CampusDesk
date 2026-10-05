@@ -23,34 +23,128 @@ function homePathForUser(): string {
 
 export const router = createRouter({
   history: createWebHistory(),
+  scrollBehavior(_to, _from, savedPosition) {
+    return savedPosition || { top: 0 }
+  },
   routes: [
     { path: '/', redirect: () => homePathForUser() },
-    { path: '/login', name: 'login', component: LoginView, meta: { guest: true } },
-    { path: '/register', name: 'register', component: RegisterView, meta: { guest: true } },
+    {
+      path: '/login',
+      name: 'login',
+      component: LoginView,
+      meta: { guest: true }
+    },
+    {
+      path: '/register',
+      name: 'register',
+      component: RegisterView,
+      meta: { guest: true }
+    },
     {
       path: '/student',
-      name: 'student',
       component: StudentView,
-      meta: { requiresAuth: true, roles: ['student'] }
+      meta: { requiresAuth: true, roles: ['student'] },
+      children: [
+        {
+          path: '',
+          name: 'student',
+          component: () => import('@/views/student/StudentOverviewPage.vue')
+        },
+        {
+          path: 'requests',
+          name: 'student-requests',
+          component: () => import('@/views/student/StudentRequestsPage.vue')
+        },
+        {
+          path: 'requests/new',
+          name: 'student-new-request',
+          component: () => import('@/views/student/StudentNewRequestPage.vue')
+        },
+        {
+          path: 'requests/:id',
+          name: 'student-request-detail',
+          component: () =>
+            import('@/views/student/StudentRequestDetailPage.vue')
+        }
+      ]
     },
     {
       path: '/staff',
-      name: 'staff',
       component: StaffView,
-      meta: { requiresAuth: true, staffLevel: 'plain' }
+      meta: { requiresAuth: true, staffLevel: 'plain' },
+      children: [
+        {
+          path: '',
+          name: 'staff',
+          component: () => import('@/views/staff/StaffOverviewPage.vue')
+        },
+        {
+          path: 'queue',
+          name: 'staff-queue',
+          component: () => import('@/views/staff/StaffQueuePage.vue')
+        },
+        {
+          path: 'cases',
+          name: 'staff-cases',
+          component: () => import('@/views/staff/StaffCasesPage.vue')
+        }
+      ]
     },
     {
       path: '/dept-admin',
-      name: 'dept-admin',
       component: DeptAdminView,
-      meta: { requiresAuth: true, staffLevel: 'dept_admin' }
+      meta: { requiresAuth: true, staffLevel: 'dept_admin' },
+      children: [
+        {
+          path: '',
+          name: 'dept-admin',
+          component: () =>
+            import('@/views/dept-admin/DeptAdminOverviewPage.vue')
+        },
+        {
+          path: 'requests',
+          name: 'dept-admin-requests',
+          component: () =>
+            import('@/views/dept-admin/DeptAdminRequestsPage.vue')
+        }
+      ]
     },
     {
       path: '/admin',
-      name: 'admin',
       component: SuperAdminView,
-      meta: { requiresAuth: true, staffLevel: 'super_admin' }
-    }
+      meta: { requiresAuth: true, staffLevel: 'super_admin' },
+      children: [
+        {
+          path: '',
+          name: 'admin',
+          component: () => import('@/views/admin/AdminOverviewPage.vue')
+        },
+        {
+          path: 'requests',
+          name: 'admin-requests',
+          component: () => import('@/views/admin/AdminRequestsPage.vue')
+        },
+        {
+          path: 'users',
+          name: 'admin-users',
+          component: () => import('@/views/admin/AdminUsersPage.vue')
+        },
+        ...(
+          ['faculties', 'departments', 'programmes', 'request-types'] as const
+        ).map((kind) => ({
+          path: kind,
+          name: `admin-${kind}`,
+          component: () => import('@/views/admin/AdminReferencesPage.vue'),
+          props: { kind }
+        })),
+        {
+          path: 'history',
+          name: 'admin-history',
+          component: () => import('@/views/admin/AdminHistoryPage.vue')
+        }
+      ]
+    },
+    { path: '/:pathMatch(.*)*', redirect: () => homePathForUser() }
   ]
 })
 
@@ -77,8 +171,10 @@ router.beforeEach((to, _from, next) => {
     const need = to.meta.staffLevel as string
     const level = u.staff_profile?.admin_level
     if (need === 'plain' && level !== null) return next(homePathForUser())
-    if (need === 'dept_admin' && level !== 'dept_admin') return next(homePathForUser())
-    if (need === 'super_admin' && level !== 'super_admin') return next(homePathForUser())
+    if (need === 'dept_admin' && level !== 'dept_admin')
+      return next(homePathForUser())
+    if (need === 'super_admin' && level !== 'super_admin')
+      return next(homePathForUser())
   }
 
   next()

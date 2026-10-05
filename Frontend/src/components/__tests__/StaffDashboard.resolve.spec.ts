@@ -37,35 +37,39 @@ import type { RequestStage } from '../../types'
 // is evaluated its import of '../services/stages' resolves to these mocks.
 vi.mock('../../services/stages', () => ({
   fetchStaffQueue: vi.fn().mockResolvedValue([]),
-  fetchMyCases:    vi.fn().mockResolvedValue([]),
-  claimStage:      vi.fn().mockResolvedValue(undefined),
-  resolveStage:    vi.fn().mockResolvedValue(undefined),
-  fetchRequestStages: vi.fn().mockResolvedValue([]),
+  fetchMyCases: vi.fn().mockResolvedValue([]),
+  claimStage: vi.fn().mockResolvedValue(undefined),
+  resolveStage: vi.fn().mockResolvedValue(undefined),
+  fetchRequestStages: vi.fn().mockResolvedValue([])
 }))
 
 // ── Auth composable mock ───────────────────────────────────────────────────────
 vi.mock('../../composables/useAuth', () => ({
   useAuth: () => ({
-    user: { value: {
-      id: 1,
-      name: 'Test Staff',
-      email: 'staff@test.com',
-      role: 'staff',
-      created_at: '2024-01-01',
-      staff_profile: {
-        staff_id: 'S001',
-        admin_level: null,
-        departments: [{ id: 1, name: 'Computer Science', code: 'CS', is_primary: true }],
-      },
-    }},
+    user: {
+      value: {
+        id: 1,
+        name: 'Test Staff',
+        email: 'staff@test.com',
+        role: 'staff',
+        created_at: '2024-01-01',
+        staff_profile: {
+          staff_id: 'S001',
+          admin_level: null,
+          departments: [
+            { id: 1, name: 'Computer Science', code: 'CS', is_primary: true }
+          ]
+        }
+      }
+    },
     isAuthenticated: { value: true },
     setUser: vi.fn(),
-    clearAuth: vi.fn(),
-  }),
+    clearAuth: vi.fn()
+  })
 }))
 
 // Lazy import after mocks are registered
-import StaffDashboard from '../StaffDashboard.vue'
+import StaffDashboard from '../staff/StaffCaseWorkspace.vue'
 import { resolveStage } from '../../services/stages'
 
 // ── Mock stage fixture ─────────────────────────────────────────────────────────
@@ -85,21 +89,23 @@ const mockStage: RequestStage = {
     created_at: '2024-01-15T10:00:00Z',
     student_name: 'Alice Student',
     student_matricule: 'FE/2021/001',
-    student_level: '300',
-  },
+    student_level: '300'
+  }
 }
 
 // ── Global stubs for child components ─────────────────────────────────────────
 const globalStubs = {
+  RouterLink: true,
   LevelBadge: true,
   RequestTimeline: true,
-  DocumentViewer: true,
+  DocumentViewer: true
 }
 
 // ── Helper: mount and wait for onMounted to settle ───────────────────────────
 async function mountDashboard() {
   const wrapper = mount(StaffDashboard, {
-    global: { stubs: globalStubs },
+    props: { mode: 'active' },
+    global: { stubs: globalStubs }
   })
   await flushPromises()
   return wrapper
@@ -145,8 +151,8 @@ describe('StaffDashboard — resolve modal bug condition exploration', () => {
       mockStage.request_id,
       mockStage.id,
       {
-        status: 'approved',  // On unfixed code: undefined — this assertion will FAIL
-        staff_note: '',
+        status: 'approved', // On unfixed code: undefined — this assertion will FAIL
+        staff_note: ''
       }
     )
   })
@@ -184,8 +190,8 @@ describe('StaffDashboard — resolve modal bug condition exploration', () => {
       mockStage.request_id,
       mockStage.id,
       {
-        status: 'rejected',  // On unfixed code: undefined — this assertion will FAIL
-        staff_note: 'Insufficient documents provided',
+        status: 'rejected', // On unfixed code: undefined — this assertion will FAIL
+        staff_note: 'Insufficient documents provided'
       }
     )
   })
@@ -207,7 +213,7 @@ describe('StaffDashboard — resolve modal bug condition exploration', () => {
     // First open → cancel cycle
     vm.openResolve(mockStage)
     await flushPromises()
-    vm.resolveModal.open = false  // simulate Cancel
+    vm.resolveModal.open = false // simulate Cancel
     await flushPromises()
 
     // Second open
@@ -223,8 +229,8 @@ describe('StaffDashboard — resolve modal bug condition exploration', () => {
       mockStage.request_id,
       mockStage.id,
       {
-        status: 'approved',  // On unfixed code: undefined — this assertion will FAIL
-        staff_note: '',
+        status: 'approved', // On unfixed code: undefined — this assertion will FAIL
+        staff_note: ''
       }
     )
   })

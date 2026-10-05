@@ -25,6 +25,7 @@ This is the complete knowledge base for the CampusDesk project — a university 
 - **[USER_FLOWS.md](./Docs/USER_FLOWS.md)** — Roles, permission matrix, sequence diagrams, state machine diagrams
 - **[API.md](./Docs/API.md)** — Every endpoint: method, auth requirements, request/response shapes, validation rules, side effects
 - **[UI_UX.md](./Docs/UI_UX.md)** — Design system, key screens, component inventory
+- **[FRONTEND_REDESIGN.md](./Docs/FRONTEND_REDESIGN.md)** — Issue #7 implementation, API compatibility, automated verification and outstanding browser acceptance checks
 
 ## 5. Understand Why Things Are the Way They Are
 

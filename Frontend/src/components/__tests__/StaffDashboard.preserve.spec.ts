@@ -41,37 +41,46 @@ import type { RequestStage } from '../../types'
 // ── Service mocks ──────────────────────────────────────────────────────────────
 // Hoisted before the component import so that StaffDashboard.vue resolves these.
 vi.mock('../../services/stages', () => ({
-  fetchStaffQueue:    vi.fn().mockResolvedValue([]),
-  fetchMyCases:       vi.fn().mockResolvedValue([]),
-  claimStage:         vi.fn().mockResolvedValue(undefined),
-  resolveStage:       vi.fn().mockResolvedValue(undefined),
-  fetchRequestStages: vi.fn().mockResolvedValue([]),
+  fetchStaffQueue: vi.fn().mockResolvedValue([]),
+  fetchMyCases: vi.fn().mockResolvedValue([]),
+  claimStage: vi.fn().mockResolvedValue(undefined),
+  resolveStage: vi.fn().mockResolvedValue(undefined),
+  fetchRequestStages: vi.fn().mockResolvedValue([])
 }))
 
 // ── Auth composable mock ───────────────────────────────────────────────────────
 vi.mock('../../composables/useAuth', () => ({
   useAuth: () => ({
-    user: { value: {
-      id: 1,
-      name: 'Test Staff',
-      email: 'staff@test.com',
-      role: 'staff',
-      created_at: '2024-01-01',
-      staff_profile: {
-        staff_id: 'S001',
-        admin_level: null,
-        departments: [{ id: 1, name: 'Computer Science', code: 'CS', is_primary: true }],
-      },
-    }},
+    user: {
+      value: {
+        id: 1,
+        name: 'Test Staff',
+        email: 'staff@test.com',
+        role: 'staff',
+        created_at: '2024-01-01',
+        staff_profile: {
+          staff_id: 'S001',
+          admin_level: null,
+          departments: [
+            { id: 1, name: 'Computer Science', code: 'CS', is_primary: true }
+          ]
+        }
+      }
+    },
     isAuthenticated: { value: true },
     setUser: vi.fn(),
-    clearAuth: vi.fn(),
-  }),
+    clearAuth: vi.fn()
+  })
 }))
 
 // Lazy import after mocks are registered
-import StaffDashboard from '../StaffDashboard.vue'
-import { resolveStage, claimStage, fetchStaffQueue, fetchMyCases } from '../../services/stages'
+import StaffDashboard from '../staff/StaffCaseWorkspace.vue'
+import {
+  resolveStage,
+  claimStage,
+  fetchStaffQueue,
+  fetchMyCases
+} from '../../services/stages'
 
 // ── Mock stage fixture ─────────────────────────────────────────────────────────
 const mockStage: RequestStage = {
@@ -90,8 +99,8 @@ const mockStage: RequestStage = {
     created_at: '2024-01-15T10:00:00Z',
     student_name: 'Alice Student',
     student_matricule: 'FE/2021/001',
-    student_level: '300',
-  },
+    student_level: '300'
+  }
 }
 
 // An unclaimed stage for the "Pick up" flow
@@ -111,21 +120,22 @@ const unclaimedStage: RequestStage = {
     created_at: '2024-02-01T08:00:00Z',
     student_name: 'Bob Student',
     student_matricule: 'FE/2020/002',
-    student_level: '400',
-  },
+    student_level: '400'
+  }
 }
 
 // ── Global stubs for child components ─────────────────────────────────────────
 const globalStubs = {
+  RouterLink: true,
   LevelBadge: true,
   RequestTimeline: true,
-  DocumentViewer: true,
+  DocumentViewer: true
 }
 
 // ── Helper: mount and wait for onMounted to settle ────────────────────────────
 async function mountDashboard() {
   const wrapper = mount(StaffDashboard, {
-    global: { stubs: globalStubs },
+    global: { stubs: globalStubs }
   })
   await flushPromises()
   return wrapper
@@ -217,7 +227,7 @@ describe('StaffDashboard — Preservation: rejection guard (Req 3.1)', () => {
       mockStage.id,
       expect.objectContaining({
         status: 'rejected',
-        staff_note: 'Missing documents',
+        staff_note: 'Missing documents'
       })
     )
   })
@@ -253,7 +263,7 @@ describe('StaffDashboard — Preservation: rejection guard (Req 3.1)', () => {
  * FOR ALL stages in the queue:
  *   pickUp(stage) MUST call claimStage(stage.request_id, stage.id)
  *   pickUp is completely independent of resolveModal state
- *   After pickUp, the queue reloads (fetchStaffQueue + fetchMyCases called again)
+ *   After pickUp, the queue reloads (fetchStaffQueue called again)
  *
  * Validates: Requirement 3.2 (bugfix.md)
  */
@@ -273,10 +283,13 @@ describe('StaffDashboard — Preservation: claim flow independence (Req 3.2)', (
     await flushPromises()
 
     expect(claimStage).toHaveBeenCalledTimes(1)
-    expect(claimStage).toHaveBeenCalledWith(unclaimedStage.request_id, unclaimedStage.id)
+    expect(claimStage).toHaveBeenCalledWith(
+      unclaimedStage.request_id,
+      unclaimedStage.id
+    )
   })
 
-  it('reloads the queue (fetchStaffQueue + fetchMyCases) after a successful pickUp', async () => {
+  it('reloads the queue (fetchStaffQueue) after a successful pickUp', async () => {
     const wrapper = await mountDashboard()
     const vm = wrapper.vm as any
 
@@ -288,7 +301,7 @@ describe('StaffDashboard — Preservation: claim flow independence (Req 3.2)', (
 
     // Queue must be reloaded after claim
     expect(fetchStaffQueue).toHaveBeenCalledTimes(1)
-    expect(fetchMyCases).toHaveBeenCalledTimes(1)
+    expect(fetchMyCases).not.toHaveBeenCalled()
   })
 
   it('pickUp is independent of resolveModal state — works regardless of what resolveModal contains', async () => {
@@ -309,7 +322,10 @@ describe('StaffDashboard — Preservation: claim flow independence (Req 3.2)', (
     await flushPromises()
 
     expect(claimStage).toHaveBeenCalledTimes(1)
-    expect(claimStage).toHaveBeenCalledWith(unclaimedStage.request_id, unclaimedStage.id)
+    expect(claimStage).toHaveBeenCalledWith(
+      unclaimedStage.request_id,
+      unclaimedStage.id
+    )
 
     // resolveStage must NOT have been called during pickUp
     expect(resolveStage).not.toHaveBeenCalled()
