@@ -1,8 +1,8 @@
 # CampusDesk handoff
 
-## Frontend redesign branch (3 October 2026)
+## Frontend redesign branch (updated 5 October 2026)
 
-Issue #7 is implemented on `development-7` with a shared slate/sky UI, redesigned Student/Staff/Department Admin/Super Admin views, and 95 passing frontend tests. Lint, typecheck, formatter check and production build pass; the backend regression suite passes 58 tests/373 assertions. No backend or CI/CD behavior was changed. Browser access was unavailable during implementation, so the issue remains open pending real-browser visual checks at 375/768/1024/1440px and manual role journeys. See [FRONTEND_REDESIGN.md](FRONTEND_REDESIGN.md) for the crosswalk, commands, commits and exact remaining acceptance work.
+Issue #7 is implemented on `development-7` with a shared slate/sky UI and redesigned Student/Staff/Department Admin/Super Admin views. The user confirmed that the original redesigned views render properly; functional acceptance remains pending. A follow-up separates every dashboard into overview and task pages with nested routes and real sidebar links. Student request details are directly addressable; staff queue/cases and every Super Admin management collection have separate URLs. The follow-up passes 132 frontend tests, lint, typecheck and production build; all 17 dashboard URLs pass an HTTP preview smoke check. See [FRONTEND_REDESIGN.md](FRONTEND_REDESIGN.md) for the remaining manual acceptance work, and [UI_UX.md](UI_UX.md) for the route map. No backend or CI/CD behavior was changed.
 
 ## Current state (2 October 2026)
 
@@ -39,7 +39,7 @@ Run the backend and frontend suites before extending the application. Attachment
 - Backend routes and authorization: `campusdesk/routes/api.php`, `campusdesk/app/Providers/AppServiceProvider.php`, `campusdesk/app/Http/Middleware/`.
 - Request lifecycle: `RequestController.php`, `RequestStageController.php`, `StageGenerationService.php`, and `RequestStageObserver.php` under `campusdesk/app/`.
 - Admin API: `campusdesk/app/Http/Controllers/AdminReferenceController.php`, `AdminUserController.php`, and `AdminOverviewController.php`.
-- Frontend: `Frontend/src/components/StudentDashboard.vue`, `StaffDashboard.vue`, `DeptAdminDashboard.vue`, `AdminDashboard.vue`, and `DocumentViewer.vue`; API calls live in `Frontend/src/services/`.
+- Frontend: `Frontend/src/router/index.ts`, `App.vue`, role page directories under `src/views/`, page-scoped composables under `src/composables/`, and shared workflow components under `src/components/`; API calls live in `Frontend/src/services/`.
 - Test fixtures: `campusdesk/database/seeders/` and `campusdesk/tests/Feature/`.
 - CI: `.github/workflows/ci.yml`.
 - Staging deployment: `.github/workflows/deploy-staging.yml`; the restricted SSM document calls `/usr/local/sbin/campusdesk-deploy` on EC2.

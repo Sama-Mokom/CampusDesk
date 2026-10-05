@@ -1,6 +1,6 @@
 # CampusDesk UI and component system
 
-Last updated: 3 October 2026. Implemented for [Issue #7](https://github.com/Sama-Mokom/CampusDesk/issues/7) on `development-7`.
+Last updated: 5 October 2026. Implemented for [Issue #7](https://github.com/Sama-Mokom/CampusDesk/issues/7) on `development-7`.
 
 ## Design authority and functional scope
 
@@ -25,7 +25,7 @@ Native form controls retain labels, autocomplete, validation semantics and keybo
 
 ## Application shell and authentication
 
-`App.vue` provides a persistent slate desktop sidebar, role-specific navigation to real routes and section anchors, a sticky header, notifications and logout. Below 1024px the sidebar becomes a keyboard-operable navigation disclosure. A skip link leads to the main content. Decorative links and the former hardcoded operational-status claim were removed.
+`App.vue` provides a persistent slate desktop sidebar, role-specific navigation to distinct pages, a sticky header, notifications and logout. Below 1024px the sidebar becomes a keyboard-operable navigation disclosure. Both menus mark the current destination, including student request details, and scroll within the viewport when needed. Navigation moves keyboard focus to the main content. The accessibility skip link remains the only shell hash link.
 
 `components/layout/AuthLayout.vue` supplies the shared split authentication layout. Login has pending/error states and an accessible password-visibility control. Registration loads reference data with retry and cascades faculty to department to programme; the Programme type now reflects the API's existing `department_id` field.
 
@@ -34,11 +34,17 @@ Sanctum Bearer authentication, localStorage persistence and role guards are reta
 ## Routes and workflow crosswalk
 
 - **Login/registration references -> `/login`, `/register` -> `AuthLayout` and the existing auth/reference services.** Adapted to email/password login and student registration supported by the API.
-- **Student overview/request references -> `/student` -> `StudentDashboard`, `StudentRequestCard`, `StudentRequestForm`.** Real counts, academic context, local search/status filters and six-card pagination. Submission retains the existing form-to-confirmation flow, then shows returned department routing. Type IDs are selected from the API; uploads retain multipart handling and PDF/DOCX/JPG/PNG, 5 MB validation. Failed submission retains input; pending actions prevent duplicates.
-- **Student detail/document references -> shared detail dialog, `RequestTimeline`, `DocumentViewer`.** Actual stage order, active step, notes, dates, history, attachments, reopen and collection are preserved. Request details are fetched through the existing service.
-- **Staff design direction -> `/staff` -> `StaffDashboard`, `StaffCaseCard`.** Primary-department queue selection and all-department active cases remain distinct. Search/type filters, claim confirmation, real detail loading and resolution use the original request/stage identifiers. Approval notes remain optional, rejection notes required. Approval forwarding is backend-controlled; no new actions were fabricated. Assigned department count replaces the unsupported resolved-today metric.
-- **Department administration -> `/dept-admin` -> `DeptAdminDashboard`.** Primary-department metrics, claimability, blocked stages, staff assignments and reassignment history remain API-backed. Search/filter/pagination and assignment dialogs preserve claim and reassignment contracts.
-- **Super administration -> `/admin` -> `AdminDashboard`, `admin/*`.** Preserves system statistics, server-paginated request/user/reference/history collections, rejected-request reopen, CRUD, symbolic routing sequences, staff memberships and admin levels. Forms and destructive confirmation use the shared dialog. Stale collection responses are ignored. Status history is explicitly distinguished from an administrative edit audit, which the backend does not provide.
+- **Student overview -> `/student`.** Academic context, genuine metrics and recent request links in `views/student/StudentOverviewPage.vue`.
+- **Student request list -> `/student/requests`.** `StudentRequestsPage` owns search, status filters and six-card pagination. `StudentRequestCard` remains reusable.
+- **Student submission -> `/student/requests/new`.** `StudentNewRequestPage` loads request types and embeds `StudentRequestForm`. Submission retains the form-to-confirmation flow and returned department routing. Uploads keep multipart handling and PDF/DOCX/JPG/PNG, 5 MB validation; failed submissions retain input and pending actions prevent duplicates.
+- **Student request details -> `/student/requests/:id`.** `StudentRequestDetailPage` directly fetches the requested ID, including on refresh. It presents actual stages, notes, dates, history, protected attachments, reopening and collection through `RequestTimeline` and `DocumentViewer`, with unavailable/retry states and a return link.
+- **Staff overview -> `/staff`.** `StaffOverviewPage` shows primary-department and assigned-case metrics, profile context and links to the two work pages.
+- **Staff work -> `/staff/queue` and `/staff/cases`.** `StaffQueuePage` and `StaffCasesPage` share `StaffCaseWorkspace` and `StaffCaseCard`. The queue loads eligible stages and supports department selection; active cases load their own endpoint across all assigned departments. Claiming navigates to active cases. Search/type filters and contextual claim/detail/resolution dialogs preserve the original IDs and workflow. Approval notes remain optional, rejection notes required, and forwarding remains backend-controlled.
+- **Department administration -> `/dept-admin` and `/dept-admin/requests`.** Separate `DeptAdminOverviewPage` and `DeptAdminRequestsPage` isolate summary metrics from search/filter/pagination, stage inspection, claims and reassignment. Both use the existing primary-department API.
+- **Super Admin overview -> `/admin`.** `AdminOverviewPage` loads statistics and recent activity only.
+- **Super Admin management -> `/admin/requests`, `/admin/users`, `/admin/faculties`, `/admin/departments`, `/admin/programmes`, `/admin/request-types`, `/admin/history`.** Dedicated requests, users, references and history pages use page-scoped composables under `composables/admin`. Reference pages share one component configured by the route. Server pagination, filters, request reopening, CRUD, symbolic routing, memberships and admin levels are preserved. Contextual forms and destructive confirmations remain dialogs on the owning page. Status history remains distinct from an administrative edit audit, which the backend does not provide.
+
+The four role views are nested `RouterView` hosts rather than dashboard monoliths. Existing role guards live on the parent routes and apply to every child, including direct URLs. Child components and their data load on demand; overview pages do not render management forms or full work lists. Component-scoped state resets when leaving a page, and role hosts are keyed by the signed-in user. Browser Back/Forward works through Vue Router; history navigation restores the saved scroll position. Forms and filters reset when their page is remounted. The former `*Dashboard.vue` components have been removed.
 
 ## Documents, timeline and notifications
 
@@ -52,7 +58,7 @@ Notifications retain authenticated loading and mark-read APIs, with loading/erro
 
 Target widths are 375, 768, 1024 and 1440 pixels. Components implement these through responsive CSS, but runtime visual verification is still required (see the verification record).
 
-- Student request/form columns use approximately 65/35 above 1280px and stack below, leaving room for the desktop sidebar at 1024px.
+- Student submission has a dedicated form/help layout that stacks on smaller screens; the request list and detail pages use the available content width independently.
 - Request and admin collections use cards or stacked rows on narrow screens; filters and actions wrap. Filenames and descriptions wrap within shrinkable containers.
 - Dialogs are centered and width-constrained on larger screens, becoming bottom sheets with bounded vertical scrolling below 640px.
 - Buttons and form fields generally have a 44px minimum target. All icon controls have accessible names, focus-visible rings remain, and errors/successes use alert/status semantics.
