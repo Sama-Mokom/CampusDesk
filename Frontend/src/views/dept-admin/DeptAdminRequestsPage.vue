@@ -1,11 +1,8 @@
-﻿<template>
-  <div
-    id="admin-workspace"
-    class="space-y-6 scroll-mt-24"
-  >
+<template>
+  <div class="space-y-6">
     <PageHeader
       eyebrow="Department administration"
-      title="Department oversight"
+      title="Department requests"
       :description="
         overview.department.name ||
         'Your primary department’s requests, people and progress.'
@@ -17,7 +14,7 @@
           :disabled="loading"
           @click="load"
         >
-          {{ loading ? 'Refreshing…' : 'Refresh overview' }}
+          {{ loading ? 'Refreshing…' : 'Refresh requests' }}
         </button></template
       >
     </PageHeader>
@@ -47,25 +44,6 @@
       :count="3"
     />
     <template v-else-if="loaded">
-      <section
-        class="grid grid-cols-2 gap-3 xl:grid-cols-5"
-        aria-label="Department stage statistics"
-      >
-        <div
-          v-for="metric in metrics"
-          :key="metric.label"
-          class="card min-w-0"
-        >
-          <p class="text-xs font-medium text-slate-500">{{ metric.label }}</p>
-          <p
-            class="mt-3 text-3xl font-bold tracking-tight"
-            :class="metric.color"
-          >
-            {{ metric.value }}
-          </p>
-          <p class="mt-1 text-xs text-slate-500">{{ metric.hint }}</p>
-        </div>
-      </section>
       <section
         class="card space-y-5"
         aria-labelledby="department-stages-title"
@@ -173,7 +151,7 @@
               </div>
               <p class="text-sm text-slate-600">
                 <span class="mr-1 text-slate-500 lg:hidden">Assigned to:</span>
-                >{{ stage.handler?.name ?? 'Unclaimed' }}
+                {{ stage.handler?.name ?? 'Unclaimed' }}
               </p>
               <div class="flex flex-wrap gap-2 lg:justify-end">
                 <button
@@ -379,14 +357,14 @@ import {
   reassignStage,
   type DepartmentAdminOverview,
   type DepartmentAdminStage
-} from '../services/deptAdmin'
-import { claimStage } from '../services/stages'
-import StatusBadge from './StatusBadge.vue'
-import BaseModal from './ui/BaseModal.vue'
-import EmptyState from './ui/EmptyState.vue'
-import SkeletonLoader from './ui/SkeletonLoader.vue'
-import PageHeader from './ui/PageHeader.vue'
-import AdminPagination from './admin/AdminPagination.vue'
+} from '@/services/deptAdmin'
+import { claimStage } from '@/services/stages'
+import StatusBadge from '@/components/StatusBadge.vue'
+import BaseModal from '@/components/ui/BaseModal.vue'
+import EmptyState from '@/components/ui/EmptyState.vue'
+import SkeletonLoader from '@/components/ui/SkeletonLoader.vue'
+import PageHeader from '@/components/ui/PageHeader.vue'
+import AdminPagination from '@/components/admin/AdminPagination.vue'
 const loading = ref(true),
   loaded = ref(false),
   error = ref(''),
@@ -415,38 +393,6 @@ const modal = reactive({
   submitting: false,
   error: ''
 })
-const metrics = computed(() => [
-  {
-    label: 'All stages',
-    value: overview.stats.total,
-    hint: 'Through this department',
-    color: 'text-slate-900'
-  },
-  {
-    label: 'Claimable now',
-    value: overview.stats.claimable,
-    hint: 'Ready for your team',
-    color: 'text-sky-700'
-  },
-  {
-    label: 'Blocked',
-    value: overview.stats.blocked,
-    hint: 'Awaiting earlier stages',
-    color: 'text-amber-700'
-  },
-  {
-    label: 'In review',
-    value: overview.stats.in_review,
-    hint: 'Currently being handled',
-    color: 'text-sky-700'
-  },
-  {
-    label: 'Completed',
-    value: overview.stats.completed,
-    hint: 'Approved or rejected',
-    color: 'text-emerald-700'
-  }
-])
 const eligibleStaff = computed(() =>
   overview.staff.filter((staff) => staff.id !== modal.stage?.handled_by)
 )
@@ -489,19 +435,24 @@ function message(err: unknown, fallback: string) {
     ? (err.response?.data?.message ?? fallback)
     : fallback
 }
+let loadVersion = 0
 async function load() {
+  const version = ++loadVersion
   loading.value = true
   error.value = ''
   try {
-    Object.assign(overview, await fetchDepartmentAdminRequests())
+    const result = await fetchDepartmentAdminRequests()
+    if (version !== loadVersion) return
+    Object.assign(overview, result)
     loaded.value = true
   } catch (err) {
+    if (version !== loadVersion) return
     error.value = message(
       err,
       'Unable to load department work. Please try again.'
     )
   } finally {
-    loading.value = false
+    if (version === loadVersion) loading.value = false
   }
 }
 function openReassign(stage: DepartmentAdminStage) {

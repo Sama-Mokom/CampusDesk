@@ -1,5 +1,5 @@
 ﻿<script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import NotificationBell from './components/NotificationBell.vue'
 import AppIcon from './components/ui/AppIcon.vue'
@@ -45,29 +45,60 @@ const navigation = computed(() => {
   const items: {
     label: string
     href: string
-    icon: 'home' | 'requests' | 'plus' | 'users'
+    icon: 'home' | 'requests' | 'plus' | 'users' | 'building'
   }[] = [{ label: 'Overview', href: home.value, icon: 'home' }]
   if (user.value?.role === 'student')
     items.push(
       {
         label: 'My requests',
-        href: `${home.value}#requests`,
+        href: '/student/requests',
         icon: 'requests'
       },
-      { label: 'New request', href: `${home.value}#new-request`, icon: 'plus' }
+      { label: 'New request', href: '/student/requests/new', icon: 'plus' }
     )
-  else
+  else if (home.value === '/staff')
+    items.push(
+      { label: 'Unclaimed queue', href: '/staff/queue', icon: 'requests' },
+      { label: 'My active cases', href: '/staff/cases', icon: 'users' }
+    )
+  else if (home.value === '/dept-admin')
     items.push({
-      label: home.value === '/staff' ? 'Requests & cases' : 'Management',
-      href: `${home.value}#${home.value === '/staff' ? 'staff-workspace' : 'admin-workspace'}`,
-      icon: home.value === '/staff' ? 'requests' : 'users'
+      label: 'Department requests',
+      href: '/dept-admin/requests',
+      icon: 'requests'
     })
+  else if (home.value === '/admin')
+    items.push(
+      { label: 'Requests', href: '/admin/requests', icon: 'requests' },
+      { label: 'Users', href: '/admin/users', icon: 'users' },
+      { label: 'Faculties', href: '/admin/faculties', icon: 'building' },
+      { label: 'Departments', href: '/admin/departments', icon: 'building' },
+      { label: 'Programmes', href: '/admin/programmes', icon: 'building' },
+      {
+        label: 'Request types',
+        href: '/admin/request-types',
+        icon: 'requests'
+      },
+      { label: 'Status history', href: '/admin/history', icon: 'requests' }
+    )
   return items
 })
+const activeHref = computed(
+  () =>
+    navigation.value
+      .filter(
+        (item) =>
+          route.path === item.href ||
+          (item.href !== home.value && route.path.startsWith(`${item.href}/`))
+      )
+      .sort((a, b) => b.href.length - a.href.length)[0]?.href
+)
 watch(
-  () => route.fullPath,
-  () => {
+  () => route.path,
+  async () => {
     mobileOpen.value = false
+    await nextTick()
+    document.getElementById('main-content')?.focus({ preventScroll: true })
   }
 )
 async function onLogout() {
@@ -117,16 +148,16 @@ async function onLogout() {
       </div>
       <nav
         aria-label="Main navigation"
-        class="space-y-2 px-3"
+        class="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 pb-4"
       >
         <router-link
           v-for="item in navigation"
           :key="item.href"
           :to="item.href"
-          :aria-current="route.fullPath === item.href ? 'page' : undefined"
+          :aria-current="activeHref === item.href ? 'page' : undefined"
           class="flex min-h-12 items-center gap-3 rounded-lg px-4 py-3 text-sm transition-colors"
           :class="
-            route.fullPath === item.href
+            activeHref === item.href
               ? 'bg-sky-800 font-semibold text-white'
               : 'text-slate-300 hover:bg-slate-800 hover:text-white'
           "
@@ -134,7 +165,7 @@ async function onLogout() {
           <AppIcon :name="item.icon" />{{ item.label }}
         </router-link>
       </nav>
-      <div class="mx-5 mt-auto mb-6 border-t border-slate-700 pt-5">
+      <div class="mx-5 mb-6 shrink-0 border-t border-slate-700 pt-5">
         <div class="flex items-start gap-3 text-slate-400">
           <AppIcon name="shield" />
           <p class="text-xs leading-relaxed">
@@ -221,7 +252,7 @@ async function onLogout() {
           v-if="mobileOpen && !isAuthPage"
           id="mobile-navigation"
           aria-label="Mobile navigation"
-          class="space-y-1 border-t border-slate-100 bg-white p-4 lg:hidden"
+          class="max-h-[calc(100dvh-5rem)] space-y-1 overflow-y-auto border-t border-slate-100 bg-white p-4 lg:hidden"
           @keydown.esc="mobileOpen = false"
         >
           <p class="mb-3 px-3 text-xs text-slate-500">
@@ -232,7 +263,8 @@ async function onLogout() {
             :key="item.href"
             :to="item.href"
             class="flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-700 hover:bg-slate-50"
-            :class="{ 'bg-sky-50 text-sky-800': route.fullPath === item.href }"
+            :aria-current="activeHref === item.href ? 'page' : undefined"
+            :class="{ 'bg-sky-50 text-sky-800': activeHref === item.href }"
             @click="mobileOpen = false"
             ><AppIcon :name="item.icon" />{{ item.label }}</router-link
           >

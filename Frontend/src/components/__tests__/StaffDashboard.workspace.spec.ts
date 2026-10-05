@@ -27,7 +27,12 @@ vi.mock('../../composables/useAuth', () => ({
   })
 }))
 
-import StaffDashboard from '../StaffDashboard.vue'
+import StaffView from '@/views/StaffView.vue'
+import StaffQueuePage from '@/views/staff/StaffQueuePage.vue'
+import StaffCasesPage from '@/views/staff/StaffCasesPage.vue'
+import StaffOverviewPage from '@/views/staff/StaffOverviewPage.vue'
+import StaffCaseWorkspace from '@/components/staff/StaffCaseWorkspace.vue'
+import { createRouter, createMemoryHistory, type Router } from 'vue-router'
 import {
   claimStage,
   fetchMyCases,
@@ -105,10 +110,28 @@ const findButton = (text: string) => {
   if (!button) throw new Error(`Missing button: ${text}`)
   return button
 }
-async function render() {
-  wrapper = mount(StaffDashboard, {
+let router: Router
+async function render(path = '/staff/queue') {
+  router = createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      {
+        path: '/staff',
+        component: StaffView,
+        children: [
+          { path: '', component: StaffOverviewPage },
+          { path: 'queue', component: StaffQueuePage },
+          { path: 'cases', component: StaffCasesPage }
+        ]
+      }
+    ]
+  })
+  await router.push(path)
+  await router.isReady()
+  wrapper = mount(StaffView, {
     attachTo: document.body,
     global: {
+      plugins: [router],
       stubs: {
         teleport: true,
         RequestTimeline: {
@@ -141,6 +164,30 @@ afterEach(() => {
 })
 
 describe('Staff workspace', () => {
+  it('does not restore a resolved case when an older refresh finishes late', async () => {
+    await render('/staff/cases')
+    let finishRefresh!: (stages: RequestStage[]) => void
+    vi.mocked(fetchMyCases)
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          finishRefresh = resolve
+        })
+      )
+      .mockResolvedValueOnce([])
+    const workspace = wrapper.findComponent(StaffCaseWorkspace).vm as any
+    const refresh = workspace.loadQueue()
+    workspace.openResolve(activeStage)
+    await workspace.submitResolve()
+    finishRefresh([activeStage])
+    await refresh
+    await flushPromises()
+    expect(resolveStage).toHaveBeenCalledWith(103, 13, {
+      status: 'approved',
+      staff_note: ''
+    })
+    expect(wrapper.text()).toContain('No active cases yet')
+    expect(wrapper.find('article').exists()).toBe(false)
+  })
   it('defaults queue to the primary department and keeps active cases across departments', async () => {
     await render()
     expect(wrapper.findAll('article')).toHaveLength(1)
@@ -148,7 +195,8 @@ describe('Staff workspace', () => {
     await wrapper.get('#staff-department').setValue('2')
     expect(wrapper.find('article').text()).toContain('Bob Student')
     await wrapper.get('#staff-department').setValue('1')
-    await wrapper.get('#staff-tab-active').trigger('click')
+    await router.push('/staff/cases')
+    await flushPromises()
     expect(wrapper.find('article').text()).toContain('Charlie Student')
     expect(wrapper.text()).toContain('Assigned to you · All your departments')
   })
@@ -164,22 +212,34 @@ describe('Staff workspace', () => {
     expect(wrapper.findAll('article')).toHaveLength(1)
   })
 
-  it('supports keyboard navigation between queue and active case tabs', async () => {
-    await render()
-    await wrapper
-      .get('#staff-tab-queue')
-      .trigger('keydown', { key: 'ArrowRight' })
-    expect(wrapper.get('#staff-tab-active').attributes('aria-selected')).toBe(
-      'true'
+  it('keeps overview, queue, and active cases on distinct pages', async () => {
+    await render('/staff')
+    expect(wrapper.find('[aria-label="Workspace overview"]').exists()).toBe(
+      true
     )
-    expect(document.activeElement?.id).toBe('staff-tab-active')
-    await wrapper.get('#staff-tab-active').trigger('keydown', { key: 'Home' })
-    expect(wrapper.get('#staff-tab-queue').attributes('aria-selected')).toBe(
-      'true'
+    expect(wrapper.find('#staff-search').exists()).toBe(false)
+    await wrapper.get('a[href="/staff/queue"]').trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.path).toBe('/staff/queue')
+    expect(wrapper.find('[aria-label="Workspace overview"]').exists()).toBe(
+      false
     )
+    expect(wrapper.find('[role="tablist"]').exists()).toBe(false)
+    expect(wrapper.findAll('article')).toHaveLength(1)
+    await router.push('/staff/cases')
+    await flushPromises()
+    expect(wrapper.get('h1').text()).toBe('My active cases')
+    expect(wrapper.find('#staff-department').exists()).toBe(false)
   })
 
-  it('confirms a claim, prevents duplicate submission, and refreshes into active cases', async () => {
+  it('loads only active cases on a direct cases URL', async () => {
+    await render('/staff/cases')
+    expect(fetchStaffQueue).not.toHaveBeenCalled()
+    expect(fetchMyCases).toHaveBeenCalledTimes(1)
+    expect(wrapper.find('article').text()).toContain('Charlie Student')
+  })
+
+  it('confirms a claim, prevents duplicate submission, and navigates to active cases', async () => {
     let finishClaim!: () => void
     vi.mocked(claimStage).mockReturnValue(
       new Promise((resolve) => {
@@ -202,12 +262,10 @@ describe('Staff workspace', () => {
     finishClaim()
     await flushPromises()
     expect(fetchStaffQueue).toHaveBeenCalledTimes(2)
-    expect(fetchMyCases).toHaveBeenCalledTimes(2)
+    expect(fetchMyCases).toHaveBeenCalledTimes(1)
     expect(wrapper.find('dialog').exists()).toBe(false)
-    expect(wrapper.get('#staff-tab-active').attributes('aria-selected')).toBe(
-      'true'
-    )
-    expect(wrapper.text()).toContain('Request #101 is now assigned to you.')
+    expect(router.currentRoute.value.path).toBe('/staff/cases')
+    expect(wrapper.get('h1').text()).toBe('My active cases')
   })
 
   it('keeps a failed claim open and displays the server conflict', async () => {
@@ -231,7 +289,8 @@ describe('Staff workspace', () => {
 
   it('requires a rejection note and submits the original stage identifiers with trimmed text', async () => {
     await render()
-    await wrapper.get('#staff-tab-active').trigger('click')
+    await router.push('/staff/cases')
+    await flushPromises()
     await wrapper
       .get('article [aria-label="Update status for request 103"]')
       .trigger('click')
@@ -261,7 +320,8 @@ describe('Staff workspace', () => {
       })
     )
     await render()
-    await wrapper.get('#staff-tab-active').trigger('click')
+    await router.push('/staff/cases')
+    await flushPromises()
     await wrapper
       .get('article [aria-label="Update status for request 103"]')
       .trigger('click')
@@ -281,7 +341,8 @@ describe('Staff workspace', () => {
   it('retains resolution notes after API failure', async () => {
     vi.mocked(resolveStage).mockRejectedValue(new Error('Network failed'))
     await render()
-    await wrapper.get('#staff-tab-active').trigger('click')
+    await router.push('/staff/cases')
+    await flushPromises()
     await wrapper
       .get('article [aria-label="Update status for request 103"]')
       .trigger('click')
@@ -346,11 +407,12 @@ describe('Staff workspace', () => {
     finishQueue([])
     await flushPromises()
     expect(wrapper.text()).toContain('Your queue is clear')
-    await wrapper.get('#staff-tab-active').trigger('click')
+    await router.push('/staff/cases')
+    await flushPromises()
     expect(wrapper.text()).toContain('No active cases yet')
   })
 
-  it('keeps active cases available if the queue fails, and clears the error after retry', async () => {
+  it('keeps active cases available if the queue fails, and reloads when returning', async () => {
     vi.mocked(fetchStaffQueue)
       .mockRejectedValueOnce(new Error('Network failed'))
       .mockResolvedValueOnce([queueStage])
@@ -358,10 +420,10 @@ describe('Staff workspace', () => {
     expect(wrapper.get('[role="alert"]').text()).toContain(
       'Unable to load the department queue'
     )
-    await wrapper.get('#staff-tab-active').trigger('click')
+    await router.push('/staff/cases')
+    await flushPromises()
     expect(wrapper.find('article').text()).toContain('Charlie Student')
-    await wrapper.get('#staff-tab-queue').trigger('click')
-    await findButton('Try again').trigger('click')
+    await router.push('/staff/queue')
     await flushPromises()
     expect(wrapper.find('[role="alert"]').exists()).toBe(false)
     expect(wrapper.find('article').text()).toContain('Alice Student')

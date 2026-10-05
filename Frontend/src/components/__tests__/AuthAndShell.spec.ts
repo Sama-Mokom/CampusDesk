@@ -52,6 +52,119 @@ afterEach(async () => {
   useAuth().clearAuth()
 })
 describe('Authentication and role-aware shell', () => {
+  const destinations = [
+    ['student', null, '/student', ['requests', 'requests/new', 'requests/42']],
+    ['staff', null, '/staff', ['queue', 'cases']],
+    ['staff', 'dept_admin', '/dept-admin', ['requests']],
+    [
+      'staff',
+      'super_admin',
+      '/admin',
+      [
+        'requests',
+        'users',
+        'faculties',
+        'departments',
+        'programmes',
+        'request-types',
+        'history'
+      ]
+    ]
+  ] as const
+
+  it.each(destinations)(
+    'protects and resolves every nested page for %s / %s',
+    async (role, level, home, pages) => {
+      for (const page of pages) {
+        const path = `${home}/${page}`
+        useAuth().clearAuth()
+        await router.push(path)
+        expect(router.currentRoute.value.path).toBe('/login')
+        expect(router.currentRoute.value.query.redirect).toBe(path)
+        authenticate(user(role, level))
+        await router.push(path)
+        expect(router.currentRoute.value.path).toBe(path)
+        expect(router.currentRoute.value.matched).toHaveLength(2)
+        expect(router.currentRoute.value.meta.requiresAuth).toBe(true)
+        authenticate(
+          role === 'student' ? user('staff', 'super_admin') : user('student')
+        )
+        await router.replace('/login')
+        await router.push(path)
+        expect(router.currentRoute.value.path).toBe(
+          role === 'student' ? '/admin' : '/student'
+        )
+      }
+    }
+  )
+
+  it.each(destinations)(
+    'renders real page links for %s / %s',
+    async (role, level, home) => {
+      authenticate(user(role, level))
+      await router.push(home)
+      const wrapper = mount(App, {
+        global: { plugins: [router], stubs: { NotificationBell: true } }
+      })
+      const nav = wrapper.get('[aria-label="Main navigation"]')
+      const links = nav.findAll('a')
+      expect(links.length).toBeGreaterThan(1)
+      for (const link of links) {
+        const href = link.attributes('href')!
+        expect(href).not.toContain('#')
+        expect(router.resolve(href).matched).toHaveLength(2)
+      }
+      const destination = links[1]!.attributes('href')!
+      await links[1]!.trigger('click')
+      await flushPromises()
+      expect(router.currentRoute.value.path).toBe(destination)
+      expect(nav.get('[aria-current="page"]').attributes('href')).toBe(
+        destination
+      )
+      await wrapper.get('[aria-label="Open navigation"]').trigger('click')
+      expect(
+        wrapper
+          .get('#mobile-navigation [aria-current="page"]')
+          .attributes('href')
+      ).toBe(destination)
+      await wrapper.get(`#mobile-navigation a[href="${home}"]`).trigger('click')
+      await flushPromises()
+      expect(router.currentRoute.value.path).toBe(home)
+      expect(wrapper.find('#mobile-navigation').exists()).toBe(false)
+    }
+  )
+
+  it('marks only the most specific student destination active, including query strings', async () => {
+    authenticate(user('student'))
+    await router.push('/student/requests/new')
+    const wrapper = mount(App, {
+      global: { plugins: [router], stubs: { NotificationBell: true } }
+    })
+    const nav = wrapper.get('[aria-label="Main navigation"]')
+    expect(nav.findAll('[aria-current="page"]')).toHaveLength(1)
+    expect(nav.get('[aria-current="page"]').text()).toBe('New request')
+    await router.push('/student/requests/42?from=recent')
+    expect(nav.findAll('[aria-current="page"]')).toHaveLength(1)
+    expect(nav.get('[aria-current="page"]').text()).toBe('My requests')
+    await router.push('/student/requests?status=pending')
+    expect(nav.get('[aria-current="page"]').text()).toBe('My requests')
+  })
+
+  it.each([
+    [null, '/dept-admin/requests', '/staff'],
+    [null, '/admin/users', '/staff'],
+    ['dept_admin', '/staff/cases', '/dept-admin'],
+    ['dept_admin', '/admin/history', '/dept-admin'],
+    ['super_admin', '/staff/queue', '/admin'],
+    ['super_admin', '/dept-admin/requests', '/admin']
+  ] as const)(
+    'retains staff-level restrictions for %s at %s',
+    async (level, path, home) => {
+      authenticate(user('staff', level))
+      await router.push(path)
+      expect(router.currentRoute.value.path).toBe(home)
+    }
+  )
   it.each([
     ['student', null, '/student'],
     ['staff', null, '/staff'],

@@ -4,7 +4,16 @@ import {
   mount as mountComponent
 } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import AdminDashboard from '../AdminDashboard.vue'
+import type { Component } from 'vue'
+import { createMemoryHistory, createRouter } from 'vue-router'
+import AdminOverviewPage from '@/views/admin/AdminOverviewPage.vue'
+import AdminRequestsPage from '@/views/admin/AdminRequestsPage.vue'
+import AdminUsersPage from '@/views/admin/AdminUsersPage.vue'
+import AdminReferencesPage from '@/views/admin/AdminReferencesPage.vue'
+import AdminHistoryPage from '@/views/admin/AdminHistoryPage.vue'
+import SuperAdminView from '@/views/SuperAdminView.vue'
+import { useAuth } from '@/composables/useAuth'
+import type { User } from '@/types'
 import * as admin from '@/services/admin'
 import * as requests from '@/services/requests'
 import api from '@/services/api'
@@ -25,13 +34,49 @@ const page = (data: unknown[] = []) => ({
   meta: { current_page: 1, last_page: 2, per_page: 20, total: data.length + 1 },
   links: { next: '/next', prev: null }
 })
-const mount = (component: typeof AdminDashboard) =>
+const mount = (component: Component) =>
   mountComponent(component, { global: { stubs: { teleport: true } } })
+
+async function mountRoute(path: string) {
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      {
+        path: '/admin',
+        component: SuperAdminView,
+        children: [
+          { path: '', component: AdminOverviewPage },
+          { path: 'requests', component: AdminRequestsPage },
+          { path: 'users', component: AdminUsersPage },
+          { path: 'history', component: AdminHistoryPage },
+          ...(
+            ['faculties', 'departments', 'programmes', 'request-types'] as const
+          ).map((kind) => ({
+            path: kind,
+            component: AdminReferencesPage,
+            props: { kind }
+          }))
+        ]
+      }
+    ]
+  })
+  await router.push(path)
+  await router.isReady()
+  const wrapper = mountComponent(
+    { template: '<RouterView />' },
+    {
+      global: { plugins: [router], stubs: { teleport: true } }
+    }
+  )
+  await flushPromises()
+  return { wrapper, router }
+}
 enableAutoUnmount(afterEach)
 
-describe('Super Admin dashboard', () => {
+describe('Super Admin pages', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    useAuth().clearAuth()
     vi.mocked(admin.listAdmin).mockResolvedValue(page() as never)
     vi.mocked(admin.adminStats).mockResolvedValue({
       total: 0,
@@ -53,6 +98,183 @@ describe('Super Admin dashboard', () => {
       status_history: []
     })
     vi.mocked(requests.reopenRequest).mockResolvedValue({} as never)
+  })
+
+  it('keeps overview and history on separate URLs and supports returning to overview', async () => {
+    const { wrapper, router } = await mountRoute('/admin')
+    expect(wrapper.get('h1').text()).toBe('Campus overview')
+    expect(admin.adminStats).toHaveBeenCalledTimes(1)
+    expect(admin.listAdmin).not.toHaveBeenCalled()
+    expect(wrapper.find('#admin-history').exists()).toBe(false)
+    expect(wrapper.find('#admin-requests').exists()).toBe(false)
+    expect(wrapper.get('a').attributes('href')).toBe('/admin/history')
+    await wrapper.get('a').trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.path).toBe('/admin/history')
+    expect(wrapper.get('h1').text()).toBe('Status history')
+    expect(wrapper.find('[aria-label="System overview"]').exists()).toBe(false)
+    expect(admin.listAdmin).toHaveBeenCalledWith(
+      'audit-log',
+      expect.objectContaining({ page: 1 })
+    )
+    router.back()
+    await flushPromises()
+    expect(router.currentRoute.value.path).toBe('/admin')
+    expect(wrapper.get('h1').text()).toBe('Campus overview')
+    expect(admin.adminStats).toHaveBeenCalledTimes(2)
+  })
+
+  it('discards the previous account page state and late response on an account switch', async () => {
+    const auth = useAuth()
+    const adminUser = (id: number): User => ({
+      id,
+      name: 'Administrator',
+      email: 'admin@example.edu',
+      password: '',
+      role: 'staff',
+      created_at: '',
+      staff_profile: {
+        staff_id: 'ADMIN-' + id,
+        admin_level: 'super_admin',
+        departments: []
+      }
+    })
+    auth.setUser(adminUser(1))
+    let resolvePrevious!: (
+      stats: Awaited<ReturnType<typeof admin.adminStats>>
+    ) => void
+    vi.mocked(admin.adminStats)
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolvePrevious = resolve
+          })
+      )
+      .mockResolvedValue({
+        total: 99,
+        requests_today: 0,
+        by_status: {},
+        avg_resolution_hours: null,
+        recent_activity: []
+      })
+    const { wrapper } = await mountRoute('/admin')
+    auth.setUser(adminUser(2))
+    await flushPromises()
+    expect(admin.adminStats).toHaveBeenCalledTimes(2)
+    resolvePrevious({
+      total: 1234,
+      requests_today: 0,
+      by_status: {},
+      avg_resolution_hours: null,
+      recent_activity: []
+    })
+    await flushPromises()
+    expect(wrapper.get('[aria-label="System overview"]').text()).toContain('99')
+    expect(wrapper.text()).not.toContain('1234')
+    wrapper.unmount()
+    auth.clearAuth()
+  })
+
+  it.each([
+    ['faculties', 'Faculties', []],
+    ['departments', 'Departments', ['faculties']],
+    ['programmes', 'Programmes', ['departments']],
+    ['request-types', 'Request types', ['departments']]
+  ] as const)(
+    'opens the %s page directly and loads only its records and choices',
+    async (kind, title, dependencies) => {
+      const { wrapper } = await mountRoute('/admin/' + kind)
+      expect(wrapper.get('h1').text()).toBe(title)
+      const loadedKinds = [
+        ...new Set(
+          vi
+            .mocked(admin.listAdmin)
+            .mock.calls.map(([collection]) => collection)
+        )
+      ]
+      expect(loadedKinds.sort()).toEqual([kind, ...dependencies].sort())
+      expect(admin.adminStats).not.toHaveBeenCalled()
+      expect(wrapper.find('[aria-label="Reference categories"]').exists()).toBe(
+        false
+      )
+      expect(wrapper.find('#admin-users').exists()).toBe(false)
+      expect(wrapper.find('#admin-requests').exists()).toBe(false)
+      expect(wrapper.find('#admin-history').exists()).toBe(false)
+    }
+  )
+
+  it('resets reference forms when moving to another reference page', async () => {
+    const { wrapper, router } = await mountRoute('/admin/faculties')
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'Create')!
+      .trigger('click')
+    await wrapper.get('dialog input').setValue('Unsaved faculty')
+    await router.push('/admin/departments')
+    await flushPromises()
+    expect(wrapper.find('dialog').exists()).toBe(false)
+    expect(wrapper.get('h1').text()).toBe('Departments')
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'Create')!
+      .trigger('click')
+    expect(wrapper.get<HTMLInputElement>('dialog input').element.value).toBe('')
+    expect(wrapper.get('dialog').text()).toContain('Create department')
+    expect(wrapper.get('dialog').text()).toContain('Choose a faculty')
+  })
+
+  it('preserves routing sequence order when creating a request type from its page', async () => {
+    const { wrapper } = await mountRoute('/admin/request-types')
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'Create')!
+      .trigger('click')
+    await wrapper.get('dialog input').setValue('Transcript')
+    await wrapper.get('dialog textarea').setValue('Official transcript')
+    await wrapper
+      .findAll('dialog button')
+      .find((button) => button.text() === 'Add step')!
+      .trigger('click')
+    await wrapper
+      .findAll('dialog button')
+      .find((button) => button.text() === 'Add step')!
+      .trigger('click')
+    await wrapper.findAll('dialog select')[1]!.setValue('FACULTY_RECORDS')
+    await wrapper.get('[aria-label="Move step 2 up"]').trigger('click')
+    await wrapper.get('dialog form').trigger('submit')
+    await flushPromises()
+    expect(admin.createAdmin).toHaveBeenCalledWith('request-types', {
+      name: 'Transcript',
+      description: 'Official transcript',
+      default_department_sequence: ['FACULTY_RECORDS', 'STUDENT_DEPARTMENT']
+    })
+    expect(wrapper.find('dialog').exists()).toBe(false)
+  })
+
+  it('loads only history and applies its filters and server pagination', async () => {
+    const wrapper = mount(AdminHistoryPage)
+    await flushPromises()
+    expect(
+      vi
+        .mocked(admin.listAdmin)
+        .mock.calls.every(([kind]) => kind === 'audit-log')
+    ).toBe(true)
+    await wrapper.get('input[placeholder="All requests"]').setValue('8')
+    await flushPromises()
+    expect(admin.listAdmin).toHaveBeenLastCalledWith(
+      'audit-log',
+      expect.objectContaining({ request_id: 8, page: 1 })
+    )
+    expect(wrapper.text()).toContain('Page 1 of 2')
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('Clear history filters'))!
+      .trigger('click')
+    await flushPromises()
+    expect(admin.listAdmin).toHaveBeenLastCalledWith(
+      'audit-log',
+      expect.objectContaining({ request_id: '', page: 1 })
+    )
   })
 
   it('edits the user identifier even when the returned student profile has a different id', async () => {
@@ -92,7 +314,7 @@ describe('Super Admin dashboard', () => {
         ]) as never
       return onePage([]) as never
     })
-    const wrapper = mount(AdminDashboard)
+    const wrapper = mount(AdminUsersPage)
     await flushPromises()
     await wrapper.get('[aria-label="Edit Student User"]').trigger('click')
     await wrapper
@@ -107,17 +329,22 @@ describe('Super Admin dashboard', () => {
     )
   })
 
-  it('loads server collections and uses returned pagination', async () => {
-    const wrapper = mount(AdminDashboard)
+  it('loads only the request page collections and uses returned pagination', async () => {
+    const wrapper = mount(AdminRequestsPage)
     await flushPromises()
     expect(admin.listAdmin).toHaveBeenCalledWith(
       'requests',
       expect.objectContaining({ page: 1 })
     )
-    expect(admin.listAdmin).toHaveBeenCalledWith(
+    expect(admin.listAdmin).not.toHaveBeenCalledWith(
       'audit-log',
-      expect.objectContaining({ page: 1 })
+      expect.anything()
     )
+    expect(admin.listAdmin).not.toHaveBeenCalledWith('users', expect.anything())
+    expect(admin.adminStats).not.toHaveBeenCalled()
+    expect(wrapper.find('#admin-users').exists()).toBe(false)
+    expect(wrapper.find('#admin-organisation').exists()).toBe(false)
+    expect(wrapper.find('#admin-history').exists()).toBe(false)
     expect(wrapper.text()).toContain('Page 1 of 2')
     expect(wrapper.text()).not.toContain('Admin override')
   })
@@ -136,7 +363,7 @@ describe('Super Admin dashboard', () => {
           ]) as never)
         : (page() as never)
     )
-    const wrapper = mount(AdminDashboard)
+    const wrapper = mount(AdminRequestsPage)
     await flushPromises()
     await wrapper
       .findAll('button')
@@ -182,7 +409,7 @@ describe('Super Admin dashboard', () => {
       ],
       status_history: []
     })
-    const wrapper = mount(AdminDashboard)
+    const wrapper = mount(AdminRequestsPage)
     await flushPromises()
     expect(wrapper.text()).toContain('Request #8')
     expect(wrapper.find('input[type="search"]').exists()).toBe(true)
@@ -218,7 +445,7 @@ describe('Super Admin dashboard', () => {
   })
 
   it('applies and clears request filters through the server list', async () => {
-    const wrapper = mount(AdminDashboard)
+    const wrapper = mount(AdminRequestsPage)
     await flushPromises()
     await wrapper
       .findAll('select')
@@ -263,7 +490,7 @@ describe('Super Admin dashboard', () => {
       return onePage([]) as never
     })
     vi.mocked(admin.createAdmin).mockResolvedValue({} as never)
-    const wrapper = mount(AdminDashboard)
+    const wrapper = mount(AdminUsersPage)
     await flushPromises()
     await wrapper
       .findAll('button')
@@ -316,7 +543,7 @@ describe('Super Admin dashboard', () => {
     vi.mocked(admin.deleteAdmin).mockRejectedValue({
       response: { data: { message: 'This record is referenced by requests.' } }
     })
-    const wrapper = mount(AdminDashboard)
+    const wrapper = mount(AdminUsersPage)
     await flushPromises()
     await wrapper.get('[aria-label="Delete Example User"]').trigger('click')
     expect(admin.deleteAdmin).not.toHaveBeenCalled()
@@ -337,7 +564,7 @@ describe('Super Admin dashboard', () => {
       if (kind === 'requests') throw new Error('Offline')
       return page() as never
     })
-    const wrapper = mount(AdminDashboard)
+    const wrapper = mount(AdminRequestsPage)
     await flushPromises()
     expect(wrapper.get('#admin-requests [role="alert"]').text()).toContain(
       'The action failed'

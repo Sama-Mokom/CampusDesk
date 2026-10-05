@@ -121,8 +121,7 @@ function reset() {
 
 <template>
   <section
-    id="new-request"
-    class="card scroll-mt-24"
+    class="card"
     aria-labelledby="new-request-heading"
   >
     <template v-if="confirmation">

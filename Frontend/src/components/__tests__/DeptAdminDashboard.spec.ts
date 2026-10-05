@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
-import DeptAdminDashboard from '../DeptAdminDashboard.vue'
+import DeptAdminDashboard from '@/views/dept-admin/DeptAdminRequestsPage.vue'
+import DeptAdminOverviewPage from '@/views/dept-admin/DeptAdminOverviewPage.vue'
 import {
   fetchDepartmentAdminRequests,
   reassignStage,
@@ -65,11 +66,31 @@ beforeEach(() => {
   vi.mocked(reassignStage).mockResolvedValue(overview.stages[0]!)
 })
 describe('Department oversight', () => {
+  it('keeps overview statistics separate from request management', async () => {
+    const wrapper = mount(DeptAdminOverviewPage, {
+      global: {
+        stubs: {
+          RouterLink: { props: ['to'], template: '<a :href="to"><slot /></a>' }
+        }
+      }
+    })
+    await flushPromises()
+    expect(
+      wrapper.find('[aria-label="Department stage statistics"]').exists()
+    ).toBe(true)
+    expect(wrapper.find('input[type="search"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('Student One')
+    expect(wrapper.get('a').attributes('href')).toBe('/dept-admin/requests')
+  })
+
   it('renders API-scoped work and distinguishes filtered empty from no work', async () => {
     const wrapper = render()
     await flushPromises()
     expect(wrapper.text()).toContain('Faculty records')
     expect(wrapper.text()).toContain('Student One')
+    expect(
+      wrapper.find('[aria-label="Department stage statistics"]').exists()
+    ).toBe(false)
     await wrapper.get('input[type="search"]').setValue('missing')
     expect(wrapper.text()).toContain('No matching stages')
     await wrapper

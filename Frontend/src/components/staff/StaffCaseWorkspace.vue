@@ -1,24 +1,28 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { isAxiosError } from 'axios'
-import { useAuth } from '../composables/useAuth'
+import { useAuth } from '@/composables/useAuth'
 import {
   fetchStaffQueue,
   resolveStage,
   claimStage,
   fetchMyCases
-} from '../services/stages'
-import { fetchRequestById } from '../services/requests'
-import type { RequestStage, Request as DocumentRequest } from '../types'
-import StatusBadge from './StatusBadge.vue'
-import RequestTimeline from './RequestTimeline.vue'
-import DocumentViewer from './DocumentViewer.vue'
-import StaffCaseCard from './staff/StaffCaseCard.vue'
-import BaseModal from './ui/BaseModal.vue'
-import EmptyState from './ui/EmptyState.vue'
-import SkeletonLoader from './ui/SkeletonLoader.vue'
-import PageHeader from './ui/PageHeader.vue'
+} from '@/services/stages'
+import { fetchRequestById } from '@/services/requests'
+import type { RequestStage, Request as DocumentRequest } from '@/types'
+import StatusBadge from '@/components/StatusBadge.vue'
+import RequestTimeline from '@/components/RequestTimeline.vue'
+import DocumentViewer from '@/components/DocumentViewer.vue'
+import StaffCaseCard from './StaffCaseCard.vue'
+import BaseModal from '@/components/ui/BaseModal.vue'
+import EmptyState from '@/components/ui/EmptyState.vue'
+import SkeletonLoader from '@/components/ui/SkeletonLoader.vue'
+import PageHeader from '@/components/ui/PageHeader.vue'
 
+const props = withDefaults(defineProps<{ mode?: 'queue' | 'active' }>(), {
+  mode: 'queue'
+})
+const emit = defineEmits<{ claimed: [requestId: number] }>()
 const auth = useAuth()
 const staffUser = computed(() => auth.user.value)
 const sp = computed(() => staffUser.value?.staff_profile)
@@ -39,7 +43,7 @@ const loading = ref(false)
 const queueError = ref('')
 const casesError = ref('')
 const successMessage = ref('')
-const workspaceTab = ref<'queue' | 'active'>('queue')
+const workspaceTab = computed(() => props.mode)
 const search = ref('')
 const typeFilter = ref('')
 const unclaimedStages = computed(() =>
@@ -100,47 +104,38 @@ function errorMessage(error: unknown, fallback: string) {
   }
   return fallback
 }
+let listLoadVersion = 0
 async function loadQueue() {
-  if (loading.value) return
+  const version = ++listLoadVersion
   loading.value = true
   queueError.value = ''
   casesError.value = ''
-  const [queue, cases] = await Promise.allSettled([
-    fetchStaffQueue(),
-    fetchMyCases()
-  ])
-  if (queue.status === 'fulfilled') allStages.value = queue.value
-  else
-    queueError.value = errorMessage(
-      queue.reason,
-      'Unable to load the department queue. Please try again.'
-    )
-  if (cases.status === 'fulfilled') activeCases.value = cases.value
-  else
-    casesError.value = errorMessage(
-      cases.reason,
-      'Unable to load your active cases. Please try again.'
-    )
-  loading.value = false
+  try {
+    const result =
+      props.mode === 'queue' ? await fetchStaffQueue() : await fetchMyCases()
+    if (version !== listLoadVersion) return
+    if (props.mode === 'queue') allStages.value = result
+    else activeCases.value = result
+  } catch (error) {
+    if (version !== listLoadVersion) return
+    if (props.mode === 'queue')
+      queueError.value = errorMessage(
+        error,
+        'Unable to load the department queue. Please try again.'
+      )
+    else
+      casesError.value = errorMessage(
+        error,
+        'Unable to load your active cases. Please try again.'
+      )
+  } finally {
+    if (version === listLoadVersion) loading.value = false
+  }
 }
 function clearFilters() {
   search.value = ''
   typeFilter.value = ''
 }
-function moveTab(event: KeyboardEvent) {
-  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
-  event.preventDefault()
-  workspaceTab.value =
-    event.key === 'Home'
-      ? 'queue'
-      : event.key === 'End'
-        ? 'active'
-        : workspaceTab.value === 'queue'
-          ? 'active'
-          : 'queue'
-  document.getElementById(`staff-tab-${workspaceTab.value}`)?.focus()
-}
-
 const claimModal = reactive({
   open: false,
   stage: null as RequestStage | null,
@@ -161,9 +156,9 @@ async function pickUp(stage: RequestStage) {
     await claimStage(stage.request_id, stage.id)
     claimModal.open = false
     successMessage.value = `Request #${stage.request_id} is now assigned to you.`
-    workspaceTab.value = 'active'
     clearFilters()
     await loadQueue()
+    emit('claimed', stage.request_id)
   } catch (error) {
     claimModal.error = errorMessage(
       error,
@@ -279,8 +274,12 @@ onMounted(() => {
   <div class="space-y-6">
     <PageHeader
       eyebrow="STAFF WORKSPACE"
-      title="Make every request count"
-      description="Review your department queue and keep student requests moving."
+      :title="mode === 'queue' ? 'Unclaimed queue' : 'My active cases'"
+      :description="
+        mode === 'queue'
+          ? 'Choose a request from your department to start reviewing.'
+          : 'Review and resolve requests assigned to you across your departments.'
+      "
     >
       <template #actions
         ><button
@@ -294,6 +293,7 @@ onMounted(() => {
       >
     </PageHeader>
     <section
+      v-if="mode === 'queue'"
       class="staff-identity"
       aria-label="Staff profile and department"
     >
@@ -350,78 +350,15 @@ onMounted(() => {
     >
       {{ successMessage }}
     </div>
-    <div
-      class="grid grid-cols-2 gap-3 lg:grid-cols-3"
-      aria-label="Workspace overview"
-    >
-      <div class="staff-stat">
-        <p>Unclaimed requests</p>
-        <strong>{{
-          loading ? '—' : queueError ? '—' : unclaimedStages.length
-        }}</strong
-        ><span>{{
-          queueError ? 'Unavailable' : 'In the selected department'
-        }}</span>
-      </div>
-      <div class="staff-stat">
-        <p>My active cases</p>
-        <strong class="!text-sky-700">{{
-          loading ? '—' : casesError ? '—' : myActiveStages.length
-        }}</strong
-        ><span>{{
-          casesError ? 'Unavailable' : 'Across your departments'
-        }}</span>
-      </div>
-      <div class="staff-stat col-span-2 lg:col-span-1">
-        <p>My departments</p>
-        <strong>{{ deptOptions.length }}</strong
-        ><span>{{
-          deptOptions.length === 1
-            ? 'Department assigned'
-            : 'Departments assigned'
-        }}</span>
-      </div>
-    </div>
     <section
       id="staff-workspace"
       class="overflow-hidden rounded-2xl border border-slate-200 bg-white"
       aria-label="Request workspace"
     >
       <div
-        class="staff-tabs"
-        role="tablist"
-        aria-label="Case lists"
-        @keydown="moveTab"
-      >
-        <button
-          id="staff-tab-queue"
-          type="button"
-          role="tab"
-          :aria-selected="workspaceTab === 'queue'"
-          :tabindex="workspaceTab === 'queue' ? 0 : -1"
-          aria-controls="staff-case-panel"
-          :class="{ selected: workspaceTab === 'queue' }"
-          @click="workspaceTab = 'queue'"
-        >
-          Unclaimed Queue <span>{{ unclaimedStages.length }}</span>
-        </button>
-        <button
-          id="staff-tab-active"
-          type="button"
-          role="tab"
-          :aria-selected="workspaceTab === 'active'"
-          :tabindex="workspaceTab === 'active' ? 0 : -1"
-          aria-controls="staff-case-panel"
-          :class="{ selected: workspaceTab === 'active' }"
-          @click="workspaceTab = 'active'"
-        >
-          My Active Cases <span>{{ myActiveStages.length }}</span>
-        </button>
-      </div>
-      <div
         id="staff-case-panel"
-        role="tabpanel"
-        :aria-labelledby="`staff-tab-${workspaceTab}`"
+        role="region"
+        :aria-label="mode === 'queue' ? 'Unclaimed queue' : 'My active cases'"
         :aria-busy="loading"
         class="p-4 sm:p-6"
       >
@@ -497,14 +434,13 @@ onMounted(() => {
               ? 'There are no unclaimed stages in this department. Refresh to check for new requests.'
               : 'Claim a request from the unclaimed queue to start reviewing it.'
           "
-          ><button
+          ><router-link
             v-if="workspaceTab === 'active'"
-            type="button"
             class="btn-primary mt-4"
-            @click="workspaceTab = 'queue'"
+            to="/staff/queue"
           >
             Browse queue
-          </button></EmptyState
+          </router-link></EmptyState
         >
         <EmptyState
           v-else-if="filteredStages.length === 0"
@@ -843,38 +779,11 @@ onMounted(() => {
 .staff-avatar {
   @apply flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-xl font-semibold text-sky-700;
 }
-.staff-stat {
-  @apply min-w-0 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5;
-}
-.staff-stat p {
-  @apply text-xs font-medium text-slate-600 sm:text-sm;
-}
-.staff-stat strong {
-  @apply my-2 block break-words text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl;
-}
-.staff-stat span {
-  @apply text-xs text-slate-500;
-}
 .staff-success {
   @apply rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800;
 }
 .staff-error {
   @apply rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800;
-}
-.staff-tabs {
-  @apply grid grid-cols-2 border-b border-slate-200 px-2 sm:flex sm:gap-6 sm:px-6;
-}
-.staff-tabs button {
-  @apply flex min-h-14 items-center justify-center gap-2 border-b-2 border-transparent px-1 py-3 text-xs font-semibold text-slate-500 transition-colors sm:text-sm;
-}
-.staff-tabs button.selected {
-  @apply border-sky-600 text-sky-700;
-}
-.staff-tabs button span {
-  @apply rounded-full bg-slate-100 px-2 py-0.5 text-xs;
-}
-.staff-tabs button.selected span {
-  @apply bg-sky-50 text-sky-700;
 }
 .staff-detail-tab {
   @apply min-h-11 rounded-lg px-3 py-2 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-50;
