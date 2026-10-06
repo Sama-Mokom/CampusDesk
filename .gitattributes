@@ -1,0 +1,5 @@
+/ops/staging/*.sh text eol=lf
+/ops/staging/systemd/*.service text eol=lf
+/ops/staging/systemd/*.timer text eol=lf
+/ops/staging/aws/*.yaml text eol=lf
+/ops/staging/*.env.example text eol=lf
