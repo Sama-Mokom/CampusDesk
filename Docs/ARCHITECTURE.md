@@ -55,7 +55,7 @@ flowchart LR
     Deploy --> OIDC[Environment-scoped GitHub OIDC role]
     OIDC -->|resolve exact digests| ECR
     OIDC -->|restricted command| SSM[CampusDesk-DeployStaging]
-    SSM --> Script[/usr/local/sbin/campusdesk-deploy]
+    SSM --> Script["/usr/local/sbin/campusdesk-deploy"]
     Script --> Stack[Single-host staging Compose stack]
     Stack --> Init[One-shot attachments-init]
     Init --> Volume[Private attachments_data volume]
