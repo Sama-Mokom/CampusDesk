@@ -1,0 +1,20 @@
+[Unit]
+Description=Check CampusDesk off-host backup freshness
+Documentation=file:/opt/campusdesk/Docs/STAGING_RECOVERY.md
+Wants=network-online.target
+After=network-online.target
+AssertFileNotEmpty=/etc/campusdesk/backup.env
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=/opt/campusdesk
+EnvironmentFile=/etc/campusdesk/backup.env
+ExecStart=/opt/campusdesk/ops/staging/backup-monitor.sh
+UMask=0077
+TimeoutStartSec=2min
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/backups/campusdesk

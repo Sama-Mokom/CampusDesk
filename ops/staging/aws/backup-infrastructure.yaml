@@ -1,0 +1,293 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  CampusDesk staging off-host recovery storage, encryption, notifications,
+  least-privilege instance permissions, and AWS-side backup heartbeat alarm.
+
+Parameters:
+  StagingInstanceRoleName:
+    Type: String
+    Description: Name of the existing IAM role attached to the staging EC2 instance.
+    AllowedPattern: "[A-Za-z0-9+=,.@_-]+"
+  AlertEmail:
+    Type: String
+    Default: ""
+    Description: Optional email address to subscribe to the backup alert topic.
+  HeartbeatAlarmPeriods:
+    Type: Number
+    Default: 2
+    MinValue: 2
+    MaxValue: 4
+    Description: Consecutive missing 15-minute heartbeat periods before alarm.
+
+Conditions:
+  HasAlertEmail:
+    Fn::Not:
+      - Fn::Equals:
+          - Ref: AlertEmail
+          - ""
+
+Resources:
+  BackupKey:
+    Type: AWS::KMS::Key
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Description: KMS key for CampusDesk staging recovery sets.
+      EnableKeyRotation: true
+      PendingWindowInDays: 30
+      KeyPolicy:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: EnableAccountAdministration
+            Effect: Allow
+            Principal:
+              AWS:
+                Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:root
+            Action: kms:*
+            Resource: "*"
+          - Sid: AllowCloudWatchEncryptedAlarmPublishing
+            Effect: Allow
+            Principal:
+              Service: cloudwatch.amazonaws.com
+            Action:
+              - kms:Decrypt
+              - kms:GenerateDataKey*
+            Resource: "*"
+            Condition:
+              StringEquals:
+                aws:SourceAccount:
+                  Ref: AWS::AccountId
+              ArnLike:
+                aws:SourceArn:
+                  Fn::Sub: >-
+                    arn:${AWS::Partition}:cloudwatch:${AWS::Region}:${AWS::AccountId}:alarm:campusdesk-staging-backup-heartbeat-missing
+      Tags:
+        - Key: Application
+          Value: CampusDesk
+        - Key: Environment
+          Value: staging
+        - Key: Purpose
+          Value: recovery
+
+  BackupKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: alias/campusdesk-staging-backups
+      TargetKeyId:
+        Ref: BackupKey
+
+  BackupBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - BucketKeyEnabled: true
+            ServerSideEncryptionByDefault:
+              KMSMasterKeyID:
+                Fn::GetAtt:
+                  - BackupKey
+                  - Arn
+              SSEAlgorithm: aws:kms
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      Tags:
+        - Key: Application
+          Value: CampusDesk
+        - Key: Environment
+          Value: staging
+        - Key: Purpose
+          Value: recovery
+
+  BackupBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket:
+        Ref: BackupBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: "*"
+            Action: s3:*
+            Resource:
+              - Fn::GetAtt:
+                  - BackupBucket
+                  - Arn
+              - Fn::Sub: ${BackupBucket.Arn}/*
+            Condition:
+              Bool:
+                aws:SecureTransport: "false"
+          - Sid: DenyMissingKmsKey
+            Effect: Deny
+            Principal: "*"
+            Action: s3:PutObject
+            Resource:
+              Fn::Sub: ${BackupBucket.Arn}/staging/backup-sets/*
+            Condition:
+              "Null":
+                s3:x-amz-server-side-encryption-aws-kms-key-id: "true"
+          - Sid: DenyWrongEncryptionAlgorithm
+            Effect: Deny
+            Principal: "*"
+            Action: s3:PutObject
+            Resource:
+              Fn::Sub: ${BackupBucket.Arn}/staging/backup-sets/*
+            Condition:
+              StringNotEquals:
+                s3:x-amz-server-side-encryption: aws:kms
+          - Sid: DenyWrongKmsKey
+            Effect: Deny
+            Principal: "*"
+            Action: s3:PutObject
+            Resource:
+              Fn::Sub: ${BackupBucket.Arn}/staging/backup-sets/*
+            Condition:
+              StringNotEquals:
+                s3:x-amz-server-side-encryption-aws-kms-key-id:
+                  Fn::GetAtt:
+                    - BackupKey
+                    - Arn
+
+  BackupAlertTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: CampusDesk staging backup alerts
+      KmsMasterKeyId:
+        Fn::GetAtt:
+          - BackupKey
+          - Arn
+      TopicName: campusdesk-staging-backup-alerts
+      Tags:
+        - Key: Application
+          Value: CampusDesk
+        - Key: Environment
+          Value: staging
+
+  BackupAlertEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: HasAlertEmail
+    Properties:
+      Endpoint:
+        Ref: AlertEmail
+      Protocol: email
+      TopicArn:
+        Ref: BackupAlertTopic
+
+  StagingBackupPolicy:
+    Type: AWS::IAM::RolePolicy
+    Properties:
+      PolicyName: CampusDeskStagingRecovery
+      RoleName:
+        Ref: StagingInstanceRoleName
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: ListRecoveryPrefix
+            Effect: Allow
+            Action: s3:ListBucket
+            Resource:
+              Fn::GetAtt:
+                - BackupBucket
+                - Arn
+            Condition:
+              StringLike:
+                s3:prefix:
+                  - staging/backup-sets
+                  - staging/backup-sets/*
+          - Sid: ReadBucketVersioning
+            Effect: Allow
+            Action: s3:GetBucketVersioning
+            Resource:
+              Fn::GetAtt:
+                - BackupBucket
+                - Arn
+          - Sid: ReadWriteRecoveryObjects
+            Effect: Allow
+            Action:
+              - s3:AbortMultipartUpload
+              - s3:GetObject
+              - s3:PutObject
+            Resource:
+              Fn::Sub: ${BackupBucket.Arn}/staging/backup-sets/*
+          - Sid: UseBackupKey
+            Effect: Allow
+            Action:
+              - kms:Decrypt
+              - kms:DescribeKey
+              - kms:Encrypt
+              - kms:GenerateDataKey
+              - kms:ReEncryptFrom
+              - kms:ReEncryptTo
+            Resource:
+              Fn::GetAtt:
+                - BackupKey
+                - Arn
+          - Sid: PublishBackupAlerts
+            Effect: Allow
+            Action: sns:Publish
+            Resource:
+              Ref: BackupAlertTopic
+          - Sid: PublishBackupHeartbeat
+            Effect: Allow
+            Action: cloudwatch:PutMetricData
+            Resource: "*"
+            Condition:
+              StringEquals:
+                cloudwatch:namespace: CampusDesk/Backup
+
+  BackupHeartbeatAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: campusdesk-staging-backup-heartbeat-missing
+      AlarmDescription: >-
+        The staging host stopped proving that its latest off-host backup is fresh.
+      Namespace: CampusDesk/Backup
+      MetricName: OffsiteBackupFresh
+      Dimensions:
+        - Name: Environment
+          Value: staging
+      Statistic: Minimum
+      Period: 900
+      EvaluationPeriods:
+        Ref: HeartbeatAlarmPeriods
+      DatapointsToAlarm:
+        Ref: HeartbeatAlarmPeriods
+      Threshold: 1
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: breaching
+      Unit: Count
+      AlarmActions:
+        - Ref: BackupAlertTopic
+      OKActions:
+        - Ref: BackupAlertTopic
+
+Outputs:
+  BackupS3Uri:
+    Description: Value for CAMPUSDESK_BACKUP_S3_URI.
+    Value:
+      Fn::Sub: s3://${BackupBucket}/staging/backup-sets
+  BackupKmsKeyArn:
+    Description: Value for CAMPUSDESK_BACKUP_KMS_KEY_ID.
+    Value:
+      Fn::GetAtt:
+        - BackupKey
+        - Arn
+  BackupAlertTopicArn:
+    Description: Value for CAMPUSDESK_BACKUP_ALERT_TOPIC_ARN.
+    Value:
+      Ref: BackupAlertTopic
+  BackupAwsRegion:
+    Description: Value for CAMPUSDESK_AWS_REGION.
+    Value:
+      Ref: AWS::Region

@@ -1,0 +1,12 @@
+[Unit]
+Description=Run the CampusDesk staging recovery capture every 12 hours
+
+[Timer]
+OnCalendar=*-*-* 00:00:00 UTC
+OnCalendar=*-*-* 12:00:00 UTC
+AccuracySec=1min
+Persistent=true
+Unit=campusdesk-backup.service
+
+[Install]
+WantedBy=timers.target

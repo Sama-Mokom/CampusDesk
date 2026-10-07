@@ -1,16 +1,16 @@
 # CampusDesk CI/CD Comprehensive Implementation and Operations Guide
 
-**Coverage:** Local Docker foundation completed 25 September 2026 through AWS staging verification completed 2 October 2026
+**Coverage:** Local Docker foundation completed 25 September 2026 through the first unattended staging recovery cycle verified 7 October 2026
 
-**Last reviewed and updated:** 2 October 2026
+**Last reviewed and updated:** 7 October 2026
 
-**Repository branch:** `development`
+**Repository branch:** `development`; recovery automation is staged in `ops/backup-recovery` through draft PR #20
 
-**Verified repository commit:** `7d9b45f Merge pull request #17 from Sama-Mokom/cd_automation`
+**Verified recovery implementation commit:** `e3c53363f85369c0a0f9f6823c3cef4d041b532a Add staging backup and recovery automation`
 
-**Current phase:** CI, immutable ECR publication, manually approved SSM deployment automation, attachment-volume hardening, and staging functional verification are complete
+**Current phase:** CI, immutable ECR publication, manually approved SSM deployment automation, attachment-volume hardening, staging functional verification, off-host backup automation, isolated restore testing, scheduled freshness monitoring, and the first unattended timer-triggered recovery cycle are complete
 
-**Runtime status:** the staging application is healthy and reachable through an SSH tunnel at `http://localhost:18080`; the request lifecycle, role transitions, notifications, collection, and private attachment upload/download have been functionally verified
+**Runtime status:** the staging application is healthy and reachable through an SSH tunnel at `http://localhost:18080`; the request lifecycle, role transitions, notifications, collection, private attachment upload/download, manual and scheduled off-host recovery capture, isolated restore, and backup-freshness heartbeat have been functionally verified
 
 ## Purpose
 
@@ -1061,6 +1061,31 @@ All four containers were running, the backend and database health checks were he
 
 The worker recorded three restart attempts immediately after boot because it reached MySQL before the database accepted connections. `depends_on: condition: service_healthy` controls a Compose-managed startup, but Docker restart policies restart existing containers independently after a daemon or host restart. The worker recovered automatically once MySQL became available and remained running. This is a transient boot-order limitation to address before treating restart logs as alert-worthy or introducing stricter availability requirements.
 
+## Staging recovery checkpoint
+
+The recovery implementation at commit `e3c53363f85369c0a0f9f6823c3cef4d041b532a` was installed from a detached, clean release worktree on 6 October 2026. Draft PR #20 contains the reviewed scripts, systemd units, CloudFormation template, example environment file, and detailed runbook in [`STAGING_RECOVERY.md`](STAGING_RECOVERY.md). All applicable pull-request checks passed; image-publication jobs correctly skipped for the pull-request event.
+
+The CloudFormation stack `campusdesk-staging-recovery` reached `CREATE_COMPLETE` and provisioned a private, versioned SSE-KMS recovery bucket, customer-managed KMS key, encrypted SNS alert topic, resource-scoped inline permissions for the existing EC2 runtime role, and a CloudWatch missing-heartbeat alarm. The original manually created recovery bucket remains untouched pending a deliberate retention or removal decision.
+
+Host installation and permission checks confirmed:
+
+- recovery-set storage is `root:root` mode `0700`;
+- `/etc/campusdesk/backup.env` is `root:root` mode `0600`;
+- installed scripts are `root:root` mode `0750` and match the reviewed release commit;
+- installed systemd units are `root:root` mode `0644` and pass `systemd-analyze verify`;
+- the EC2 role can list only the managed backup prefix, read bucket versioning, use the exact KMS key, publish to the backup SNS topic, and publish the backup heartbeat; and
+- the SNS subscription and end-to-end EC2 alert publication were confirmed.
+
+The first recovery capture produced backup ID `20261006T122804Z`. It stopped only frontend, worker, and backend while leaving MySQL healthy, restarted the application successfully, and recorded 12 seconds of maintenance. The set contained a validated MySQL dump, attachment archive, checksums, database counts, normalized database and archive paths, and immutable backend, frontend, and MySQL image references. Five valid attachment database paths matched five physical files exactly. Two legacy rows with invalid attachment paths remain explicitly counted and excluded rather than silently accepted.
+
+Every recovery artifact was uploaded under the managed S3 prefix, required the configured KMS key and a non-null S3 version ID, was downloaded again, and passed checksum and archive validation before `OFFSITE_VERIFIED` and `last-offsite-success` were published. The isolated restore test then restored the database and attachments into temporary Docker resources, ran `CHECK TABLE` for every base table, compared captured database counts and attachment paths, started the captured backend image against the restored data, completed `migrate:status`, and removed the temporary volumes. Live staging remained healthy throughout the restore test.
+
+The 15-minute monitor has run both manually and from its timer, emitted `offsite_backup_freshness=OK` and `aws_backup_heartbeat=OK`, and changed the CloudWatch alarm from `ALARM` to `OK` through the encrypted SNS notification path. Both timers are enabled: backup capture at 00:00 and 12:00 UTC, and freshness monitoring every 15 minutes.
+
+The first unattended timer-triggered capture started at 00:00:03 UTC on 7 October 2026 and produced backup ID `20261007T000005Z`. The service completed with `Result=success` and `ExecMainStatus=0`; maintenance lasted 11 seconds; database, attachment, application restart, archive, and coherent-capture checks passed; and the S3 artifact metadata, marker metadata, upload, and download validation all passed. The latest local recovery-set ID and `last-offsite-success` ID matched, the root-owned `OFFSITE_VERIFIED` marker remained mode `0600`, both timers remained active with the next backup scheduled for 12:00 UTC, and all live services remained running with backend and database healthy.
+
+The accepted objectives remain a 12-hour RPO and one-hour RTO. The isolated restore proves the recovery set is usable without modifying live volumes; it is not evidence of automatic failover or of an approved destructive live-data switch. Live restoration remains an incident-controlled operation.
+
 ## Known limitations and risks
 
 ### Security
@@ -1075,8 +1100,9 @@ The worker recorded three restart attempts immediately after boot because it rea
 ### Availability and recovery
 
 - One EC2 instance is a single point of failure.
-- MySQL and attachments share the instance's storage lifecycle.
-- No automated database or attachment backup has been documented or restore-tested.
+- MySQL and attachments still share the instance's storage lifecycle, although download-verified off-host recovery sets now protect their recoverable state.
+- Recovery storage remains in one AWS account and region; cross-region replication, S3 Object Lock, and a final lifecycle/retention policy have not been approved.
+- Only the first unattended backup cycle has been formally recorded; operators must continue investigating every service failure and perform periodic isolated restore tests rather than treating successful capture alone as permanent restore assurance.
 - No Auto Scaling Group, load balancer, or rolling deployment exists.
 - Deployment is not zero-downtime.
 - Application rollback may be unsafe after a backward-incompatible migration.
@@ -1086,7 +1112,7 @@ The worker recorded three restart attempts immediately after boot because it rea
 
 - Staging deployment requires a manual GitHub dispatch and protected-environment approval; it is deliberately not triggered automatically by every push.
 - Repository changes to `compose.staging.yaml` and the fixed host deployment script are not automatically synchronized to EC2 and require a separately reviewed host update.
-- Detailed CloudWatch monitoring, container alerting, and centralized application logs are not configured.
+- Backup-freshness monitoring and SNS alerting are configured, but broader host, container, application, and centralized-log monitoring are not.
 - The approximately 2 GiB host has limited memory headroom, although the active and persistent 1 GiB swapfile reduces immediate OOM risk.
 - On a host or Docker daemon restart, the worker can briefly restart with a database connection error before MySQL is ready; it currently recovers through its restart policy.
 - Mail currently uses the `log` driver rather than a real staging SMTP provider.
@@ -1136,10 +1162,11 @@ Do not paste the resulting account ID, public hostname, image digests, environme
 
 1. [x] Verify that swap is active and persists across reboot.
 2. [x] Record disk, memory, and container usage after the completed seed.
-3. [ ] Create a MySQL backup procedure and perform a test restore into an isolated database/volume.
-4. [ ] Back up `attachments_data` and test restoration.
-5. [ ] Record the currently deployed backend, frontend, and MySQL digests in a secure operational location.
-6. [ ] Decide whether the demo users should be deleted, disabled, or assigned unique passwords before any broader access.
+3. [x] Create a MySQL backup procedure and perform a test restore into an isolated database/volume.
+4. [x] Back up `attachments_data` and test restoration.
+5. [x] Record the currently deployed backend, frontend, and MySQL digests in each root-only, encrypted, versioned recovery set.
+6. [x] Verify the first unattended timer-triggered capture, offsite validation, freshness heartbeat, and post-capture application health.
+7. [ ] Decide whether the demo users should be deleted, disabled, or assigned unique passwords before any broader access.
 
 ### Priority 2: harden administrative access
 
@@ -1190,8 +1217,8 @@ The next developer or agent must not claim that any of the following already exi
 - automatic synchronization of Compose files or host scripts from the repository to EC2;
 - public HTTPS access;
 - zero-downtime deployment;
-- database or attachment backup automation;
-- centralized monitoring or alerting;
+- automatic live failover, destructive in-place restoration, cross-region replication, or object-locked backup retention;
+- centralized application/container logging or comprehensive host and application alerting;
 - secret-manager integration;
 - ECR lifecycle cleanup;
 - image signing; or

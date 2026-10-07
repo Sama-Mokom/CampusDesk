@@ -1,0 +1,11 @@
+[Unit]
+Description=Check CampusDesk staging backup freshness every 15 minutes
+
+[Timer]
+OnCalendar=*-*-* *:00,15,30,45:00 UTC
+AccuracySec=1min
+Persistent=true
+Unit=campusdesk-backup-monitor.service
+
+[Install]
+WantedBy=timers.target

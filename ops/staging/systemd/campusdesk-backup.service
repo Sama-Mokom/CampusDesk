@@ -1,0 +1,30 @@
+[Unit]
+Description=Capture a coherent CampusDesk staging recovery set
+Documentation=file:/opt/campusdesk/Docs/STAGING_RECOVERY.md
+Requires=docker.service
+Wants=network-online.target
+After=docker.service network-online.target
+AssertFileNotEmpty=/opt/campusdesk/.env.staging
+AssertFileNotEmpty=/opt/campusdesk/compose.staging.yaml
+AssertFileNotEmpty=/etc/campusdesk/backup.env
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=/opt/campusdesk
+EnvironmentFile=/etc/campusdesk/backup.env
+ExecStart=/opt/campusdesk/ops/staging/backup.sh
+UMask=0077
+TimeoutStartSec=45min
+TimeoutStopSec=5min
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/backups/campusdesk /run/lock
+
+[Install]
+WantedBy=multi-user.target
