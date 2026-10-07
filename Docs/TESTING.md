@@ -1,10 +1,15 @@
 # CampusDesk — Testing
 
-**Last reviewed:** 2 October 2026
+**Last reviewed:** 7 October 2026
 
 ## Current State
 
-Automated tests exist for authentication, the request lifecycle, department administration, the Super Admin API, notifications, attachment storage/access, and frontend dashboards. CI/CD Session 1 repaired the stale authentication and protected-document preview tests and established a fully green local baseline. The documentation was last reconciled with the code and staging evidence on 2 October 2026.
+Automated tests cover authentication, the request lifecycle, department administration, the Super Admin API, notifications, attachment storage/access, routed role pages, and shared frontend interactions. On 7 October 2026 the full local suites passed:
+
+- `php artisan test`: **58 tests, 373 assertions**.
+- `npm test -- --maxWorkers=2 --minWorkers=1`: **14 files, 132 tests**.
+
+The pull request and merged `development` workflows also passed their applicable quality gates. The two pull-request image-publication jobs were correctly skipped; the merge push published the backend and frontend images.
 
 Historical local baseline on 24 September 2026, before the later attachment regression tests were added:
 
@@ -14,7 +19,7 @@ Historical local baseline on 24 September 2026, before the later attachment regr
 - `npx vue-tsc --noEmit`: passed.
 - `npm run build`: passed.
 
-These commands now run as GitHub Actions quality gates. The exact current test count may be higher than this historical baseline; rely on the latest successful CI run rather than treating these numbers as permanent.
+These historical numbers explain the earlier milestone but are not the current suite totals. Test counts will evolve; rely on the latest successful run and update this page when coverage changes.
 
 Focused verification on 2 October 2026:
 
@@ -66,8 +71,8 @@ Tests that guard correct behaviour that must not regress:
 | `test_valid_claim_on_second_stage_with_approved_predecessor` | P-3.3 (N=2) |
 | `test_my_cases_returns_in_review_stages_for_authenticated_staff` | P-3.4: myCases endpoint |
 | `test_my_cases_returns_empty_when_no_in_review_stages` | P-3.4 (empty case) |
-| `test_for_request_endpoint_returns_200_for_staff` | P-3.5: forRequest returns the bound request's stages |
-| `test_for_request_response_is_wrapped_in_data_key` | P-3.5: response format |
+| `test_for_request_endpoint_returns_timeline_in_sequence_order_for_staff` | P-3.5: ordered timeline for the bound request |
+| `test_for_request_returns_not_found_for_unknown_request` | P-3.5: unknown request handling |
 | `test_approving_non_final_stage_advances_request_to_forwarded` | P-3.6a |
 | `test_approving_final_stage_advances_request_to_ready` | P-3.6b |
 | `test_approving_final_stage_in_three_stage_chain_sets_request_to_ready` | P-3.6b (N=3) |
@@ -108,7 +113,7 @@ Covers the attachment-backed student request path and the staging defect that pr
 
 ### Issue #7 redesign regression coverage
 
-The redesign extends the existing Vitest/jsdom suite with `StudentDashboard.workflow`, `StaffDashboard.workspace`, `DeptAdminDashboard`, `AuthAndShell`, `Registration`, `BaseModal`, `StatusBadge`, and `DocumentViewer.lifecycle` tests. Super Admin tests also cover delete conflicts and preserving the user ID when the student profile ID differs. Existing workflow preservation tests remain in place. All API mocks are confined to tests.
+The redesign extends the Vitest/jsdom suite with `StudentPages`, `StaffDashboard.workspace`, `DeptAdminDashboard`, `AdminDashboard`, `AuthAndShell`, `Registration`, `BaseModal`, `StatusBadge`, and `DocumentViewer.lifecycle` tests. The historical dashboard-named test files now exercise routed pages or extracted workflow components. Super Admin tests also cover delete conflicts and preserving the user ID when the student profile ID differs. All API mocks are confined to tests.
 
 Native dialogs use a jsdom-compatible open-state fallback; tests verify accessible naming, focus wrapping/return, dismissal and pending guards. This is not a replacement for real-browser keyboard or visual checks. See [FRONTEND_REDESIGN.md](FRONTEND_REDESIGN.md) for executed commands and the outstanding 375/768/1024/1440px manual acceptance checks. There is no configured browser E2E runner.
 
@@ -134,7 +139,7 @@ Unit tests for `DocumentViewer.vue`:
 | Clicking active file collapses viewer (toggle) | Req 3.7 |
 
 #### `StaffDashboard.preserve.spec.ts`
-Preservation property tests for `StaffDashboard.vue` resolve modal:
+Preservation property tests for the extracted `staff/StaffCaseWorkspace.vue` resolve workflow:
 
 | Test Group | Purpose |
 |------------|---------|
@@ -179,7 +184,7 @@ Covers server-backed collection loading and pagination, rejected-request reopen,
 ### High Priority (concurrency-sensitive, previously buggy)
 
 - [ ] **Concurrent claim test** — Two simultaneous claim requests on same stage; assert only one succeeds (200), the other gets 409. Requires multi-connection or goroutine-style execution — difficult in PHPUnit, but could simulate with `pcntl_fork` or a dedicated concurrency testing harness.
-- [ ] **Queue filtering integration test** — Seed a request, have one staff member claim Stage 1 but not approve, assert Stage 2 does NOT appear in the Stage 2 dept's queue. *(This is now covered by preservation tests P-3.1/P-3.2)*
+- [x] **Queue filtering integration test** — Preservation tests verify a downstream stage stays hidden until its predecessor is approved.
 - [x] **Status-history transition coverage** — Feature tests verify one stage-level observer entry plus a parent-level entry, both attributed through `users.id`, for claim, resolve, and reopen.
 
 ### Medium Priority (core business logic)
@@ -200,10 +205,10 @@ Covers server-backed collection loading and pagination, rejected-request reopen,
 
 ### Frontend (gaps)
 
-- [ ] `StudentDashboard.vue` — request list, detail modal, attachment loading
-- [ ] Auth flow — login → token stored → protected route accessible
-- [ ] Route guards — unauthenticated user redirected from `/student`
-- [ ] Role routing — student cannot access `/staff`
+- [x] Routed student pages — request list, direct detail URL, protected attachment metadata, submission, reopen, and collection
+- [x] Auth flow — login, persisted auth restoration, backend logout, and duplicate-logout prevention
+- [x] Route guards — guest redirect retains the requested destination
+- [x] Role routing — every nested role route rejects incompatible roles
 
 ---
 
@@ -214,7 +219,7 @@ Covers server-backed collection loading and pagination, rejected-request reopen,
 | Sequential routing and serial claim conflict (backend) | ✅ Covered by feature tests; true parallel claim test remains open |
 | Stage claim/resolve flow (backend) | ✅ Covered by preservation tests |
 | DocumentViewer component (frontend) | ✅ Five tests cover empty, image, PDF, fallback, and collapse behavior using the authenticated blob flow |
-| StaffDashboard resolve modal (frontend) | ✅ Covered by unit tests |
+| Staff resolution workspace (frontend) | ✅ Covered by unit tests |
 | RequestTimeline component (frontend) | ✅ Covered by unit tests |
 | Authentication flows | ✅ Registration, verification, password reset, login, logout, and token behavior pass against the current API and fixtures |
 | Attachment storage and authorization | ✅ Covered by `AttachmentStorageTest`; invalid/oversized validation cases remain open |

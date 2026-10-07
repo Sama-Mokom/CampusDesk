@@ -1,5 +1,7 @@
 # Creating Staff Test Users with Tinker
 
+**Last reviewed:** 7 October 2026
+
 Staff accounts are deliberately not creatable through public HTTP routes. This guide is the supported development-only path for creating accounts to test the staff, department-admin, and super-admin experiences.
 
 Run every command below from `campusdesk/` with a seeded local database. Do not run these commands against production data.

@@ -1,5 +1,7 @@
 # CampusDesk — Project Overview
 
+**Last reviewed:** 7 October 2026
+
 ## Project Name
 **CampusDesk** — University Document Request & Tracking System
 
@@ -7,7 +9,7 @@
 
 At Cameroonian universities (and many African universities generally), students who need official documents — transcripts, attestations, recommendation letters, internship endorsements — submit requests through informal channels and then have no visibility into where their document is, who has it, or when it will be ready. Students make repeated physical trips to offices or spend time pestering secretaries. The process is opaque, slow, and frustrating.
 
-CampusDesk digitises this process: students submit requests online, requests flow through the relevant departments in a defined sequence, staff process each stage, and students receive real-time status updates via email.
+CampusDesk digitises this process: students submit requests online, requests flow through the relevant departments in a defined sequence, staff process each stage, and students receive in-app updates plus queued email notifications.
 
 ## Target Users
 
@@ -31,7 +33,7 @@ CampusDesk digitises this process: students submit requests online, requests flo
 This project has two explicit goals:
 
 1. **Build a real, useful system** — CampusDesk solves a problem the developer has personally experienced at the University of Buea
-2. **Learn Laravel and PHP backend development** — the project is explicitly a learning vehicle. The developer uses traditional resources (Laravel docs, Stack Overflow) rather than AI for code generation. Claude's role is to guide, review, and mentor — not to generate code.
+2. **Learn Laravel and PHP backend development** — the project is explicitly a learning vehicle. Every assisted change must remain understandable, reviewable, tested, and supported by the framework documentation; automation does not replace the developer's ownership of the design.
 
 ## MVP Scope (completed)
 
@@ -53,6 +55,9 @@ This project has two explicit goals:
 - Primary-department admin oversight and reassignment of claimed stages
 - Super Admin reference and user management, statistics, request oversight, and request/stage status audit
 - API-backed notification bell, rejected-request reopen, and collected-request transition
+- Shared accessible UI primitives and separate nested task pages for every role
+- GitHub Actions quality gates, immutable ECR publication, and approval-gated SSM deployment to private AWS staging
+- Encrypted off-host database/attachment recovery, isolated restore testing, and scheduled freshness monitoring
 
 ## Long-term vision (planned)
 
@@ -62,10 +67,10 @@ This project has two explicit goals:
 
 ## Major Constraints
 
-- **Windows + XAMPP** development environment (not Linux/Mac)
-- **Learning project** — code is hand-written by the developer against documentation, not AI-generated
-- **No cloud deployment** — runs locally during development
-- **Single developer** — no team coordination required
+- **Windows-first local development** — bare XAMPP-style development remains supported, with Docker Compose as the reproducible local runtime
+- **Learning project** — implementation and operations must remain explainable and reviewable by the developer, regardless of which tools assist the work
+- **Private single-host staging** — AWS staging is deployed but deliberately reachable only through an SSH tunnel; public DNS/HTTPS is not configured
+- **Single developer** — operational reviews and approvals still need explicit records even without a development team
 
 ## Project Origin
 

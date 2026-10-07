@@ -33,7 +33,7 @@ import { mount, flushPromises } from '@vue/test-utils'
 import type { RequestStage } from '../../types'
 
 // ── Service mocks ──────────────────────────────────────────────────────────────
-// Must be hoisted before the component import so that when StaffDashboard.vue
+// Must be hoisted before the component import so that when StaffCaseWorkspace.vue
 // is evaluated its import of '../services/stages' resolves to these mocks.
 vi.mock('../../services/stages', () => ({
   fetchStaffQueue: vi.fn().mockResolvedValue([]),

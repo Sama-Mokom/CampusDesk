@@ -1,6 +1,6 @@
 # CampusDesk — Security Documentation
 
-**Last reviewed:** 2 October 2026
+**Last reviewed:** 7 October 2026
 
 ## Authentication Mechanism
 
@@ -109,7 +109,7 @@ PHPUnit regression tests in `SequentialRoutingPreservationTest` lock this behavi
 
 9. **`personal_access_tokens` table is manually migrated** — Sanctum tokens are stored in `personal_access_tokens` via migration `2026_04_12_232151_create_personal_access_tokens_table`. This is redundant with Sanctum's own migration. Verify this does not cause conflicts (no issues observed in practice).
 
-10. **Staging remains private and single-hosted** — access is still through an SSH tunnel, deployments have planned downtime, and database/attachment backup restoration has not yet been proven. Public exposure must wait for credential remediation, restore testing, DNS, and HTTPS.
+10. **Staging remains private and single-hosted** — access is still through an SSH tunnel and deployments have planned downtime. Encrypted, versioned off-host recovery, download verification, freshness monitoring, and an isolated database/attachment/backend-image restore have been proven; automatic failover and destructive live restoration have not. Public exposure must still wait for credential remediation, DNS, and HTTPS.
 
 ## Staging Deployment Security
 
@@ -119,6 +119,8 @@ PHPUnit regression tests in `SequentialRoutingPreservationTest` lock this behavi
 - The custom SSM document validates a full release SHA and exact backend/frontend digest references, then calls only the fixed root-owned `/usr/local/sbin/campusdesk-deploy` script.
 - Deployments require a manual workflow dispatch and protected-environment approval and are serialized without cancelling an active deployment.
 - The EC2 runtime role can pull from the two ECR repositories and register with Systems Manager; it cannot push registry content.
+- The recovery stack adds resource-scoped access to the managed S3 backup prefix, exact KMS key, encrypted SNS topic, and `CampusDesk/Backup` heartbeat metric. It does not grant general S3, KMS, or SNS administration.
+- The managed recovery bucket is private, versioned, encrypted with the customer-managed KMS key, and rejects insecure transport. Recovery configuration on EC2 is root-owned mode `0600`.
 - Repository changes to Compose or the host script are not silently copied by the deployment workflow and require a separate reviewed host update.
 
 ## Deferred Integration Security Requirements

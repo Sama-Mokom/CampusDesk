@@ -39,7 +39,7 @@ import { mount, flushPromises } from '@vue/test-utils'
 import type { RequestStage } from '../../types'
 
 // ── Service mocks ──────────────────────────────────────────────────────────────
-// Hoisted before the component import so that StaffDashboard.vue resolves these.
+// Hoisted before the component import so that StaffCaseWorkspace.vue resolves these.
 vi.mock('../../services/stages', () => ({
   fetchStaffQueue: vi.fn().mockResolvedValue([]),
   fetchMyCases: vi.fn().mockResolvedValue([]),

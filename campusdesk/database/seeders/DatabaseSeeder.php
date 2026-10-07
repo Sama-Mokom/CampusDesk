@@ -19,14 +19,14 @@ class DatabaseSeeder extends Seeder
      *   because manual instantiation bypasses Laravel's automatic wiring.
      * - Every seeder's run() is wrapped in DB::transaction() — a mid-loop failure
      *   must not leave a partially-seeded table.
-     * - WithoutModelEvents is intentionally NOT used here. The observer fires a
-     *   notification job on RequestStage *update* (status change), not on create, so
-     *   it poses no risk during stage-generation seeding. If Tier 4 seeding ever
-     *   needs to suppress it, add WithoutModelEvents to the individual seeder, not here.
+     * - WithoutModelEvents is intentionally NOT used. RequestStageObserver writes
+     *   stage history on status updates, which SeedRequestProgressionService relies
+     *   on for valid fixtures. The observer does not dispatch notification jobs;
+     *   production notifications are invoked explicitly by request controllers.
      *
-     * Values: 60 staff, 10 students/dept.
+     * Values: 80 staff, 10 students/dept.
      *   - Department count is ~55 across 11 faculties (10 real + Records Office).
-     *     60 staff comfortably exceeds this, satisfying DepartmentStaffSeeder's
+     *     80 staff comfortably exceeds this, satisfying DepartmentStaffSeeder's
      *     guardrail (§6.6). Adjust if the parsed count differs significantly.
      *   - Confirm via: php artisan tinker → Department::count()
      */
@@ -80,6 +80,7 @@ class DatabaseSeeder extends Seeder
         (new NotificationSeeder)
             ->setContainer($this->container)->setCommand($this->command)->run();
 
-        // See spec §7.6 and §8 — stage-progression mechanic is NOT READY FOR IMPLEMENTATION.
+        // RequestSeeder creates base request graphs; SeedRequestProgressionService
+        // advances selected fixtures through valid lifecycle states and histories.
     }
 }

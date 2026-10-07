@@ -1,6 +1,6 @@
 # CampusDesk — Features & Implementation Status
 
-**Last reviewed:** 2 October 2026
+**Last reviewed:** 7 October 2026
 
 Status legend: ✅ IMPLEMENTED · 🟡 PARTIALLY IMPLEMENTED · ❌ PLANNED/TODO
 
@@ -14,8 +14,8 @@ Status legend: ✅ IMPLEMENTED · 🟡 PARTIALLY IMPLEMENTED · ❌ PLANNED/TODO
 
 **Main flow:**
 1. Student visits `/register`
-2. Frontend loads faculties, departments, programmes via `GET /api/faculties`, `/departments`, `/programmes` on mount
-3. Student fills form: name, email, password, matricule, faculty (dropdown), department (filtered by faculty), programme (filtered by faculty), level
+2. Frontend loads faculties, departments, and programmes via `GET /api/faculties`, `/departments`, and `/programmes` on mount
+3. Student fills form: name, email, password, matricule, faculty, department filtered by faculty, programme filtered by department, and level
 4. Frontend submits `POST /api/register` with `password_confirmation` duplicated from `password`
 5. Backend validates all fields, creates `User` (role=student) + `StudentProfile`
 6. Backend returns `{ token, user }` with nested `student_profile`
@@ -29,7 +29,7 @@ Status legend: ✅ IMPLEMENTED · 🟡 PARTIALLY IMPLEMENTED · ❌ PLANNED/TODO
 - Level: one of `100`, `200`, `300`, `400`, `500`, `600` (no `L` prefix)
 - Password: confirmed
 
-**⚠️ Known type mismatch:** The frontend `RegisterCredentials` TypeScript type defines `level` as `'L100' | 'L200' | ...`. The backend expects `'100' | '200' | ...`. Verify what `RegisterView.vue` actually submits.
+**Type alignment:** The frontend and backend both use level values `'100'` through `'600'`; programmes are filtered by the selected department and submit the existing `department_id` contract.
 
 **Database interactions:** INSERT into `users`, INSERT into `student_profiles`.
 
@@ -68,12 +68,11 @@ Status legend: ✅ IMPLEMENTED · 🟡 PARTIALLY IMPLEMENTED · ❌ PLANNED/TODO
 2. Student writes description, optionally attaches files (PDF/DOCX/JPG/PNG, max 5MB each)
 3. Frontend submits `POST /api/requests` as `multipart/form-data` (if files) or JSON
 4. Backend, in a DB transaction:
-   - Creates `requests` row (status: pending)
-   - Stores uploaded files through the explicit private local disk and creates `attachments` rows only after successful writes
-   - On storage/transaction failure, rolls back metadata and removes files already written by that request
-   - Loads `request_type.default_department_sequence`, resolves symbolic tokens via `resolveSequence()`
-   - Creates one `request_stages` row per department in the resolved sequence, in order
-   - Creates initial `status_history` entry (old_status: null, new_status: pending, changed_by: null)
+   - `RequestCreationService` creates the `requests` row (status: pending)
+   - `StageGenerationService` resolves `request_type.default_department_sequence` and creates one ordered `request_stages` row per department
+   - The service creates the initial `status_history` entry (old_status: null, new_status: pending, changed_by: null)
+   - The controller stores uploaded files through the explicit private local disk and creates `attachments` rows only after successful writes
+   - On storage/transaction failure, metadata rolls back and files already written by that request are removed
 5. Backend returns the full created request with nested `stages`, `attachments`, `status_history`
 
 **Seeded request types:**
@@ -86,17 +85,17 @@ Status legend: ✅ IMPLEMENTED · 🟡 PARTIALLY IMPLEMENTED · ❌ PLANNED/TODO
 
 ---
 
-## Feature 4: Track Request Status (Student Dashboard) ✅ IMPLEMENTED
+## Feature 4: Track Request Status (Student Pages) ✅ IMPLEMENTED
 
 **Purpose:** Student views all their requests and drills into detail for any one of them.
 
 **Actors:** Student
 
 **Main flow:**
-1. Dashboard loads on mount: `GET /api/requests`
-2. Dashboard shows: profile header (name, matricule, faculty/department names, level badge), stats strip (total / pending / ready for collection), list of requests
-3. Clicking a request card calls `GET /api/requests/{id}` for full detail
-4. Detail modal shows: description, status badge, reopened flag, attachments (via `DocumentViewer`), stage timeline (department name, sequence order, stage status, staff note, handler name), full status history log
+1. `/student` loads summary metrics and recent requests; `/student/requests` loads the request collection.
+2. `/student/requests/new` loads request types and submits the request form.
+3. `/student/requests/{id}` calls `GET /api/requests/{id}` directly, so details can be bookmarked or refreshed.
+4. The detail page shows description, status, reopened state, protected attachments, ordered stage timeline, handler/note data, and status history.
 5. If status is `rejected`, a "Reopen Request" button calls the backend and updates the request in place.
 6. If status is `ready`, a "Mark as Collected" button calls the authenticated collection endpoint.
 
@@ -185,7 +184,7 @@ Status legend: ✅ IMPLEMENTED · 🟡 PARTIALLY IMPLEMENTED · ❌ PLANNED/TODO
 1. Any `RequestStage` model update where `status` is dirty triggers `RequestStageObserver::updated()`
 2. Observer creates the stage `status_history` entry using the authenticated user's ID when available
 3. Observer dispatches `SendRequestStatusNotification::dispatch($student, $request, $stage->status)` for transitions to `in_review`, `approved`, or `rejected`
-4. Job pushed to `jobs` table — requires `php artisan queue:work` (or `composer run dev`)
+4. Job pushed to `jobs` table — requires `php artisan queue:work` (or `composer run dev-mail`)
 5. Job sends `RequestStatusUpdated` mailable → Mailtrap in dev
 
 **Why queued (not synchronous):** Decouples email from the HTTP request cycle; allows automatic retry on mail server failure.
@@ -200,9 +199,9 @@ Status legend: ✅ IMPLEMENTED · 🟡 PARTIALLY IMPLEMENTED · ❌ PLANNED/TODO
 
 **Design decision (ADR-06):** Preserve the original stages and audit history. The one rejected stage is restored to `pending`, its assignment is cleared, and its staff note is retained.
 
-**Implementation:** `POST /api/requests/{request}/reopen` runs atomically, locks the parent request and rejected stage, requires exactly one rejected stage, clears `handled_by`, sets the stage/request to `pending`, sets `is_reopened = true`, and writes stage and parent audit events. The Student Dashboard calls the endpoint, updates its list and detail state, and displays success/error feedback.
+**Implementation:** `POST /api/requests/{request}/reopen` runs atomically, locks the parent request and rejected stage, requires exactly one rejected stage, clears `handled_by`, sets the stage/request to `pending`, sets `is_reopened = true`, and writes stage and parent audit events. `StudentRequestDetailPage.vue` calls the endpoint and refreshes its standalone detail state with success/error feedback.
 
-**Status:** ✅ Implemented and covered by backend feature tests and Student Dashboard Vitest tests.
+**Status:** ✅ Implemented and covered by backend feature tests and routed student-page Vitest tests.
 
 ---
 
@@ -210,7 +209,7 @@ Status legend: ✅ IMPLEMENTED · 🟡 PARTIALLY IMPLEMENTED · ❌ PLANNED/TODO
 
 **Purpose:** Student confirms physical collection, closing the request lifecycle.
 
-**Implementation:** `PATCH /api/requests/{request}/collect` requires the owning student and `ready` status, then records the `collected` transition. `StudentDashboard.vue` calls this endpoint.
+**Implementation:** `PATCH /api/requests/{request}/collect` requires the owning student and `ready` status, then records the `collected` transition. `StudentRequestDetailPage.vue` calls this endpoint.
 
 **Status:** ✅ Implemented. Only the owning student can transition a `ready` request to `collected`; the transition is recorded in status history.
 
@@ -228,11 +227,11 @@ Status legend: ✅ IMPLEMENTED · 🟡 PARTIALLY IMPLEMENTED · ❌ PLANNED/TODO
 
 ---
 
-## Feature 13: Department Admin Dashboard — IMPLEMENTED
+## Feature 13: Department Admin Pages — IMPLEMENTED
 
 **Purpose:** Dept admins see all requests through their primary department, can reassign stages, view department-level stats.
 
-**Current state:** `DeptAdminView.vue` renders the real `DeptAdminDashboard.vue`. Department admins see every stage in their primary department, including claimed, unclaimed, and completed work, and may reassign active claimed stages to staff in that department.
+**Current state:** `DeptAdminView.vue` hosts guarded nested pages: `/dept-admin` for primary-department metrics and `/dept-admin/requests` for claimed, unclaimed, and completed work. Department admins may reassign active claimed stages to staff in that department.
 
 **Reassignment rules:** Only an `in_review` stage that is already claimed may be reassigned. The stage must be in the administrator's primary department and its recipient must be staff assigned there. The handoff changes only `handled_by`, records an immutable `stage_reassignments` entry, and creates an in-app notification for the receiving staff member. Pending/unclaimed stages cannot be directly assigned; they remain available through the normal atomic claim flow.
 
@@ -240,13 +239,13 @@ Status legend: ✅ IMPLEMENTED · 🟡 PARTIALLY IMPLEMENTED · ❌ PLANNED/TODO
 
 ---
 
-## Feature 14: Super Admin Dashboard — IMPLEMENTED
+## Feature 14: Super Admin Pages — IMPLEMENTED
 
 **Purpose:** Full system administration.
 
-**Current state:** `AdminDashboard.vue` uses protected `/api/admin` endpoints for reference data, users, statistics, requests, and request/stage status history. Lists are server-paginated. Rejected requests can be reopened through the existing transition endpoint. Referenced records return 409 on deletion.
+**Current state:** `SuperAdminView.vue` hosts guarded pages for overview, requests, users, four reference collections, and status history. Page-scoped composables use protected `/api/admin` endpoints. Lists are server-paginated, rejected requests can be reopened through the existing transition endpoint, and referenced records return 409 on deletion.
 
-**Implementation:** Protected CRUD, staff elevation, system statistics, request oversight, and the request/stage status audit are wired to `AdminDashboard.vue`. The user form provides searchable, faculty-grouped staff department assignments.
+**Implementation:** Protected CRUD, staff elevation, system statistics, request oversight, and the request/stage status audit are wired to the routed pages under `Frontend/src/views/admin/`. The user form provides searchable, faculty-grouped staff department assignments.
 
 **Status:** Implemented. Administrative action auditing remains roadmap task 9.
 
@@ -268,6 +267,6 @@ Status legend: ✅ IMPLEMENTED · 🟡 PARTIALLY IMPLEMENTED · ❌ PLANNED/TODO
 | Reopen request | ✅ | ✅ | ✅ |
 | Mark collected | ✅ | ✅ | ✅ |
 | In-app notifications | ✅ | ✅ | ✅ |
-| Dept Admin dashboard | ✅ | ✅ | ✅ |
-| Super Admin dashboard | ✅ | ✅ | ✅ |
+| Department Admin pages | ✅ | ✅ | ✅ |
+| Super Admin pages | ✅ | ✅ | ✅ |
 | Logout (token revocation) | ✅ | ✅ | ✅ |

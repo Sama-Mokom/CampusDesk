@@ -1,5 +1,7 @@
 # CampusDesk frontend integration reference
 
+**Last reviewed:** 7 October 2026
+
 ## Current implementation
 
 `Frontend/` is a single Vue 3 + Vite SPA. The application entry point is
@@ -31,10 +33,10 @@ available, this SPA uses Bearer tokens rather than cookie authentication.
 | Area | Frontend module | API area |
 |---|---|---|
 | Authentication | `services/auth.ts`, `composables/useAuth.ts` | `/api/register`, `/api/login`, `/api/logout` |
-| Student requests | `services/requests.ts`, `StudentDashboard.vue` | `/api/requests` |
-| Staff stages | `services/stages.ts`, `StaffDashboard.vue` | `/api/stages`, request-stage actions |
-| Department administration | `services/deptAdmin.ts`, `DeptAdminDashboard.vue` | `/api/dept-admin` |
-| Super administration | `services/admin.ts`, `AdminDashboard.vue` | `/api/admin` |
+| Student requests | `services/requests.ts`, `composables/useStudentRequests.ts`, `views/student/` | `/api/requests` |
+| Staff stages | `services/stages.ts`, `views/staff/`, `components/staff/` | `/api/stages`, request-stage actions |
+| Department administration | `services/deptAdmin.ts`, `views/dept-admin/` | `/api/dept-admin` |
+| Super administration | `services/admin.ts`, `composables/admin/`, `views/admin/` | `/api/admin` |
 | Reference data | `services/reference.ts` | public reference endpoints |
 | Notifications | `services/notifications.ts`, `NotificationBell.vue` | `/api/notifications` |
 
@@ -45,8 +47,9 @@ available, this SPA uses Bearer tokens rather than cookie authentication.
 
 `src/router/index.ts` protects authenticated routes and routes users by role:
 students use `/student`; ordinary staff use `/staff`; department admins use
-`/dept-admin`; and super admins use `/admin`. Route guards use the persisted
-auth state and enforce staff admin-level requirements.
+`/dept-admin`; and super admins use `/admin`. Each role route has lazy nested
+overview/task pages. Route guards apply at the parent and therefore protect
+direct child URLs while enforcing persisted auth and staff admin levels.
 
 ## Local commands
 

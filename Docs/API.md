@@ -1,6 +1,6 @@
 # CampusDesk — API Documentation
 
-**Last reviewed:** 2 October 2026
+**Last reviewed:** 7 October 2026
 
 ## Base URL
 

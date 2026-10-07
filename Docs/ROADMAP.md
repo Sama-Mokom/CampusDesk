@@ -1,6 +1,6 @@
 # CampusDesk — Roadmap
 
-**Last reviewed:** 2 October 2026
+**Last reviewed:** 7 October 2026
 
 ## Completed ✅
 
@@ -16,8 +16,8 @@
 - [x] Axios service layer with auth interceptors
 - [x] Auth flow wiring (login, register, route guards)
 - [x] Reference data endpoints (faculties, departments, programmes, request types)
-- [x] Student Dashboard — fully wired
-- [x] Staff Dashboard — fully wired
+- [x] Student request pages — fully wired
+- [x] Staff queue and active-case pages — fully wired
 - [x] Multi-claim concurrency bug — identified and fixed
 - [x] Protected attachment viewing (blob URL pattern)
 - [x] Staff request-detail timeline (reused student show() endpoint)
@@ -25,18 +25,18 @@
 - [x] `StageGenerationService` extracted as a service class
 - [x] `StageGenerationService::resolveSequence()` adopted by request creation
 - [x] PHPUnit feature tests for sequential routing (2 files, 20+ tests)
-- [x] Vitest unit tests for frontend components (4 files: DocumentViewer, StaffDashboard x2, RequestTimeline)
-- [x] Reopen rejected request endpoint and Student Dashboard wiring
+- [x] Establish the initial Vitest component baseline (DocumentViewer, staff workflow x2, RequestTimeline)
+- [x] Reopen rejected request endpoint and student detail-page wiring
 - [x] Reopen/audit-trail feature tests
 - [x] Sanctum-token logout and revocation tests
 - [x] `forRequest()` route-model binding and timeline tests
 - [x] Department-admin gate authorization tests
 - [x] Frontend student-level and degree-type enum alignment
-- [x] Mark collected endpoint and Student Dashboard wiring
+- [x] Mark collected endpoint and student detail-page wiring
 - [x] In-app notification API, lifecycle delivery service, and notification bell wiring
-- [x] Department Admin dashboard wiring: primary-department oversight, workflow-aware claimability, active-stage reassignment, immutable handoff audit records, and receiving-staff notifications
-- [x] Super Admin dashboard wiring: protected CRUD, elevation, statistics, request oversight, and request/stage status audit
-- [x] Repair the complete backend and frontend quality gates: 54 PHPUnit tests / 354 assertions, 37 Vitest tests, ESLint, `vue-tsc`, and the production build
+- [x] Department Admin page wiring: primary-department oversight, workflow-aware claimability, active-stage reassignment, immutable handoff audit records, and receiving-staff notifications
+- [x] Super Admin page wiring: protected CRUD, elevation, statistics, request oversight, and request/stage status audit
+- [x] Repair the September CI baseline: 54 PHPUnit tests / 354 assertions, 37 Vitest tests, ESLint, `vue-tsc`, and the production build
 - [x] Dockerize Laravel/Apache and Vue/Nginx with production-style dependency installation
 - [x] Add the local four-service Docker Compose stack: frontend, backend, queue worker, and MySQL 8.4
 - [x] Verify service health, same-origin API proxying, database persistence, private attachment persistence, queued mail processing, upload limits, and graceful worker shutdown
@@ -56,6 +56,12 @@
 - [x] Add the one-shot attachment-volume initializer and require it before backend and worker startup
 - [x] Reject failed attachment writes, clean up partial uploads, and scope download authorization to related users and staff
 - [x] Add attachment storage/access regression tests and functionally verify upload and authenticated retrieval in staging
+- [x] Implement the Issue #7 shared design system and split all role dashboards into guarded nested pages
+- [x] Provision a private versioned recovery bucket, KMS key, encrypted SNS alerts, scoped EC2 permissions, and a missing-heartbeat CloudWatch alarm
+- [x] Automate coherent database, attachment, image-reference, checksum, and metadata capture at 00:00 and 12:00 UTC
+- [x] Upload and download-verify every recovery artifact with the configured KMS key and S3 version IDs
+- [x] Restore-test a recovery set in isolated Docker resources without changing live volumes
+- [x] Enable 15-minute backup-freshness monitoring and verify the first unattended timer-triggered backup cycle
 
 ## Immediate Fixes Cleared ✅
 
@@ -63,16 +69,16 @@ All previously listed immediate fixes are complete.
 
 ## Next (recommended order)
 
-1. **Staging recovery and security baseline**
-   - Create database and attachment backups and complete an isolated restore test.
+1. **Staging security and recovery operations**
+   - Continue scheduled capture and monitoring; investigate every failed service run and perform periodic isolated restore drills.
    - Remove, disable, or rotate the demonstration users that share the factory password `password` before broader access.
-   - Record deployed image digests in a secure operational location.
+   - Record deployed image digests, backup IDs, restore evidence, and operator decisions in an approved operational location.
 
 2. **Controlled deployment maintenance**
    - Keep the workflow, protected environment, IAM restrictions, SSM document, and root-owned host script synchronized.
    - Define a repeatable reviewed rollout for `compose.staging.yaml` and host-script changes, which are intentionally not copied by the image deployment workflow.
    - Re-run the idempotent no-op check whenever deployment behavior changes.
-   - Exercise failure recovery only after database and attachment restore procedures are proven.
+   - Exercise the documented deployment failure paths in a deliberately isolated environment; do not use live volumes for a destructive drill.
    - Evaluate Systems Manager Session Manager separately so interactive SSH can eventually be removed.
 
 3. **Public staging readiness**
@@ -103,10 +109,9 @@ See [CI_CD_SESSION_2_HANDOFF.md](CI_CD_SESSION_2_HANDOFF.md) for the complete im
 
 These GitHub issues are intentionally deferred. They require design review and must not bypass the current request lifecycle, authorization, or audit-history rules.
 
-10. **Frontend design-system overhaul**
-    - Translate approved Figma mockups into the Vue 3 SPA under `Frontend/src/`.
-    - Establish design tokens, accessible shared components, responsive layouts, loading states, and visual regression coverage.
-    - Preserve the existing Vue service contracts unless a separately approved API change is required.
+10. **Frontend browser acceptance and E2E automation**
+    - Complete the routed-page visual and workflow checklist at 375, 768, 1024, and 1440 pixels.
+    - Add browser E2E coverage after selecting Playwright or Cypress; keep the existing API and authorization contracts intact.
 
 11. **Real-time event delivery**
     - Evolve the current queued `RequestStatusNotificationService` into a domain-event source for request status, stage assignment, and ready-for-collection events.

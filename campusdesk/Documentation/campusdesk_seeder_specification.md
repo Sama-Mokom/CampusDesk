@@ -2,14 +2,14 @@
 
 **Project:** CampusDesk (University Document Request & Tracking System)
 **Author:** Nkeng Sama Mokom (FE23A118)
-**Last updated:** 24 July 2026
-**Status:** Tiers 0–1 fully specified and implementation-ready. Tiers 2–6 partially specified — see §8 "Open Items."
+**Last reviewed:** 7 October 2026
+**Status:** Historical design specification, superseded by the implemented seeders and [current implementation record](../../Docs/IMPLEMENTATION_UPDATES.md). The tier/open-item statements below describe the July 2026 planning state and are not a current backlog.
 
 ---
 
 ## 1. Purpose
 
-This document is the single source of truth for how CampusDesk's database seeding system is built. It supersedes all prior scratch pseudocode discussed during development. Anything not explicitly written here should be treated as **not yet decided**, not assumed.
+This document preserves the original seeder design process. It is not the current source of truth. The implemented contract lives in `database/seeders/`, `app/Services/RequestCreationService.php`, `app/Services/SeedRequestProgressionService.php`, and the integration tests. The current implementation seeds all tiers, including request lifecycles, attachments, histories, and notifications; see [IMPLEMENTATION_UPDATES.md](../../Docs/IMPLEMENTATION_UPDATES.md) and [TESTING.md](../../Docs/TESTING.md).
 
 ---
 

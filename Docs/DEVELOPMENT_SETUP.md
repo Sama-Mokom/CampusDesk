@@ -1,5 +1,7 @@
 # CampusDesk — Development Setup Guide
 
+**Last reviewed:** 7 October 2026
+
 ## Prerequisites
 
 | Tool | Version | Notes |
@@ -125,8 +127,11 @@ php artisan migrate:fresh --seed
 This seeds: all UB faculties, departments, programmes, 80 staff users, students (~10 per eligible academic department), department-staff assignments, four request types, 24 lifecycle-varied requests, attachment fixtures, and in-app notification fixtures. Email is never sent by the seeders. See [IMPLEMENTATION_UPDATES.md](IMPLEMENTATION_UPDATES.md) for lifecycle and data-integrity details.
 
 ```bash
-# One-command startup (server + queue worker + log viewer together)
+# Start Laravel and Vite without processing queued email
 composer run dev
+
+# Start Laravel, the queue worker, and Vite
+composer run dev-mail
 ```
 
 Or run in separate terminals:
@@ -211,8 +216,8 @@ VITE_API_URL=http://127.0.0.1:8000/api
 
 | Command | Purpose |
 |---------|---------|
-| `composer run dev-mail` | Start server + queue + logs + vite all in one |
-`composer run dev` | Start server + logs + vite all in one. To avoid overpopulating mailtrap in development|
+| `composer run dev-mail` | Start Laravel, the queue worker, and Vite together |
+| `composer run dev` | Start Laravel and Vite without a queue worker; queued email remains pending |
 | `php artisan serve` | Start Laravel dev server only |
 | `php artisan queue:work` | Process queued jobs (required for emails) |
 | `php artisan migrate:fresh --seed` | Reset database completely and reseed all data |

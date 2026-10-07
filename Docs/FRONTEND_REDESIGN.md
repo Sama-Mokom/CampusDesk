@@ -1,10 +1,10 @@
 # Issue #7 frontend implementation and verification
 
-Branch: `development-7`. Original redesign: 2-3 October 2026. Routed-page follow-up: 3-5 October 2026.
+Original branch: `development-7`. Original redesign: 2-3 October 2026. Routed-page follow-up: 3-5 October 2026. Merged into `development` by PR #18 (`7bf5f9e`) on 5 October 2026.
 
 ## Scope and acceptance mapping
 
-The full [GitHub issue](https://github.com/Sama-Mokom/CampusDesk/issues/7) was retrieved through the GitHub API. It is open, has no comments, and carries `enhancement`, `frontend`, and `future-phase` labels. Its nine linked mockups are consistent with the individual local references. The source review covered router guards, singleton auth, Axios interceptors, all services and role dashboards, attachment authorization, stage transitions, backend resources/validators, Tailwind configuration and existing tests.
+At the start of implementation, the full [GitHub issue](https://github.com/Sama-Mokom/CampusDesk/issues/7) was retrieved through the GitHub API; it was open, had no comments, and carried `enhancement`, `frontend`, and `future-phase` labels. Its nine linked mockups were consistent with the individual local references. The source review covered router guards, singleton auth, Axios interceptors, all services and role dashboards, attachment authorization, stage transitions, backend resources/validators, Tailwind configuration and existing tests.
 
 - **Design system and layout refactor - implemented.** Slate/sky tokens, native form controls styled through shared classes, common feedback/skeleton/empty components, accessible dialogs, role-aware sidebar/header/mobile navigation, and authentication layout.
 - **Student portal - implemented and component-tested.** Real identity/metrics, search/status filters, paginated request cards, API-backed creation/uploads and routing confirmation, actual detail timeline/history/documents, reopening and collection. The codebase's existing creation flow is form to confirmation; no additional wizard steps were invented from mockups.
@@ -103,11 +103,11 @@ Required follow-up at **375, 768, 1024 and 1440 pixels**:
 
 ## Git audit
 
-Work remained on `development-7`. Local implementation commits:
+The work was developed on `development-7`. Implementation commits:
 
 - `5935dc7` — shared design system, application/auth shell, documents, notifications and accessibility tests.
 - `72505ab` — student requests and tracking.
 - `451f40e` — staff queue and resolution workspace.
 - `96bc75d` — department and Super Admin oversight, forms and regression tests.
 
-`443d9d9` records the original redesign verification. `6dd0de5` separates the dashboard workflows into nested role pages and includes the updated regression tests; a separate documentation commit records the route map and verification. No push, merge, deployment or GitHub issue closure was performed. Source changes are confined to `Frontend/` plus related documentation. The pre-existing untracked file `tatus --short` was left untouched. Backend, CI/CD workflows, application dependencies and lockfiles are unchanged.
+`443d9d9` records the original redesign verification. `6dd0de5` separates the dashboard workflows into nested role pages and includes the updated regression tests; `c533433` records the route map and verification. PR #18 merged the branch into `development` at `7bf5f9e`. No staging deployment was required because the change did not alter backend, deployment, dependency, or lockfile contracts. Issue closure and the remaining browser acceptance checklist are separate from the merge record.

@@ -6,7 +6,7 @@ This is the complete knowledge base for the CampusDesk project — a university 
 
 ## 🚨 1. Start Here
 
-**[HANDOFF.md](./Docs/HANDOFF.md)** — Read this FIRST. Current status, last completed action, exact next steps, critical constraints not to violate, and known gotchas.
+**[HANDOFF.md](./Docs/HANDOFF.md)** — Read this first. It summarizes the merged application, delivery, and recovery state; the next work; critical constraints; and known gotchas.
 
 ## 2. Understand the Project
 
@@ -22,10 +22,11 @@ This is the complete knowledge base for the CampusDesk project — a university 
 ## 4. Understand What's Built
 
 - **[FEATURES.md](./Docs/FEATURES.md)** — Every feature documented in detail: purpose, flow, validation, database interactions, implementation status
+- **[IMPLEMENTATION_UPDATES.md](./Docs/IMPLEMENTATION_UPDATES.md)** — Seeder, request-fixture, authentication, staging, and attachment implementation corrections
 - **[USER_FLOWS.md](./Docs/USER_FLOWS.md)** — Roles, permission matrix, sequence diagrams, state machine diagrams
 - **[API.md](./Docs/API.md)** — Every endpoint: method, auth requirements, request/response shapes, validation rules, side effects
 - **[UI_UX.md](./Docs/UI_UX.md)** — Design system, key screens, component inventory
-- **[FRONTEND_REDESIGN.md](./Docs/FRONTEND_REDESIGN.md)** — Issue #7 implementation, API compatibility, automated verification and outstanding browser acceptance checks
+- **[FRONTEND_REDESIGN.md](./Docs/FRONTEND_REDESIGN.md)** — Issue #7 implementation history, API compatibility, automated verification, merge record, and outstanding browser acceptance checks
 
 ## 5. Understand Why Things Are the Way They Are
 
@@ -38,8 +39,18 @@ This is the complete knowledge base for the CampusDesk project — a university 
 - **[SECURITY.md](./Docs/SECURITY.md)** — Auth mechanism, authorization layers, known security gaps
 - **[TESTING.md](./Docs/TESTING.md)** — Current test coverage and recommended test checklist
 - **[DEVELOPMENT_SETUP.md](./Docs/DEVELOPMENT_SETUP.md)** — Full environment setup, commands, troubleshooting
+- **[TINKER_STAFF_USERS.md](./Docs/TINKER_STAFF_USERS.md)** — Development-only plain-staff, department-admin, and Super Admin account recipes
+- **[frontend_integration_specs.md](./Frontend/Documentation/frontend_integration_specs.md)** — Current Vue service, route, auth, and module integration reference
 - **[CI_CD_SESSION_2_HANDOFF.md](./Docs/CI_CD_SESSION_2_HANDOFF.md)** — Comprehensive local Docker, CI, immutable ECR, AWS staging, protected SSM deployment, attachment hardening, operations, troubleshooting, and recovery guide
+- **[STAGING_RECOVERY.md](./Docs/STAGING_RECOVERY.md)** — Installation, scheduled capture, monitoring, isolated restore, and incident-controlled live-restore boundaries
 - **[CI-CD.md](./CI-CD.md)** — CI/CD learning-track status and next checkpoint
+
+## 7. Historical Design Records
+
+These files explain how earlier work was planned; their headers identify them as historical and link back to the current contract:
+
+- **[SUPER_ADMIN_IMPLEMENTATION_PLAN.md](./Docs/SUPER_ADMIN_IMPLEMENTATION_PLAN.md)** — original Super Admin implementation plan
+- **[campusdesk_seeder_specification.md](./campusdesk/Documentation/campusdesk_seeder_specification.md)** — July 2026 seeder design specification
 
 ## Diagrams
 
@@ -58,11 +69,11 @@ All diagrams are embedded as Mermaid code within the relevant document (primaril
 | **Backend URL (bare dev)** | `http://127.0.0.1:8000` |
 | **Frontend URL (bare dev)** | `http://localhost:5173` |
 | **Docker Compose URL** | `http://localhost:8080` |
-| **Current status** | Application workflows, CI, immutable ECR publication, and the manual-approved SSM staging deployment are implemented. The full request lifecycle and private attachment upload/retrieval were functionally verified in staging on 2 October 2026. Backups/restores, public DNS/HTTPS, and the separate administrative action audit remain open. |
-| **Automated checks** | GitHub Actions runs backend PHPUnit, frontend Vitest/ESLint/TypeScript/build checks, Compose validation, and image builds. The historical Session 1 baseline was 54 PHPUnit tests/354 assertions and 37 Vitest tests; attachment regression tests were added later. See [TESTING.md](./Docs/TESTING.md) and the latest CI run for current counts. |
+| **Current status** | Application workflows, CI, immutable ECR publication, manually approved SSM deployment, private attachment hardening, encrypted off-host recovery, isolated restore testing, and systemd freshness monitoring are implemented. The first unattended scheduled backup completed successfully on 7 October 2026. Public DNS/HTTPS, shared demonstration-credential remediation, and the separate administrative-action audit remain open. |
+| **Automated checks** | GitHub Actions runs backend PHPUnit, frontend Vitest/ESLint/TypeScript/build checks, Compose validation, pull-request image builds, and development-branch image publication. On 7 October 2026 the local suites passed with 58 PHPUnit tests/373 assertions and 132 Vitest tests across 14 files. See [TESTING.md](./Docs/TESTING.md) and the latest CI run. |
 
 ---
 
 ## Source of Truth Note
 
-This documentation was originally reconstructed from a conversation history record and has since been reconciled against the actual files on disk and the supplied staging evidence. Cross-check against actual source files before making significant changes. The active documentation was last reviewed on 2 October 2026; unresolved work is recorded in [ROADMAP.md](./Docs/ROADMAP.md) and [CI_CD_SESSION_2_HANDOFF.md](./Docs/CI_CD_SESSION_2_HANDOFF.md).
+The active documentation was reconciled against the `development` source tree, automated suites, merged pull-request history, and supplied staging evidence on 7 October 2026. Source code and executable configuration remain authoritative when they conflict with prose. Historical design artifacts are labeled as such and must not be used as current operating instructions. Unresolved work is recorded in [ROADMAP.md](./Docs/ROADMAP.md); deployment and recovery operations are maintained in [CI_CD_SESSION_2_HANDOFF.md](./Docs/CI_CD_SESSION_2_HANDOFF.md) and [STAGING_RECOVERY.md](./Docs/STAGING_RECOVERY.md).

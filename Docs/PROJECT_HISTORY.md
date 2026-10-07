@@ -210,4 +210,14 @@ From 30 September through 2 October 2026, CampusDesk progressed from local conta
 - Added `attachments-init`, fail-fast explicit local-disk writes, partial-write cleanup, scoped attachment authorization, and `AttachmentStorageTest` regression coverage.
 - Functionally verified a complete request lifecycle and successful authenticated PDF upload/retrieval in staging on 2 October 2026.
 
-The current authoritative operational record is [CI_CD_SESSION_2_HANDOFF.md](CI_CD_SESSION_2_HANDOFF.md). Restore-tested database and attachment backups, credential remediation, DNS, and HTTPS remain future work.
+## Phase 13: Routed role pages and staging recovery
+
+From 3 through 7 October 2026, the frontend redesign and recoverability work were merged into `development`.
+
+- Split the four role dashboards into guarded nested overview/task pages while preserving the existing API and authorization contracts; PR #18 merged the routed-page work.
+- Provisioned a private versioned S3 recovery bucket, customer-managed KMS key, encrypted SNS topic, scoped EC2 runtime policy, and missing-heartbeat CloudWatch alarm through CloudFormation.
+- Added root-owned recovery scripts and systemd units for coherent twice-daily database/attachment capture, artifact checksums, immutable image references, S3 upload metadata validation, download verification, local retention, and 15-minute freshness monitoring.
+- Verified manual capture `20261006T122804Z`, isolated database/attachment/backend-image restoration, alarm recovery from `ALARM` to `OK`, and unattended timer capture `20261007T000005Z`.
+- Merged PR #20 as `989ca54`; the recovery feature branch was then removed locally and remotely.
+
+The current authoritative operational record is [CI_CD_SESSION_2_HANDOFF.md](CI_CD_SESSION_2_HANDOFF.md). Credential remediation, DNS, HTTPS, periodic restore drills, and the separate administrative-action audit remain future work. Automatic failover and destructive live restoration are not implemented.

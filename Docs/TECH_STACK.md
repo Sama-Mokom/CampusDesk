@@ -1,6 +1,6 @@
 # CampusDesk technology stack
 
-**Last reviewed:** 2 October 2026
+**Last reviewed:** 7 October 2026
 
 ## Frontend
 
@@ -46,4 +46,17 @@ Development supports both the existing Windows bare-development workflow and a v
 
 Composer scripts support backend setup, development, and tests. npm scripts in `Frontend/package.json` run Vite, ESLint, Vitest, TypeScript checking, and the production build. Browser E2E coverage is not installed.
 
-GitHub Actions runs the backend/frontend quality gates, validates Compose, builds images, and publishes immutable commit-SHA images to Amazon ECR through OIDC. A separate manual-triggered workflow uses a protected `staging` environment, an environment-scoped OIDC role, and a restricted Systems Manager document to deploy exact digests to EC2. The current staging runtime is one Ubuntu 24.04 AMD64 host running Docker Compose; public DNS/HTTPS and restore-tested backups are not yet implemented.
+GitHub Actions runs the backend/frontend quality gates, validates Compose, builds images, and publishes immutable commit-SHA images to Amazon ECR through OIDC. A separate manual-triggered workflow uses a protected `staging` environment, an environment-scoped OIDC role, and a restricted Systems Manager document to deploy exact digests to EC2. The current staging runtime is one Ubuntu 24.04 AMD64 host running Docker Compose. Encrypted, versioned S3 recovery, KMS, SNS, CloudWatch heartbeat monitoring, twice-daily systemd capture, and isolated restore testing are implemented; public DNS/HTTPS and automatic failover are not.
+
+## Delivery and recovery
+
+| Technology | Use |
+| --- | --- |
+| GitHub Actions | Ubuntu 24.04 quality gates, Compose validation, image builds/publication, and manual staging deployment |
+| GitHub OIDC | Short-lived AWS credentials without stored access keys |
+| Amazon ECR | Immutable commit-SHA backend/frontend images resolved to digests for deployment |
+| AWS Systems Manager | Restricted, approval-gated invocation of the root-owned EC2 deployment script |
+| AWS CloudFormation | Recovery bucket, KMS key, alert topic, scoped instance-role policy, and heartbeat alarm |
+| Amazon S3 + AWS KMS | Private versioned recovery sets encrypted with the dedicated customer-managed key |
+| Amazon SNS + CloudWatch | Encrypted alerts and missing-backup-heartbeat detection |
+| systemd timers | Recovery capture at 00:00/12:00 UTC and freshness monitoring every 15 minutes |

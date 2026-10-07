@@ -1,5 +1,9 @@
 # Staging recovery
 
+**Last reviewed:** 7 October 2026
+
+**Verified state:** CloudFormation stack `campusdesk-staging-recovery` is complete; manual capture `20261006T122804Z`, isolated restore, scheduled monitor execution, and unattended timer capture `20261007T000005Z` passed. This runbook remains the operating procedure; live restoration is incident-controlled and destructive switching has not been performed.
+
 CampusDesk staging recovery sets contain a transactionally consistent MySQL
 dump, the complete private-attachment volume, checksums, record counts, and the
 exact container image references in use when the set was captured. The capture

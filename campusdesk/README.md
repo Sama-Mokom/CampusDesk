@@ -14,6 +14,8 @@ php artisan migrate --seed
 composer run dev
 ```
 
+`composer run dev` starts Laravel and the Vue dev server. Use `composer run dev-mail` when queued notification email must also be processed, or run `php artisan queue:work` separately.
+
 ## Tests
 
 ```bash

@@ -1,6 +1,6 @@
 # CampusDesk — Known Issues, Bugs & Lessons Learned
 
-**Last reviewed:** 2 October 2026
+**Last reviewed:** 7 October 2026
 
 This document is a knowledge base of every significant bug encountered during development, its root cause, and its resolution. Future agents should read this before touching related code to avoid repeating the same mistakes.
 
@@ -63,7 +63,7 @@ public function destroy(Request $request): Response
 Route::get('/requests/{docRequest}/stages', [RequestStageController::class, 'forRequest']);
 ```
 
-**Status:** ✅ RESOLVED — the route uses `{docRequest}` and the endpoint returns the ordered stage timeline. The Staff Dashboard may continue using the request-show endpoint.
+**Status:** ✅ RESOLVED — the route uses `{docRequest}` and the endpoint returns the ordered stage timeline. The routed staff pages may also use the authenticated request-show endpoint.
 
 ---
 
@@ -263,7 +263,7 @@ export type DegreeType = 'BACHELOR' | 'CERTIFICATE' | 'MASTER' | 'PHD'
 
 ### ✅ RESOLVED — Wrong Endpoint Used for Staff "View Request Details" (Empty Timeline)
 
-**Symptom:** "View details" on a stage in Staff Dashboard showed empty stage timeline.
+**Symptom:** "View details" in the original staff dashboard showed an empty stage timeline. The current staff case workspace retains regression coverage for the corrected endpoint.
 
 **Root cause:** Frontend was calling `fetchRequestStages(requestId)` which hits the staff queue endpoint — that endpoint deliberately filters to only actionable/unclaimed stages, so claimed/resolved stages disappeared.
 

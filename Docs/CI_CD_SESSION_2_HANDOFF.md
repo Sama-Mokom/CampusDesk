@@ -4,7 +4,7 @@
 
 **Last reviewed and updated:** 7 October 2026
 
-**Repository branch:** `development`; recovery automation is staged in `ops/backup-recovery` through draft PR #20
+**Repository branch:** `development`; recovery automation and its validation record were merged by PR #20 at merge commit `989ca54`
 
 **Verified recovery implementation commit:** `e3c53363f85369c0a0f9f6823c3cef4d041b532a Add staging backup and recovery automation`
 
@@ -14,7 +14,7 @@
 
 ## Purpose
 
-This is the single authoritative record for the CampusDesk CI/CD implementation, from the verified local Docker foundation through continuous integration, immutable image publication, AWS staging, controlled deployment, and attachment-storage hardening. It consolidates the former Session 1 Docker document and the Session 2 staging handoff.
+This is the single authoritative record for the CampusDesk CI/CD implementation, from the verified local Docker foundation through continuous integration, immutable image publication, AWS staging, controlled deployment, attachment-storage hardening, encrypted off-host recovery, isolated restore testing, and scheduled freshness monitoring. It consolidates the former Session 1 Docker document and the Session 2 staging handoff.
 
 It records:
 
@@ -198,7 +198,7 @@ Laravel's `local` disk root is `storage/app/private`. Request files stored under
 
 Local Compose bind-mounts that path to ignored `docker-data/attachments`. Backend and worker see the same directory. A file written as the Apache user was verified from Windows, from the worker, and after application-container replacement.
 
-This protects against container replacement, not host disk loss. Staging consequently uses a named volume with an initializer, while backup/restore verification remains outstanding.
+This protects against container replacement, not host disk loss. Staging consequently uses a named volume with an initializer plus encrypted, versioned off-host recovery sets. Manual and unattended capture, upload/download validation, and an isolated database/attachment/backend-image restore were verified by 7 October 2026; automatic failover and destructive live restoration remain out of scope.
 
 ### Queue behavior and shutdown
 
@@ -1063,7 +1063,7 @@ The worker recorded three restart attempts immediately after boot because it rea
 
 ## Staging recovery checkpoint
 
-The recovery implementation at commit `e3c53363f85369c0a0f9f6823c3cef4d041b532a` was installed from a detached, clean release worktree on 6 October 2026. Draft PR #20 contains the reviewed scripts, systemd units, CloudFormation template, example environment file, and detailed runbook in [`STAGING_RECOVERY.md`](STAGING_RECOVERY.md). All applicable pull-request checks passed; image-publication jobs correctly skipped for the pull-request event.
+The recovery implementation at commit `e3c53363f85369c0a0f9f6823c3cef4d041b532a` was installed from a detached, clean release worktree on 6 October 2026. PR #20 contains the reviewed scripts, systemd units, CloudFormation template, example environment file, and detailed runbook in [`STAGING_RECOVERY.md`](STAGING_RECOVERY.md). Validation commits `865d516` and `a0111a7` record the manual and unattended evidence; the PR was merged into `development` as `989ca54`. All applicable pull-request checks passed, image-publication jobs correctly skipped for the pull-request event, and the merge-push workflow passed while publishing both images.
 
 The CloudFormation stack `campusdesk-staging-recovery` reached `CREATE_COMPLETE` and provisioned a private, versioned SSE-KMS recovery bucket, customer-managed KMS key, encrypted SNS alert topic, resource-scoped inline permissions for the existing EC2 runtime role, and a CloudWatch missing-heartbeat alarm. The original manually created recovery bucket remains untouched pending a deliberate retention or removal decision.
 
@@ -1158,7 +1158,7 @@ Do not paste the resulting account ID, public hostname, image digests, environme
 
 ## Recommended next steps
 
-### Priority 1: protect and recover the existing state
+### Priority 1: maintain recovery assurance and remediate demonstration access
 
 1. [x] Verify that swap is active and persists across reboot.
 2. [x] Record disk, memory, and container usage after the completed seed.
@@ -1183,7 +1183,7 @@ The manually approved SSM deployment workflow is implemented and verified. Its n
 2. document and checksum future host-script revisions;
 3. add an explicit controlled procedure for rolling out repository Compose changes without weakening the restricted SSM interface;
 4. preserve the no-op/idempotency test whenever deployment behavior changes; and
-5. add a deliberately isolated failure-path exercise only after database and attachment restore procedures exist.
+5. add a deliberately isolated deployment failure-path exercise without modifying the proven live volumes.
 
 ### Priority 4: prepare for controlled public staging access
 

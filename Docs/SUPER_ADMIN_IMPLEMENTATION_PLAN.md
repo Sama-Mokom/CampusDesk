@@ -1,10 +1,10 @@
 # Super Admin dashboard — implementation plan
 
-**Status:** Implementation shipped in September 2026; verification gaps remain. This is the original task 7 plan, retained as design history; use [API.md](API.md), [FEATURES.md](FEATURES.md), and the source code for the shipped contract. Remaining test and manual-review work is recorded in [TESTING.md](TESTING.md).
+**Status:** Historical implementation plan. The backend shipped in September 2026 and the routed frontend is now merged into `development`. Statements below are preserved as planning context and may describe the pre-implementation architecture; use [API.md](API.md), [FEATURES.md](FEATURES.md), [UI_UX.md](UI_UX.md), and source code for the current contract. Remaining verification work is recorded in [TESTING.md](TESTING.md).
 
 ## Scope and settled decisions
 
-Deliver protected CRUD for faculties, departments, programmes, request types, and users; a separate staff `admin_level` endpoint; system statistics; a paginated system-wide request list; a paginated `status_history` audit log; and a live `AdminDashboard.vue`. The existing Super Admin route and Sanctum gate remain the authorization foundation.
+The original scope was protected CRUD for faculties, departments, programmes, request types, and users; a separate staff `admin_level` endpoint; system statistics; a paginated system-wide request list; a paginated `status_history` audit log; and a live Super Admin interface. The shipped frontend now uses focused pages under `Frontend/src/views/admin/` rather than `AdminDashboard.vue`. The Super Admin route and Sanctum gate remain the authorization foundation.
 
 1. Hard delete only unused records. A referenced record returns `409 Conflict` with a useful message. Do not rely on database cascades to decide whether deletion is safe. No archive/deactivation feature is included here.
 2. Remove the arbitrary request-status override. The dashboard may expose the existing `POST /api/requests/{request}/reopen` action only when a request is rejected. Normal claim, resolve, and collect transitions keep their current owners and rules.
@@ -15,7 +15,7 @@ Deliver protected CRUD for faculties, departments, programmes, request types, an
 ## Architecture at the time of planning
 
 - `routes/api.php` has an empty `auth:sanctum` + `super_admin` group. `EnsureIsSuperAdmin` uses the `is-super-admin` gate, which checks `role = staff` and `staff_profiles.admin_level = super_admin`.
-- `Frontend/src/views/SuperAdminView.vue` renders `AdminDashboard.vue`. It uses the shared Axios instance through `Frontend/src/services/admin.ts`.
+- At planning time, `Frontend/src/views/SuperAdminView.vue` rendered `AdminDashboard.vue`. It now hosts nested admin routes whose pages use page-scoped composables and the shared Axios instance through `Frontend/src/services/admin.ts`.
 - `StageGenerationService` resolves request-type sequence entries `STUDENT_DEPARTMENT`, `FACULTY_RECORDS`, and literal department IDs at request creation. Editing a template must not rewrite already generated stages.
 - `Programme` derives `faculty_id` from `department_id` on create and department change. Do not accept an independent programme faculty ID as a trusted write value.
 - Staff can belong to multiple departments through `department_staff`; exactly one assignment per staff profile is primary for this feature. Department-admin powers follow that primary assignment.

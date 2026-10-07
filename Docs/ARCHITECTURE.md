@@ -1,6 +1,6 @@
 # CampusDesk — System Architecture
 
-**Last reviewed:** 2 October 2026
+**Last reviewed:** 7 October 2026
 
 ## Overall Architecture
 
@@ -66,7 +66,7 @@ The deployment is automated after a manual workflow dispatch and protected-envir
 
 ## Frontend Architecture
 
-The Issue #7 presentation refactor adds the shared `components/ui` layer, `components/layout/AuthLayout.vue`, and domain components under `components/student`, `components/staff`, and `components/admin`. The four dashboard routes still use their existing service modules and singleton `useAuth`; no new store or backend API was introduced. See [UI_UX.md](UI_UX.md) and the [verification record](FRONTEND_REDESIGN.md).
+The Issue #7 presentation refactor adds the shared `components/ui` layer, `components/layout/AuthLayout.vue`, domain components, and guarded nested pages for each role. The role views are layout hosts containing `RouterView`; page-scoped composables load only the data needed by the selected URL. Existing service modules and singleton `useAuth` remain in place; no new store or backend API was introduced. See [UI_UX.md](UI_UX.md) and the [verification record](FRONTEND_REDESIGN.md).
 
 - **Framework:** Vue 3 with Composition API and `<script setup>`
 - **Language:** TypeScript (strict mode)
@@ -89,26 +89,35 @@ Frontend/
 │   │   └── index.ts               ← ALL TypeScript interfaces (single source of truth)
 │   ├── composables/
 │   │   ├── useAuth.ts             ← token + user state management
+│   │   ├── useStudentRequests.ts  ← student list/detail state
+│   │   └── admin/                 ← page-scoped admin state
 │   ├── services/
 │   │   ├── api.ts                 ← Axios instance + interceptors
 │   │   ├── auth.ts                ← login/register/logout API calls
 │   │   ├── requests.ts            ← student request API calls
 │   │   ├── stages.ts              ← staff stage API calls
-│   │   ├── notifications.ts        ← in-app notification API calls
+│   │   ├── notifications.ts       ← in-app notification API calls
+│   │   ├── deptAdmin.ts           ← department oversight/reassignment
+│   │   ├── admin.ts               ← Super Admin APIs
 │   │   └── reference.ts           ← dropdown data (faculties, depts, etc.)
 │   ├── router/
 │   │   └── index.ts               ← routes + role-based guards
 │   ├── views/
 │   │   ├── LoginView.vue          ← login page
 │   │   ├── RegisterView.vue       ← student registration page
-│   │   ├── StudentView.vue        ← wrapper → StudentDashboard
-│   │   ├── StaffView.vue          ← wrapper → StaffDashboard
-│   │   ├── DeptAdminView.vue      ← department admin API dashboard
-│   │   └── SuperAdminView.vue     ← Super Admin API dashboard
+│   │   ├── StudentView.vue        ← student layout + nested RouterView
+│   │   ├── StaffView.vue          ← staff layout + nested RouterView
+│   │   ├── DeptAdminView.vue      ← department-admin layout + RouterView
+│   │   ├── SuperAdminView.vue     ← Super Admin layout + RouterView
+│   │   ├── student/               ← overview, list, create, detail pages
+│   │   ├── staff/                 ← overview, queue, active-case pages
+│   │   ├── dept-admin/            ← overview and department-work pages
+│   │   └── admin/                 ← overview, requests, users, references, history
 │   └── components/
-│       ├── StudentDashboard.vue   ← main student UI (WIRED to real API)
-│       ├── StaffDashboard.vue     ← main staff UI (WIRED to real API)
-│       ├── AdminDashboard.vue     ← Super Admin management and oversight UI
+│       ├── student/               ← request form and request card
+│       ├── staff/                 ← case card and resolution workspace
+│       ├── admin/                 ← shared admin fields, pagination, audit, delete dialog
+│       ├── ui/                    ← modal, icons, headers, skeletons, empty states
 │       ├── DocumentViewer.vue     ← blob URL file viewer (WIRED)
 │       ├── RequestTimeline.vue    ← stage progression display
 │       ├── NotificationBell.vue   ← notification bell (wired to notification API)
@@ -124,7 +133,7 @@ All frontend application code is contained in `Frontend/src/`; the project is a 
 ## Backend Architecture
 
 - **Framework:** Laravel 12
-- **Language:** PHP 8.2
+- **Language:** PHP `^8.2`; verified container runtime PHP 8.3
 - **Auth:** Laravel Sanctum 4.x (Bearer token mode)
 - **Queue:** Database driver (`jobs` table)
 - **Mail:** SMTP via Mailtrap (development)
@@ -146,7 +155,11 @@ campusdesk/
 │   │   │   ├── RequestStageController.php              ← staff queue + claim + resolve
 │   │   │   ├── NotificationController.php               ← list + mark-read notifications
 │   │   │   ├── AttachmentController.php                ← protected file serving
-│   │   │   └── ReferenceDataController.php             ← public dropdown data
+│   │   │   ├── ReferenceDataController.php             ← public dropdown data
+│   │   │   ├── DeptAdminController.php                 ← primary-department oversight/reassignment
+│   │   │   ├── AdminReferenceController.php            ← protected reference CRUD
+│   │   │   ├── AdminUserController.php                 ← protected user/admin-level CRUD
+│   │   │   └── AdminOverviewController.php             ← stats, requests, status history
 │   │   ├── Middleware/
 │   │   │   ├── EnsureIsStudent.php      ← checks is_student gate
 │   │   │   ├── EnsureIsStaff.php        ← checks is_staff gate
@@ -178,6 +191,8 @@ campusdesk/
 │   │   └── RequestStatusUpdated.php
 │   ├── Services/
 │   │   ├── StageGenerationService.php  ← resolves symbolic department tokens
+│   │   ├── RequestCreationService.php  ← creates request/stage/history graph atomically
+│   │   ├── SeedRequestProgressionService.php ← advances deterministic seed fixtures
 │   │   └── RequestStatusNotificationService.php ← queues email + creates in-app lifecycle notifications
 │   ├── Http/Resources/
 │   │   ├── RequestResource.php
@@ -200,7 +215,7 @@ campusdesk/
 │       ├── StudentSeeder.php        ← seeds 10 students per academic department
 │       ├── DepartmentStaffSeeder.php← assigns staff to depts; primary→dept_admin
 │       ├── RequestTypeSeeder.php    ← seeds 4 request types with symbolic sequences
-│       └── support/
+│       └── Support/
 │           ├── FacultyMarkdownParser.php    ← parses university structure markdown
 │           ├── FacultyMatriculeMapper.php   ← maps faculty codes to matricule prefixes
 │           ├── DepartmentTypeMapper.php     ← maps dept codes to type enum values
@@ -215,10 +230,8 @@ campusdesk/
 ├── bootstrap/
 │   └── app.php                      ← HandleCors + middleware aliases
 ├── tests/
-│   ├── Feature/
-│   │   ├── SequentialRoutingBugConditionTest.php   ← confirms concurrency defects
-│   │   └── SequentialRoutingPreservationTest.php   ← guards correct behaviour
-│   └── Unit/                        ← empty (default Laravel scaffold only)
+│   ├── Feature/                     ← auth, routing, lifecycle, admin, seeder, attachment tests
+│   └── Unit/                        ← default scaffold example only
 └── resources/views/
     └── emails/
         └── request-status-update.blade.php ← notification email template
@@ -300,20 +313,19 @@ INSERT notifications row + SendRequestStatusNotification::dispatch(...)->afterCo
   ↓
 Job pushed to `jobs` table (database queue driver)
   ↓
-php artisan queue:work (or via composer run dev) picks up job
+php artisan queue:work (or the `composer run dev-mail` script) picks up job
   ↓
 Mail::to($student)->send(new RequestStatusUpdated(...))
   ↓
 Mailtrap (dev) receives email
 ```
 
-Queue must be running for notifications to send. Use `composer run dev` to start server + queue worker + log viewer concurrently, or run `php artisan queue:work` in a separate terminal.
+Queue must be running for notification emails to send. Use `composer run dev-mail` to start Laravel, the queue worker, and Vite together, or run `php artisan queue:work` in a separate terminal. `composer run dev` intentionally starts only Laravel and Vite.
 
 ## Deferred Integration Architecture
 
-Four future initiatives have been scoped but are not implemented:
+Three future integration initiatives have been scoped but are not implemented. The design-system overhaul formerly listed here shipped in Issue #7; its remaining work is browser acceptance and optional E2E automation, not a new frontend architecture.
 
-- **Design-system overhaul:** The Vue SPA in `Frontend/src/` remains the only frontend target. Figma work should introduce reusable, accessible Vue components and tokens without changing backend business logic by default.
 - **Real-time delivery:** `RequestStatusNotificationService` is the current lifecycle notification seam. Future first-party real-time UI updates should publish domain events from that seam and use WebSockets or SSE; signed webhooks are reserved for third-party consumers. Delivery must be queued, idempotent, retryable, and auditable.
 - **AI support:** An AI gateway must be isolated from request mutation paths. It may receive curated support knowledge and redacted, read-only context only. Escalation requires persisted support conversations/messages and a human handoff ticket associated with a department or super administrator.
 - **Payments:** Mobile Money support must sit behind a provider interface. A `payments` aggregate and verified provider webhook will control an `awaiting_payment` request state; successful-payment handling must lock the payment and request records before releasing the request into the existing stage queue.
@@ -326,11 +338,11 @@ Request types store a `default_department_sequence` JSON array that can contain 
 - `"FACULTY_RECORDS"` → resolves to the `records`-type department in the student's faculty
 - Integer → used as-is
 
-**Current implementation:** `StageGenerationService::resolveSequence()` maps the complete template through `resolveDepartmentId()`. `RequestController::store()` injects and uses the service when creating initial stages. Reopening does not regenerate stages.
+**Current implementation:** `StageGenerationService::resolveSequence()` maps the complete template through `resolveDepartmentId()`. `RequestCreationService` injects and uses the stage service to create the request, stages, and initial history atomically; `RequestController::store()` uses the creation service before adding attachments in its outer transaction. Reopening does not regenerate stages.
 
 ## Seeder Architecture
 
-The seeder suite parses a real University of Buea faculty/department/programme structure from a markdown file (`database/seeders/support/university_programs_structure.md`) and seeds a complete, realistic dataset:
+The seeder suite parses a real University of Buea faculty/department/programme structure from a markdown file (`database/seeders/Support/university_programs_structure.md`) and seeds a complete, realistic dataset:
 
 1. `FacultySeeder` — all UB faculties with matricule prefixes
 2. `DepartmentSeeder` — all departments with type classification (`academic`/`records`/`admin`); also creates one `records` department per faculty
@@ -339,3 +351,6 @@ The seeder suite parses a real University of Buea faculty/department/programme s
 5. `StudentSeeder(10/dept)` — 10 students per academic department
 6. `DepartmentStaffSeeder` — assigns all staff to departments; primary staff automatically elevated to `dept_admin`
 7. `RequestTypeSeeder` — 4 request types (Transcript, Enrollment Attestation, Completion Attestation, Correction of Transcript)
+8. `RequestSeeder(24)` — deterministic requests distributed across pending, in-review, forwarded, ready, rejected, and collected states
+9. `AttachmentSeeder` — private-storage attachment fixtures
+10. `NotificationSeeder` — in-app demonstration notifications

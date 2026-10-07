@@ -1,5 +1,7 @@
 # CampusDesk — Recent Implementation Updates
 
+**Last reviewed:** 7 October 2026
+
 This document records the completed data-seeding, request-fixture, staff-test-user, and frontend authentication updates. It supersedes older documentation that describes Tier 2+ seeders, request fixtures, or the notification loop as unimplemented.
 
 ## Complete Development Dataset
@@ -15,7 +17,7 @@ This document records the completed data-seeding, request-fixture, staff-test-us
 
 Seeded request progression is valid rather than arbitrary: every handled stage uses a staff `users.id` assigned to that stage's department, stage transitions create stage history through `RequestStageObserver`, and parent request transitions create matching parent history records. Seeders intentionally do not invoke the notification service, queue jobs, or email delivery.
 
-The seeder support directory is `database/seeders/Support/`. Its uppercase casing matches the `Database\\Seeders\\Support` namespace and is safe on case-sensitive filesystems.
+The seeder support directory is `database/seeders/Support/`. Its uppercase casing matches the `Database\\Seeders\\Support` namespace and is safe on case-sensitive filesystems. `university_programs_structure.md` is the one canonical parser input; the exact unused copy formerly named `university_programs_structure (1).md` was removed during the 7 October documentation reconciliation.
 
 ## Shared Request Creation
 
@@ -27,7 +29,7 @@ The seeder support directory is `database/seeders/Support/`. Its uppercase casin
 
 `Model::preventSilentlyDiscardingAttributes()` is enabled in `AppServiceProvider`. Unsupported mass-assigned attributes now fail immediately instead of disappearing silently.
 
-Reference models that currently have no public write routes use `$guarded = []`: `Faculty`, `Department`, `Programme`, and `RequestType`. Models involving identity, roles, ownership, workflow state, files, notifications, or audit history retain explicit `$fillable` allow-lists. If future admin CRUD endpoints are introduced for reference data, those models must be reviewed and either receive explicit allow-lists or be called only with validated, allow-listed payloads.
+All current models use explicit `$fillable` allow-lists. The protected Super Admin CRUD endpoints validate and pass only named fields for `Faculty`, `Department`, `Programme`, and `RequestType`; identity, roles, ownership, workflow state, files, notifications, and audit models likewise retain explicit allow-lists.
 
 ## Staff Test Users
 

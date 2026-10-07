@@ -1,6 +1,6 @@
 # CampusDesk — Architecture Decision Record (ADR)
 
-**Last reviewed:** 2 October 2026
+**Last reviewed:** 7 October 2026
 
 Each entry: Decision, Context, Options Considered, Decision Made, Reasoning, Consequences, Status.
 

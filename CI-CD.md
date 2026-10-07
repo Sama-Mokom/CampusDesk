@@ -1,6 +1,6 @@
 # CampusDesk CI/CD Learning Track
 
-**Last reviewed:** 2 October 2026
+**Last reviewed:** 7 October 2026
 
 This file is the entry point for the CampusDesk CI/CD work. Detailed implementation records live under `Docs/`.
 
@@ -23,7 +23,11 @@ This file is the entry point for the CampusDesk CI/CD work. Detailed implementat
 - [x] Verify deployment locking, exact digest resolution, migration execution, health checks, and the idempotent no-op path.
 - [x] Initialize the private attachment volume before application startup and reject failed storage writes without persisting corrupt records.
 - [x] Functionally verify the full request lifecycle and authenticated attachment upload/download in staging.
-- [ ] Automate backup and restore verification.
+- [x] Provision encrypted, versioned off-host recovery storage and least-privilege runtime access.
+- [x] Automate twice-daily coherent database/attachment recovery capture with upload/download verification.
+- [x] Complete an isolated database, attachment, and captured-backend-image restore test.
+- [x] Enable 15-minute freshness monitoring and verify the missing-heartbeat CloudWatch alarm returns to `OK`.
+- [x] Verify the first unattended systemd timer-triggered backup cycle.
 - [ ] Add DNS and HTTPS before controlled public staging access.
 
 ## Comprehensive implementation and operations guide
@@ -41,6 +45,7 @@ Read the consolidated [CI/CD Comprehensive Implementation and Operations Guide](
 - migrations, one-time seeding, and manual Super Admin creation;
 - attachment-volume initialization, storage failure handling, authorization hardening, and staging verification;
 - every significant deployment failure and its resolution; and
+- recovery infrastructure, scheduled capture, isolated restore, freshness monitoring, and first unattended-cycle evidence;
 - current limitations and prioritized continuation work.
 
 ## End-to-end direction
@@ -76,12 +81,12 @@ flowchart LR
 
 ## Next learning checkpoint
 
-The controlled deployment workflow is implemented and verified. The next milestone is recoverability and security hardening before public access:
+The controlled deployment and recovery workflows are implemented and verified. The next milestone is security and public-access readiness:
 
-1. establish and restore-test database and attachment backups;
-2. remove or rotate the known shared passwords in the demonstration seed;
-3. record deployed image digests in a secure operational location;
+1. remove, disable, or rotate the known shared passwords in the demonstration seed;
+2. record deployed image digests and recovery evidence in an approved operational location;
+3. continue periodic isolated restore drills and investigate every backup/monitor service failure;
 4. evaluate Systems Manager Session Manager so interactive SSH can eventually be removed; and
-5. add DNS and HTTPS only after the private staging security baseline is complete.
+5. add DNS and HTTPS only after the remaining private-staging security work is complete.
 
 Pushes to `development` publish immutable images automatically. EC2 deployment remains deliberately manual-triggered and approval-gated, and the application remains private behind an SSH tunnel. Repository changes to `compose.staging.yaml` or the fixed host deployment script require a separate reviewed host update.

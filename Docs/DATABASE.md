@@ -1,6 +1,6 @@
 # CampusDesk — Database Documentation
 
-**Last reviewed:** 2 October 2026
+**Last reviewed:** 7 October 2026
 
 ## Super Admin data integrity
 
@@ -418,7 +418,9 @@ stateDiagram-v2
 
 | File | Purpose |
 |------|---------|
-| `0001_01_01_000000_create_users_table` | Default Laravel users, cache, jobs tables |
+| `0001_01_01_000000_create_users_table` | Default Laravel users and password-reset/session tables |
+| `0001_01_01_000001_create_cache_table` | Cache and cache-lock tables |
+| `0001_01_01_000002_create_jobs_table` | Queue jobs, batches, and failed-jobs tables |
 | `2026_04_10_005904_create_faculties_table` | faculties |
 | `2026_04_10_010421_create_departments_table` | departments |
 | `2026_04_10_011049_create_programmes_table` | programmes |
@@ -433,7 +435,7 @@ stateDiagram-v2
 | `2026_04_10_135144_create_attachments_table` | attachments |
 | `2026_04_10_135313_create_notifications_table` | notifications |
 | `2026_04_12_232151_create_personal_access_tokens_table` | Sanctum tokens |
-| `2026_04_12_235141_add_role_to_student_profiles_table` | adds status enum to student_profiles |
+| `2026_04_12_235141_add_role_to_student_profiles_table` | adds profile FKs, matricule, level, and status fields to student_profiles |
 | `2026_04_27_010207_add_column_to_departments_table` | adds name column to departments |
 | `2026_07_21_090019_add_matricule_prefix_to_faculties_table` | adds matricule_prefix to faculties |
 | `2026_07_21_090636_add_department_id_to_programmes_table` | adds department_id FK to programmes |
@@ -443,8 +445,7 @@ stateDiagram-v2
 | `2026_07_27_000002_change_degree_type_enum_on_programmes_table` | BSc/BEng→BACHELOR/CERTIFICATE/etc. |
 | `2026_07_27_000003_fix_programmes_code_unique_constraint` | code unique → (code, dept_id) unique |
 | `2026_07_27_000004_fix_programmes_triple_unique_constraint` | (code, dept_id) → (code, dept_id, degree_type) |
-
-The migration `2026_09_16_000000_create_stage_reassignments_table` adds the immutable handoff-audit table.
+| `2026_09_16_000000_create_stage_reassignments_table` | immutable claimed-stage handoff audit |
 
 ## Seeder Data
 
@@ -457,6 +458,9 @@ The `DatabaseSeeder` calls in dependency order:
 5. `StudentSeeder(10/dept)` — 10 students per academic department
 6. `DepartmentStaffSeeder` — assigns staff to departments; primary → `dept_admin`
 7. `RequestTypeSeeder` — 4 request types with symbolic sequences
+8. `RequestSeeder(24)` — creates request graphs and advances fixtures across all six lifecycle states
+9. `AttachmentSeeder` — creates private-storage attachment fixtures
+10. `NotificationSeeder` — creates in-app demonstration notifications
 
 **No Tinker required:** Unlike early development, the full seeder suite including staff and department assignments is fully automated. `php artisan migrate:fresh --seed` produces a complete, usable dataset.
 

@@ -1,6 +1,6 @@
 # CampusDesk — User Roles, Permissions & Flows
 
-**Last reviewed:** 2 October 2026
+**Last reviewed:** 7 October 2026
 
 ## User Roles
 
@@ -93,9 +93,11 @@ Axios response interceptor → clears localStorage → window.location.href = '/
 ```mermaid
 sequenceDiagram
     participant St as Student
-    participant SD as StudentDashboard.vue
+    participant SD as StudentNewRequestPage.vue
     participant RS as requests.ts
     participant RC as RequestController
+    participant RCS as RequestCreationService
+    participant SGS as StageGenerationService
     participant DB as Database
 
     St->>SD: Fill form, select type, attach files
@@ -104,14 +106,14 @@ sequenceDiagram
     RS->>RC: POST /api/requests
     RC->>RC: StoreRequestRequest validates
     RC->>DB: BEGIN TRANSACTION
-    RC->>DB: INSERT requests (status=pending)
-    RC->>DB: INSERT attachments (if any)
-    RC->>RC: Load RequestType.default_department_sequence
-    RC->>RC: resolveSequence() — resolve symbolic tokens
+    RC->>RCS: createForStudent(user, type, description)
+    RCS->>DB: INSERT requests (status=pending)
+    RCS->>SGS: Resolve symbolic department sequence
     loop for each department in sequence
-        RC->>DB: INSERT request_stages (sequence_order=n, status=pending)
+        RCS->>DB: INSERT request_stages (sequence_order=n, status=pending)
     end
-    RC->>DB: INSERT status_history (old=null, new=pending, changed_by=null)
+    RCS->>DB: INSERT status_history (old=null, new=pending, changed_by=null)
+    RC->>DB: Store files, then INSERT attachments (if any)
     RC->>DB: COMMIT
     RC-->>SD: RequestResource (with stages, attachments, status_history)
     SD->>SD: Show confirmation, add new request to list
@@ -165,7 +167,7 @@ Department-admin oversight is restricted to the administrator's **primary** depa
 ```mermaid
 sequenceDiagram
     participant DA as Department Admin
-    participant UI as DeptAdminDashboard
+    participant UI as DeptAdminRequestsPage.vue
     participant API as DeptAdminController
     participant DB as Database
     participant RS as Receiving Staff
@@ -301,7 +303,7 @@ sequenceDiagram
     M->>ST: Email: "Update on your {request_type} request"
 ```
 
-**Note:** The queue worker must be running. Use `composer run dev` to start it automatically alongside `php artisan serve`.
+**Note:** The queue worker must be running. Use `composer run dev-mail` to start Laravel, the worker, and Vite together. `composer run dev` does not start a worker.
 
 ---
 

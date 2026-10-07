@@ -1,14 +1,14 @@
 # CampusDesk handoff
 
-## Frontend redesign branch (updated 5 October 2026)
+## Current handoff (updated 7 October 2026)
 
-Issue #7 is implemented on `development-7` with a shared slate/sky UI and redesigned Student/Staff/Department Admin/Super Admin views. The user confirmed that the original redesigned views render properly; functional acceptance remains pending. A follow-up separates every dashboard into overview and task pages with nested routes and real sidebar links. Student request details are directly addressable; staff queue/cases and every Super Admin management collection have separate URLs. The follow-up passes 132 frontend tests, lint, typecheck and production build; all 17 dashboard URLs pass an HTTP preview smoke check. See [FRONTEND_REDESIGN.md](FRONTEND_REDESIGN.md) for the remaining manual acceptance work, and [UI_UX.md](UI_UX.md) for the route map. No backend or CI/CD behavior was changed.
+Issue #7's shared slate/sky UI and routed role pages are merged into `development`. Student request details are directly addressable; staff queue/cases and each Super Admin management collection have separate URLs. The original redesigned views were visually confirmed, while full browser acceptance of the later page separation remains open. On 7 October 2026 the frontend suite passed 132 tests across 14 files; the earlier lint, typecheck, build, and 17-route preview smoke checks also passed. See [FRONTEND_REDESIGN.md](FRONTEND_REDESIGN.md) for the merge record and remaining manual acceptance work, and [UI_UX.md](UI_UX.md) for the route map.
 
-## Current state (2 October 2026)
+## Current state (7 October 2026)
 
 CampusDesk is a Laravel 12 and Vue 3 university document request system. Students register, submit requests with private attachments, track stages, reopen rejected requests, and mark ready requests as collected. Staff claim and resolve stages. Department admins oversee their primary department and reassign claimed stages. Super Admins manage reference data and users, see system statistics and requests, and review request/stage status history. The notification bell uses the authenticated API. Email dispatch requires a running queue worker.
 
-The local Docker foundation, CI pipeline, immutable ECR publication, and manually approved SSM deployment path are complete and verified. Staging runs Vue/Nginx, Laravel/Apache, a separate Laravel queue worker, and MySQL 8.4 on one Ubuntu 24.04 AMD64 EC2 instance. The frontend binds only to EC2 loopback and is currently reached through an SSH tunnel at local port 18080. A complete request lifecycle and authenticated private attachment upload/download were functionally verified on 2 October 2026. See the consolidated [CI/CD implementation and operations guide](CI_CD_SESSION_2_HANDOFF.md).
+The local Docker foundation, CI pipeline, immutable ECR publication, manually approved SSM deployment, attachment hardening, and off-host recovery path are complete and verified. Staging runs Vue/Nginx, Laravel/Apache, a separate Laravel queue worker, and MySQL 8.4 on one Ubuntu 24.04 AMD64 EC2 instance. The frontend binds only to EC2 loopback and is reached through an SSH tunnel at local port 18080. A complete request lifecycle and authenticated private attachment upload/download were verified on 2 October 2026. A coherent manual recovery capture, isolated restore, scheduled freshness checks, CloudWatch/SNS heartbeat path, and the first unattended twice-daily backup cycle were verified by 7 October 2026. See the consolidated [CI/CD implementation and operations guide](CI_CD_SESSION_2_HANDOFF.md).
 
 | Area | Implementation |
 |---|---|
@@ -24,13 +24,14 @@ The local Docker foundation, CI pipeline, immutable ECR publication, and manuall
 | Staging database initialization | Migrations and one-time full demonstration seed completed |
 | Staging users | Student and manually created Super Admin access verified |
 | Attachment durability and access | One-shot volume initializer, fail-fast write handling, cleanup on rollback, scoped download authorization, regression tests, and staging functional verification complete |
+| Off-host recovery | Private versioned S3, SSE-KMS, least-privilege EC2 access, twice-daily coherent captures, download verification, isolated restore test, 15-minute monitoring, and CloudWatch/SNS alarm path verified |
 | Deployment trigger | Deliberately manual-triggered and approval-gated; not automatic on every push |
 | Public DNS and HTTPS | Not implemented; access remains through an SSH tunnel |
 | Separate audit of administrative CRUD and elevation | Planned as roadmap task 9 |
 
 ## Where to work next
 
-The next infrastructure task is to establish restore-tested database and attachment backups, record deployed digests securely, and remediate shared demonstration credentials before any broader access. Systems Manager Run Command is already used for deployment without a GitHub SSH key; Session Manager remains a separate future option for interactive administration. Do not expose the seeded environment publicly. See [CI-CD.md](../CI-CD.md), [CI_CD_SESSION_2_HANDOFF.md](CI_CD_SESSION_2_HANDOFF.md), and [ROADMAP.md](ROADMAP.md).
+The next infrastructure tasks are to remediate shared demonstration credentials, record deployed digests and recovery evidence in an approved operational location, and continue periodic isolated restore drills before broader access. Systems Manager Run Command is already used for deployment without a GitHub SSH key; Session Manager remains a separate future option for interactive administration. Do not expose the seeded environment publicly. See [CI-CD.md](../CI-CD.md), [CI_CD_SESSION_2_HANDOFF.md](CI_CD_SESSION_2_HANDOFF.md), [STAGING_RECOVERY.md](STAGING_RECOVERY.md), and [ROADMAP.md](ROADMAP.md).
 
 Run the backend and frontend suites before extending the application. Attachments are intentionally loaded through the protected blob flow, so tests must not expect immediate public document URLs. `status_history` records request and stage transitions only. See [TESTING.md](TESTING.md).
 
@@ -45,6 +46,7 @@ Run the backend and frontend suites before extending the application. Attachment
 - Staging deployment: `.github/workflows/deploy-staging.yml`; the restricted SSM document calls `/usr/local/sbin/campusdesk-deploy` on EC2.
 - Local containers: `compose.yaml`; the real `.env.docker` is intentionally ignored.
 - Staging containers: `compose.staging.yaml` and `.env.staging.example`; the real EC2 `.env.staging` is intentionally ignored and must remain secret.
+- Staging recovery: `ops/staging/`, `ops/staging/aws/backup-infrastructure.yaml`, and `Docs/STAGING_RECOVERY.md`; `/etc/campusdesk/backup.env` is root-owned mode `0600` on EC2.
 - Images: `campusdesk/Dockerfile`, `Frontend/Dockerfile`, and both `docker/` configuration directories.
 
 ## Constraints
@@ -95,6 +97,7 @@ Bare development environment:
 ```bash
 cd campusdesk
 composer run dev
+composer run dev-mail  # includes the queue worker for notification email
 php artisan test
 
 cd ../Frontend
