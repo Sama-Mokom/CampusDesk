@@ -1,16 +1,16 @@
 # CampusDesk CI/CD Comprehensive Implementation and Operations Guide
 
-**Coverage:** Local Docker foundation completed 25 September 2026 through the first isolated staging recovery proof and backup-monitor activation completed 6 October 2026
+**Coverage:** Local Docker foundation completed 25 September 2026 through the first unattended staging recovery cycle verified 7 October 2026
 
-**Last reviewed and updated:** 6 October 2026
+**Last reviewed and updated:** 7 October 2026
 
 **Repository branch:** `development`; recovery automation is staged in `ops/backup-recovery` through draft PR #20
 
-**Verified recovery commit:** `e3c53363f85369c0a0f9f6823c3cef4d041b532a Add staging backup and recovery automation`
+**Verified recovery implementation commit:** `e3c53363f85369c0a0f9f6823c3cef4d041b532a Add staging backup and recovery automation`
 
-**Current phase:** CI, immutable ECR publication, manually approved SSM deployment automation, attachment-volume hardening, staging functional verification, and the first manual off-host backup plus isolated restore proof are complete; the first unattended timer-triggered backup remains pending
+**Current phase:** CI, immutable ECR publication, manually approved SSM deployment automation, attachment-volume hardening, staging functional verification, off-host backup automation, isolated restore testing, scheduled freshness monitoring, and the first unattended timer-triggered recovery cycle are complete
 
-**Runtime status:** the staging application is healthy and reachable through an SSH tunnel at `http://localhost:18080`; the request lifecycle, role transitions, notifications, collection, private attachment upload/download, off-host recovery capture, isolated restore, and backup-freshness heartbeat have been functionally verified
+**Runtime status:** the staging application is healthy and reachable through an SSH tunnel at `http://localhost:18080`; the request lifecycle, role transitions, notifications, collection, private attachment upload/download, manual and scheduled off-host recovery capture, isolated restore, and backup-freshness heartbeat have been functionally verified
 
 ## Purpose
 
@@ -1080,7 +1080,9 @@ The first recovery capture produced backup ID `20261006T122804Z`. It stopped onl
 
 Every recovery artifact was uploaded under the managed S3 prefix, required the configured KMS key and a non-null S3 version ID, was downloaded again, and passed checksum and archive validation before `OFFSITE_VERIFIED` and `last-offsite-success` were published. The isolated restore test then restored the database and attachments into temporary Docker resources, ran `CHECK TABLE` for every base table, compared captured database counts and attachment paths, started the captured backend image against the restored data, completed `migrate:status`, and removed the temporary volumes. Live staging remained healthy throughout the restore test.
 
-The 15-minute monitor has run both manually and from its timer, emitted `offsite_backup_freshness=OK` and `aws_backup_heartbeat=OK`, and changed the CloudWatch alarm from `ALARM` to `OK` through the encrypted SNS notification path. Both timers are enabled: backup capture at 00:00 and 12:00 UTC, and freshness monitoring every 15 minutes. The first unattended timer-triggered backup is still pending verification and must be recorded before draft PR #20 is marked ready.
+The 15-minute monitor has run both manually and from its timer, emitted `offsite_backup_freshness=OK` and `aws_backup_heartbeat=OK`, and changed the CloudWatch alarm from `ALARM` to `OK` through the encrypted SNS notification path. Both timers are enabled: backup capture at 00:00 and 12:00 UTC, and freshness monitoring every 15 minutes.
+
+The first unattended timer-triggered capture started at 00:00:03 UTC on 7 October 2026 and produced backup ID `20261007T000005Z`. The service completed with `Result=success` and `ExecMainStatus=0`; maintenance lasted 11 seconds; database, attachment, application restart, archive, and coherent-capture checks passed; and the S3 artifact metadata, marker metadata, upload, and download validation all passed. The latest local recovery-set ID and `last-offsite-success` ID matched, the root-owned `OFFSITE_VERIFIED` marker remained mode `0600`, both timers remained active with the next backup scheduled for 12:00 UTC, and all live services remained running with backend and database healthy.
 
 The accepted objectives remain a 12-hour RPO and one-hour RTO. The isolated restore proves the recovery set is usable without modifying live volumes; it is not evidence of automatic failover or of an approved destructive live-data switch. Live restoration remains an incident-controlled operation.
 
@@ -1100,7 +1102,7 @@ The accepted objectives remain a 12-hour RPO and one-hour RTO. The isolated rest
 - One EC2 instance is a single point of failure.
 - MySQL and attachments still share the instance's storage lifecycle, although download-verified off-host recovery sets now protect their recoverable state.
 - Recovery storage remains in one AWS account and region; cross-region replication, S3 Object Lock, and a final lifecycle/retention policy have not been approved.
-- The first unattended timer-triggered backup has not yet been observed, even though manual capture, offsite verification, isolated restore, scheduled heartbeat, and alarm recovery have passed.
+- Only the first unattended backup cycle has been formally recorded; operators must continue investigating every service failure and perform periodic isolated restore tests rather than treating successful capture alone as permanent restore assurance.
 - No Auto Scaling Group, load balancer, or rolling deployment exists.
 - Deployment is not zero-downtime.
 - Application rollback may be unsafe after a backward-incompatible migration.
@@ -1163,7 +1165,8 @@ Do not paste the resulting account ID, public hostname, image digests, environme
 3. [x] Create a MySQL backup procedure and perform a test restore into an isolated database/volume.
 4. [x] Back up `attachments_data` and test restoration.
 5. [x] Record the currently deployed backend, frontend, and MySQL digests in each root-only, encrypted, versioned recovery set.
-6. [ ] Decide whether the demo users should be deleted, disabled, or assigned unique passwords before any broader access.
+6. [x] Verify the first unattended timer-triggered capture, offsite validation, freshness heartbeat, and post-capture application health.
+7. [ ] Decide whether the demo users should be deleted, disabled, or assigned unique passwords before any broader access.
 
 ### Priority 2: harden administrative access
 
