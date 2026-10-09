@@ -121,7 +121,7 @@ PHPUnit regression tests in `SequentialRoutingPreservationTest` lock this behavi
 
 9. **`personal_access_tokens` table is manually migrated** — Sanctum tokens are stored in `personal_access_tokens` via migration `2026_04_12_232151_create_personal_access_tokens_table`. This is redundant with Sanctum's own migration. Verify this does not cause conflicts (no issues observed in practice).
 
-10. **Staging remains private and single-hosted** — access is still through an SSH tunnel and deployments have planned downtime. Encrypted, versioned off-host recovery, download verification, freshness monitoring, and an isolated database/attachment/backend-image restore have been proven; automatic failover and destructive live restoration have not. The remediation capability is implemented but must still be deployed and applied successfully before public exposure, alongside DNS and HTTPS work.
+10. **Staging remains private and single-hosted** — access is still through an SSH tunnel and deployments have planned downtime. Encrypted, versioned off-host recovery, download verification, freshness monitoring, and isolated database/attachment/backend-image restores have been proven; automatic failover and destructive live restoration have not. The account-security release and credential remediation were successfully applied on 9 October 2026. DNS and HTTPS remain required before public exposure.
 
 ## Staging Credential Remediation
 
@@ -131,6 +131,8 @@ Two staging-only Artisan commands provide the approved path:
 - `staging:remediate-demo-credentials` defaults to a dry run; `--apply` requires interactive confirmation, aborts if any matching account is a Super Admin, replaces the known password with an unrecorded random value, disables each affected account, revokes credentials, and records `demo_credentials.remediated`.
 
 Both commands refuse to run unless `APP_ENV=staging`. The exact operator sequence is documented in [STAGING_CREDENTIAL_REMEDIATION.md](STAGING_CREDENTIAL_REMEDIATION.md). That runbook is safe to commit because it contains no account identifiers, email addresses, passwords, tokens, hostnames, or environment values.
+
+The 9 October 2026 staging execution retained three role personas with separate unique credentials and remediated 618 other accounts: 540 students, 9 ordinary staff members, 69 department administrators, and no Super Admins. Verification returned zero accounts still matching the known password, 618 disabled accounts, and 618 remediation audit actions. Retained-role authentication and application health passed, followed by an off-site-verified recovery capture and successful isolated restore. Account identifiers and credentials remain only in approved private records.
 
 ## Staging Deployment Security
 

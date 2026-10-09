@@ -1,8 +1,12 @@
 # Staging recovery
 
-**Last reviewed:** 7 October 2026
+**Last reviewed:** 9 October 2026
 
-**Verified state:** CloudFormation stack `campusdesk-staging-recovery` is complete; manual capture `20261006T122804Z`, isolated restore, scheduled monitor execution, and unattended timer capture `20261007T000005Z` passed. This runbook remains the operating procedure; live restoration is incident-controlled and destructive switching has not been performed.
+**Verified state:** CloudFormation stack `campusdesk-staging-recovery` is complete; the original manual capture `20261006T122804Z`, unattended capture `20261007T000005Z`, post-remediation manual capture and isolated restore `20261009T113117Z`, scheduled capture `20261009T120010Z`, and scheduled freshness monitoring passed. This runbook remains the operating procedure; live restoration is incident-controlled and destructive switching has not been performed.
+
+The first post-remediation capture completed on 9 October 2026 with service result `success`, main status `0`, bucket versioning enabled, 11 seconds of maintenance, healthy application restart, coherent capture, valid S3 object and marker metadata, and successful off-site upload and download validation. An isolated restore of `20261009T113117Z` passed database restoration, recorded-count comparison, `CHECK TABLE`, attachment-path comparison, captured-backend startup, and final restore validation. The recovery set accounted for seven attachment rows, including five valid paths matching five physical files and two known invalid legacy paths.
+
+The next scheduled run advanced `last-offsite-success` to `20261009T120010Z`. The differing IDs are not a mismatch: `20261009T113117Z` identifies the manually captured and restore-tested set, while `20261009T120010Z` identifies the newer scheduled set that passed the off-site publication checks required before the marker is updated.
 
 CampusDesk staging recovery sets contain a transactionally consistent MySQL
 dump, the complete private-attachment volume, checksums, record counts, and the

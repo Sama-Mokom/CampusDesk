@@ -1,6 +1,6 @@
 # CampusDesk CI/CD Comprehensive Implementation and Operations Guide
 
-**Coverage:** Local Docker foundation completed 25 September 2026 through account-security and credential-remediation implementation verified 9 October 2026
+**Coverage:** Local Docker foundation completed 25 September 2026 through staging credential remediation and post-remediation recovery verification completed 9 October 2026
 
 **Last reviewed and updated:** 9 October 2026
 
@@ -8,9 +8,9 @@
 
 **Verified recovery implementation commit:** `e3c53363f85369c0a0f9f6823c3cef4d041b532a Add staging backup and recovery automation`
 
-**Current phase:** CI, immutable ECR publication, manually approved SSM deployment automation, attachment-volume hardening, staging functional verification, off-host backup automation, isolated restore testing, scheduled freshness monitoring, and account-security implementation are complete; deployment and execution of the staging credential-remediation runbook remain pending
+**Current phase:** CI, immutable ECR publication, manually approved SSM deployment automation, attachment-volume hardening, staging functional verification, off-host backup automation, isolated restore testing, scheduled freshness monitoring, account-security deployment, staging credential remediation, and post-remediation recovery verification are complete; DNS and HTTPS remain the next public-access gates
 
-**Runtime status:** the staging application is healthy and reachable through an SSH tunnel at `http://localhost:18080`; the request lifecycle, role transitions, notifications, collection, private attachment upload/download, manual and scheduled off-host recovery capture, isolated restore, and backup-freshness heartbeat have been functionally verified
+**Runtime status:** the staging application is healthy and reachable through an SSH tunnel at `http://localhost:18080`; the request lifecycle, role transitions, account disablement, retained-persona access, notifications, collection, private attachment upload/download, manual and scheduled off-host recovery capture, isolated restore, and backup-freshness heartbeat have been functionally verified
 
 ## Purpose
 
@@ -802,7 +802,7 @@ The full demonstration seed was run once and completed successfully. `DatabaseSe
 
 Seeding is not part of normal deployments. Several seeders create additive business data and are not globally idempotent. The top-level seed is also not wrapped in one transaction; individual seeders commit independently. If a future seed attempt fails, inspect table counts before considering a rerun.
 
-The generated demo accounts use the known factory password `password`. Permanent account disablement and staging-only remediation commands are implemented in the repository, but **the current seeded environment must remain private until that release is deployed and the remediation runbook completes successfully.**
+The generated demo accounts initially used the known factory password `password`. On 9 October 2026, the account-security release was deployed and the staging remediation runbook disabled and randomized every account that still matched it. A subsequent count-only dry run returned zero affected accounts. Any future full seed or restoration of a pre-remediation recovery set must be treated as reintroducing this risk until the runbook is completed again.
 
 ### Super Admin
 
@@ -831,9 +831,9 @@ The 9 October 2026 implementation adds:
 - a staging-only non-echoing retained-persona password command; and
 - a staging-only count-only bulk remediation command that aborts on a matching Super Admin and requires confirmation before apply.
 
-The full backend suite passes with 71 tests and 457 assertions. The commands are present in the application image only after this release is built and deployed. Repository completion is not evidence that the live staging database has been remediated.
+The full backend suite passes with 71 tests and 457 assertions. The release was deployed to staging on 9 October 2026. Three retained role personas received separate stored credentials and remained enabled. The approved bulk operation then disabled and replaced the credentials of 618 remaining accounts: 540 students, 9 ordinary staff members, 69 department administrators, and no Super Admins. The second dry run returned zero; the disabled-account and remediation-action counts both returned 618; retained-persona role checks and application health passed.
 
-Follow [STAGING_CREDENTIAL_REMEDIATION.md](STAGING_CREDENTIAL_REMEDIATION.md) exactly after deployment. Never add real user IDs, emails, passwords, reset tokens, bearer tokens, environment values, or command transcripts containing them to this document or to Git history.
+Follow [STAGING_CREDENTIAL_REMEDIATION.md](STAGING_CREDENTIAL_REMEDIATION.md) exactly after any future seed or pre-remediation restore. Never add real user IDs, emails, passwords, reset tokens, bearer tokens, environment values, or command transcripts containing them to this document or to Git history.
 
 ## Stable EC2 command helper
 
@@ -1102,13 +1102,17 @@ The 15-minute monitor has run both manually and from its timer, emitted `offsite
 
 The first unattended timer-triggered capture started at 00:00:03 UTC on 7 October 2026 and produced backup ID `20261007T000005Z`. The service completed with `Result=success` and `ExecMainStatus=0`; maintenance lasted 11 seconds; database, attachment, application restart, archive, and coherent-capture checks passed; and the S3 artifact metadata, marker metadata, upload, and download validation all passed. The latest local recovery-set ID and `last-offsite-success` ID matched, the root-owned `OFFSITE_VERIFIED` marker remained mode `0600`, both timers remained active with the next backup scheduled for 12:00 UTC, and all live services remained running with backend and database healthy.
 
+The first verified post-remediation recovery capture produced backup ID `20261009T113117Z`. The service completed with `Result=success` and `ExecMainStatus=0`; bucket versioning was enabled; maintenance lasted 11 seconds; the application restarted healthy; and coherent capture, S3 artifact metadata, marker metadata, upload, and download validation all passed. Its isolated restore verified the database import and counts, `CHECK TABLE` results, attachment-path comparison, captured backend startup, and the complete restore test. Seven attachment rows were represented: the five valid paths matched five physical files and the two known invalid legacy paths remained explicitly accounted for. Live frontend and guest-API probes returned the expected HTTP `200` and `401`, backend and database were healthy, the worker and frontend were running, both timers remained active, and freshness and AWS heartbeat checks passed.
+
+The regular 12:00 UTC capture then advanced `last-offsite-success` to backup ID `20261009T120010Z`. This later marker is expected and does not conflict with the manual evidence: the isolated restore record above remains tied to `20261009T113117Z`, while `20261009T120010Z` is the newer scheduled, off-site-verified recovery point.
+
 The accepted objectives remain a 12-hour RPO and one-hour RTO. The isolated restore proves the recovery set is usable without modifying live volumes; it is not evidence of automatic failover or of an approved destructive live-data switch. Live restoration remains an incident-controlled operation.
 
 ## Known limitations and risks
 
 ### Security
 
-- Seeded users may still share the known factory password until the documented remediation is applied and verified; the stack must remain private until then.
+- Restoring a pre-remediation recovery set, or running the full demonstration seed again, can reintroduce the known factory-password risk; keep staging private and repeat the remediation runbook after either event.
 - HTTP is currently unencrypted inside the SSH tunnel, and there is no public TLS endpoint.
 - SSH remains an exposed administrative path, although source-restricted.
 - Secrets remain in a host file rather than AWS Systems Manager Parameter Store or Secrets Manager.
@@ -1120,7 +1124,7 @@ The accepted objectives remain a 12-hour RPO and one-hour RTO. The isolated rest
 - One EC2 instance is a single point of failure.
 - MySQL and attachments still share the instance's storage lifecycle, although download-verified off-host recovery sets now protect their recoverable state.
 - Recovery storage remains in one AWS account and region; cross-region replication, S3 Object Lock, and a final lifecycle/retention policy have not been approved.
-- Only the first unattended backup cycle has been formally recorded; operators must continue investigating every service failure and perform periodic isolated restore tests rather than treating successful capture alone as permanent restore assurance.
+- Multiple unattended backup cycles and a post-remediation isolated restore have been recorded; operators must still investigate every service failure and perform periodic isolated restore tests rather than treating successful capture alone as permanent restore assurance.
 - No Auto Scaling Group, load balancer, or rolling deployment exists.
 - Deployment is not zero-downtime.
 - Application rollback may be unsafe after a backward-incompatible migration.
@@ -1154,9 +1158,9 @@ Expected account-security commit sequence at this review:
 - `8fdb14f Remove dead request-stage queue branch`;
 - `9abfa49 Add account disabling and staging credential remediation`;
 - `0d4b219 Add Super Admin account state controls`; and
-- one following documentation-only commit containing this handoff update and the private-safe remediation runbook.
+- `3cca26e Document account security and staging remediation`.
 
-Review the active branch and working tree rather than assuming a fixed final HEAD. Merge through the normal reviewed path into `development` before deploying staging.
+The runtime evidence confirms that the account-security commands and database changes from this sequence reached staging. Keep the exact deployed release SHA and image references in the approved private operations record. Review the active branch and working tree rather than assuming a fixed current HEAD, and continue to merge future changes through the normal reviewed path into `development` before deployment.
 
 An unrelated zero-byte file named `tatus --short` was present at repository root during the 2 October documentation audit. It is not part of CampusDesk and must be inspected by the operator before deletion or inclusion; broad `git add .` commands should be avoided.
 
@@ -1188,7 +1192,7 @@ Do not paste the resulting account ID, public hostname, image digests, environme
 5. [x] Record the currently deployed backend, frontend, and MySQL digests in each root-only, encrypted, versioned recovery set.
 6. [x] Verify the first unattended timer-triggered capture, offsite validation, freshness heartbeat, and post-capture application health.
 7. [x] Implement permanent disablement, credential revocation, retained-persona password rotation, count-only dry-run reporting, and transactional bulk remediation.
-8. [ ] Deploy the account-security release and complete [STAGING_CREDENTIAL_REMEDIATION.md](STAGING_CREDENTIAL_REMEDIATION.md), including retained-persona login checks, bulk apply, a zero-result second dry run, audit verification, and a new post-remediation recovery capture.
+8. [x] Deploy the account-security release and complete [STAGING_CREDENTIAL_REMEDIATION.md](STAGING_CREDENTIAL_REMEDIATION.md), including retained-persona login checks, bulk apply, a zero-result second dry run, audit verification, and a new post-remediation recovery capture and isolated restore.
 
 ### Priority 2: harden administrative access
 
@@ -1211,14 +1215,13 @@ The manually approved SSM deployment workflow is implemented and verified. Its n
 
 Before opening the application beyond the SSH tunnel:
 
-1. complete and record the staging credential-remediation runbook;
-2. establish a stable address and DNS strategy;
-3. add TLS termination and automatic certificate renewal;
-4. expose only ports 80/443 through a reviewed security group;
-5. preserve the internal loopback/backend isolation model;
-6. configure the final application and frontend URLs;
-7. review CORS and authentication behavior for the real origin; and
-8. complete a security-focused smoke test.
+1. establish a stable address and DNS strategy;
+2. add TLS termination and automatic certificate renewal;
+3. expose only ports 80/443 through a reviewed security group;
+4. preserve the internal loopback/backend isolation model;
+5. configure the final application and frontend URLs;
+6. review CORS and authentication behavior for the real origin; and
+7. complete a security-focused smoke test.
 
 ### Priority 5: observability and CI hardening
 

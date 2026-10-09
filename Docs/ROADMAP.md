@@ -68,6 +68,8 @@
 - [x] Add staging-only retained-persona password rotation and transactional known-demo-credential remediation commands
 - [x] Add Super Admin account-state badges, filters, disable confirmation/reason handling, self-disable suppression, and re-enable controls
 - [x] Verify the backend security changes with 71 PHPUnit tests / 457 assertions and focused Super Admin UI coverage
+- [x] Deploy the account-security release, rotate three retained personas, and remediate 618 remaining known-password staging accounts
+- [x] Verify a zero-result follow-up dry run, matching disabled-account/audit counts, retained-role access, application health, and a post-remediation capture and isolated restore
 
 ## Immediate Fixes Cleared ✅
 
@@ -77,7 +79,7 @@ All previously listed immediate fixes are complete.
 
 1. **Staging security and recovery operations**
    - Continue scheduled capture and monitoring; investigate every failed service run and perform periodic isolated restore drills.
-   - Deploy the account-security release, rotate the retained personas, and apply the count-only demonstration credential remediation runbook before broader access.
+   - Treat any future full demonstration seed or pre-remediation restore as requiring the credential-remediation runbook again before broader access.
    - Record deployed image digests, backup IDs, restore evidence, and operator decisions in an approved operational location.
 
 2. **Controlled deployment maintenance**
@@ -90,7 +92,7 @@ All previously listed immediate fixes are complete.
 3. **Public staging readiness**
    - Establish stable addressing and DNS.
    - Add TLS termination and certificate renewal.
-   - Expose only reviewed HTTP/HTTPS ports after the shared seeded credentials are remediated.
+   - Expose only reviewed HTTP/HTTPS ports after DNS, TLS, security-group, and final application-origin review.
    - Configure final application origins and verify authentication, CORS, uploads, queue processing, and authorization.
 
 See [CI_CD_SESSION_2_HANDOFF.md](CI_CD_SESSION_2_HANDOFF.md) for the complete implementation and troubleshooting record.
