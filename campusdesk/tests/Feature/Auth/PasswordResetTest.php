@@ -17,7 +17,6 @@ class PasswordResetTest extends TestCase
         Notification::fake();
 
         $user = User::factory()->staff()->create();
-
         $this->postJson('/api/forgot-password', ['email' => $user->email])
             ->assertOk()
             ->assertJsonStructure(['status']);
@@ -30,10 +29,12 @@ class PasswordResetTest extends TestCase
         Notification::fake();
 
         $user = User::factory()->staff()->create();
+        $oldToken = $user->createToken('before-password-reset');
+        $oldRememberToken = $user->remember_token;
 
         $this->postJson('/api/forgot-password', ['email' => $user->email]);
 
-        Notification::assertSentTo($user, ResetPassword::class, function (object $notification) use ($user) {
+        Notification::assertSentTo($user, ResetPassword::class, function (object $notification) use ($user, $oldToken, $oldRememberToken) {
             $response = $this->postJson('/api/reset-password', [
                 'token' => $notification->token,
                 'email' => $user->email,
@@ -44,6 +45,9 @@ class PasswordResetTest extends TestCase
             $response
                 ->assertOk()
                 ->assertJsonStructure(['status']);
+
+            $this->assertDatabaseMissing('personal_access_tokens', ['id' => $oldToken->accessToken->id]);
+            $this->assertNotSame($oldRememberToken, $user->fresh()->remember_token);
 
             $this->postJson('/api/login', [
                 'email' => $user->email,

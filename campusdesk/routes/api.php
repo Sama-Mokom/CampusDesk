@@ -1,40 +1,41 @@
 <?php
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\RequestStageController;
-use App\Http\Controllers\RequestController;
-use App\Http\Controllers\ReferenceDataController;
-use App\Http\Controllers\AttachmentController;
-use App\Http\Controllers\NotificationController;
-use App\Http\Controllers\DeptAdminController;
+use App\Http\Controllers\AdministrativeActionController;
+use App\Http\Controllers\AdminOverviewController;
 use App\Http\Controllers\AdminReferenceController;
 use App\Http\Controllers\AdminUserController;
-use App\Http\Controllers\AdminOverviewController;
+use App\Http\Controllers\AttachmentController;
+use App\Http\Controllers\DeptAdminController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\ReferenceDataController;
+use App\Http\Controllers\RequestController;
+use App\Http\Controllers\RequestStageController;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth:sanctum'])->get('/user', function (Request $request) {
+Route::middleware(['auth:sanctum', 'active_account'])->get('/user', function (Request $request) {
     return $request->user();
 });
-Route::middleware(['auth:sanctum'])->group(function () {
+Route::middleware(['auth:sanctum', 'active_account'])->group(function () {
     Route::get('/attachments/{attachment}', [AttachmentController::class, 'show']);
 });
-Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
+Route::middleware(['auth:sanctum', 'active_account', 'throttle:60,1'])->group(function () {
     Route::get('/requests/{request}', [RequestController::class, 'show']);
     Route::post('/requests/{request}/reopen', [RequestController::class, 'reopen']);
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::patch('/notifications/{notification}/read', [NotificationController::class, 'markRead']);
 });
-Route::middleware(['auth:sanctum', 'student', 'throttle:60,1'])->group(function () {
+Route::middleware(['auth:sanctum', 'active_account', 'student', 'throttle:60,1'])->group(function () {
     Route::get('/requests', [RequestController::class, 'index']);
     // Route::get('/requests/{request}', [RequestController::class, 'show']);
 });
 
-Route::middleware(['auth:sanctum', 'student', 'throttle:10,1'])->group(function () {
+Route::middleware(['auth:sanctum', 'active_account', 'student', 'throttle:10,1'])->group(function () {
     Route::post('/requests', [RequestController::class, 'store']);
     Route::patch('/requests/{request}/collect', [RequestController::class, 'collect']);
 });
 
-Route::middleware(['auth:sanctum', 'staff', 'throttle:60,1'])->group(function () {
+Route::middleware(['auth:sanctum', 'active_account', 'staff', 'throttle:60,1'])->group(function () {
     // staff-only routes go here
     Route::get('/requests/{docRequest}/stages', [RequestStageController::class, 'forRequest']);
     Route::get('/stages', [RequestStageController::class, 'index']);
@@ -42,12 +43,12 @@ Route::middleware(['auth:sanctum', 'staff', 'throttle:60,1'])->group(function ()
     Route::post('requests/{docRequest}/stages/{stage}/claim', [RequestStageController::class, 'claim']);
     Route::patch('requests/{docRequest}/stages/{stage}/resolve', [RequestStageController::class, 'resolve']);
 });
-Route::middleware(['auth:sanctum', 'dept_admin', 'throttle:60,1'])->group(function () {
+Route::middleware(['auth:sanctum', 'active_account', 'dept_admin', 'throttle:60,1'])->group(function () {
     Route::get('/dept-admin/requests', [DeptAdminController::class, 'index']);
     Route::patch('/dept-admin/stages/{stage}/reassign', [DeptAdminController::class, 'reassign']);
 });
 
-Route::prefix('admin')->middleware(['auth:sanctum', 'super_admin', 'throttle:60,1'])->group(function () {
+Route::prefix('admin')->middleware(['auth:sanctum', 'active_account', 'super_admin', 'throttle:60,1'])->group(function () {
     foreach (['faculties', 'departments', 'programmes', 'request-types'] as $kind) {
         Route::get($kind, [AdminReferenceController::class, 'index'])->defaults('kind', $kind);
         Route::post($kind, [AdminReferenceController::class, 'store'])->defaults('kind', $kind);
@@ -60,10 +61,13 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'super_admin', 'throttle:60,
     Route::patch('users/{user}', [AdminUserController::class, 'update']);
     Route::delete('users/{user}', [AdminUserController::class, 'destroy']);
     Route::patch('users/{user}/admin-level', [AdminUserController::class, 'adminLevel']);
+    Route::patch('users/{user}/disable', [AdminUserController::class, 'disable']);
+    Route::patch('users/{user}/enable', [AdminUserController::class, 'enable']);
     Route::get('stats', [AdminOverviewController::class, 'stats']);
     Route::get('requests', [AdminOverviewController::class, 'requests']);
     Route::get('requests/{request}', [AdminOverviewController::class, 'show']);
     Route::get('audit-log', [AdminOverviewController::class, 'audit']);
+    Route::get('administrative-actions', [AdministrativeActionController::class, 'index']);
 });
 
 // Public Reference Data Endpoints

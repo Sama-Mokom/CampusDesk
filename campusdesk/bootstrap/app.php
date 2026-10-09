@@ -1,8 +1,16 @@
 <?php
 
+use App\Http\Middleware\EnsureAccountIsActive;
+use App\Http\Middleware\EnsureEmailIsVerified;
+use App\Http\Middleware\EnsureIsDeptAdmin;
+use App\Http\Middleware\EnsureIsStaff;
+use App\Http\Middleware\EnsureIsStudent;
+use App\Http\Middleware\EnsureIsSuperAdmin;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Middleware\HandleCors;
+
 // use Illuminate\Session\Middleware\StartSession;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -13,19 +21,20 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->prepend(\Illuminate\Http\Middleware\HandleCors::class);
-        
+        $middleware->prepend(HandleCors::class);
+
         // $middleware->api(prepend: [
         //     // \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
         // // $middleware->append(StartSession::class),
         // ]);
 
         $middleware->alias([
-            'verified' => \App\Http\Middleware\EnsureEmailIsVerified::class,
-            'student' => \App\Http\Middleware\EnsureIsStudent::class,
-            'staff' => \App\Http\Middleware\EnsureIsStaff::class,
-            'dept_admin' => \App\Http\Middleware\EnsureIsDeptAdmin::class,
-            'super_admin' => \App\Http\Middleware\EnsureIsSuperAdmin::class,
+            'verified' => EnsureEmailIsVerified::class,
+            'student' => EnsureIsStudent::class,
+            'staff' => EnsureIsStaff::class,
+            'dept_admin' => EnsureIsDeptAdmin::class,
+            'super_admin' => EnsureIsSuperAdmin::class,
+            'active_account' => EnsureAccountIsActive::class,
         ]);
 
         //
@@ -33,6 +42,3 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withExceptions(function (Exceptions $exceptions): void {
         //
     })->create();
-
-;
-    
