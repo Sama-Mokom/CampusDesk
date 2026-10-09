@@ -1,6 +1,8 @@
 import { onMounted, reactive, ref, watch } from 'vue'
 import {
   createAdmin,
+  disableAdminUser,
+  enableAdminUser,
   listAdmin,
   setAdminLevel,
   updateAdmin
@@ -14,8 +16,10 @@ import {
   useAdminDelete,
   useAdminFeedback
 } from './shared'
+import { useAuth } from '@/composables/useAuth'
 
 export function useAdminUsers() {
+  const { user: signedInUser } = useAuth()
   const feedback = useAdminFeedback()
   const { error, success, formError, pending } = feedback
   const {
@@ -33,7 +37,11 @@ export function useAdminUsers() {
   const userPage = ref(1)
   const userSearch = ref('')
   const userRole = ref('')
+  const userStatus = ref('')
   const userModal = ref(false)
+  const disableTarget = ref<{ id: number; name: string } | null>(null)
+  const disableReason = ref('')
+  const disableError = ref('')
   const emptyUserForm = (): UserForm => ({
     id: 0,
     role: 'student',
@@ -60,7 +68,8 @@ export function useAdminUsers() {
       const result = await listAdmin<AdminUser>('users', {
         page: userPage.value,
         search: userSearch.value,
-        role: userRole.value
+        role: userRole.value,
+        status: userStatus.value
       })
       if (version === userVersion) users.value = result
     } catch (e) {
@@ -83,9 +92,9 @@ export function useAdminUsers() {
   }
   onMounted(initialize)
   watch(
-    [userPage, userSearch, userRole],
-    ([, search, role], [, oldSearch, oldRole]) => {
-      if ((search !== oldSearch || role !== oldRole) && userPage.value !== 1) {
+    [userPage, userSearch, userRole, userStatus],
+    ([, search, role, status], [, oldSearch, oldRole, oldStatus]) => {
+      if ((search !== oldSearch || role !== oldRole || status !== oldStatus) && userPage.value !== 1) {
         userPage.value = 1
         return
       }
@@ -203,6 +212,46 @@ export function useAdminUsers() {
       pending.value = false
     }
   }
+  function askDisable(user: AdminUser) {
+    disableError.value = ''
+    disableReason.value = ''
+    disableTarget.value = { id: user.id, name: user.name }
+  }
+  function closeDisable() {
+    if (!pending.value) disableTarget.value = null
+  }
+  async function confirmDisable() {
+    if (pending.value || !disableTarget.value) return
+    pending.value = true
+    disableError.value = ''
+    success.value = ''
+    try {
+      const target = disableTarget.value
+      await disableAdminUser(target.id, disableReason.value)
+      disableTarget.value = null
+      success.value = `${target.name} has been disabled.`
+      await loadUsers()
+    } catch (e) {
+      disableError.value = message(e)
+    } finally {
+      pending.value = false
+    }
+  }
+  async function enableAccount(user: AdminUser) {
+    if (pending.value) return
+    pending.value = true
+    error.value = ''
+    success.value = ''
+    try {
+      await enableAdminUser(user.id)
+      success.value = `${user.name} has been re-enabled. They must sign in again.`
+    } catch (e) {
+      error.value = message(e)
+    } finally {
+      await loadUsers()
+      pending.value = false
+    }
+  }
   return {
     users,
     userPage,
@@ -210,6 +259,8 @@ export function useAdminUsers() {
     collectionErrors,
     userSearch,
     userRole,
+    userStatus,
+    signedInUser,
     loadUsers,
     initialize,
     loading,
@@ -228,6 +279,13 @@ export function useAdminUsers() {
     closeUser,
     saveUser,
     changeLevel,
+    disableTarget,
+    disableReason,
+    disableError,
+    askDisable,
+    closeDisable,
+    confirmDisable,
+    enableAccount,
     deleteTarget,
     askRemove,
     closeDelete,

@@ -12,6 +12,7 @@ export interface Programme { id: number; department_id: number; faculty_id: numb
 export interface RequestType { id: number; name: string; description: string | null; default_department_sequence: (number | string)[] }
 export interface AdminUser {
   id: number; name: string; email: string; role: 'student' | 'staff'
+  disabled_at: string | null; is_disabled: boolean
   student_profile: { matricule: string; faculty_id: number; department_id: number; programme_id: number; level: string } | null
   staff_profile: { staff_id: string; admin_level: 'dept_admin' | 'super_admin' | null; departments: { id: number; name: string; is_primary: boolean }[] } | null
 }
@@ -34,3 +35,9 @@ export async function deleteAdmin(kind: string, id: number): Promise<void> { awa
 export async function adminStats(): Promise<Stats> { return (await api.get('/admin/stats')).data.data }
 export async function adminRequest(id: number): Promise<AdminRequest> { return (await api.get(`/admin/requests/${id}`)).data.data }
 export async function setAdminLevel(id: number, level: 'dept_admin' | 'super_admin' | null): Promise<AdminUser> { return (await api.patch(`/admin/users/${id}/admin-level`, { admin_level: level })).data.data }
+export async function disableAdminUser(id: number, reason?: string): Promise<AdminUser> {
+  return (await api.patch(`/admin/users/${id}/disable`, reason?.trim() ? { reason: reason.trim() } : {})).data.data
+}
+export async function enableAdminUser(id: number): Promise<AdminUser> {
+  return (await api.patch(`/admin/users/${id}/enable`)).data.data
+}

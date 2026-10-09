@@ -8,9 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\Request as DocumentRequest;
 use App\Http\Requests\UpdateStageStatusRequest as ResolveStageRequest;
 use Illuminate\Support\Facades\DB;
-use App\Models\StatusHistory as statusHistories;
 use App\Http\Resources\RequestStageResource;
-use App\Http\Resources\RequestResource;
 use App\Services\RequestStatusNotificationService;
 use Illuminate\Http\JsonResponse;
 
@@ -19,67 +17,41 @@ class RequestStageController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(Request $request, DocumentRequest $docRequest = null)
-{
-   $user = $request->user();
-   $deptIds = $user->staffProfile->departments->pluck('id');
-    // IF fetching timeline/details for a specific request:
-    if ($docRequest && $docRequest->exists) {
-       // Get all pending unclaimed stages in staff's departments
-    $candidates = RequestStage::whereIn('department_id', $deptIds)
-        ->where('status', 'pending')
-        ->whereNull('handled_by')
-        ->with(['request.requestType', 'request.student.studentProfile', 
-                'request.attachments', 'department'])
-        ->get();
+    public function index(Request $request)
+    {
+        $staffProfile = $request->user()->staffProfile ?? $request->user()->staff_profile;
 
-    // Filter: only show if first stage OR previous stage is approved
-    $filtered = $candidates->filter(function ($stage) {
-        if ($stage->sequence_order === 1) return true;
+        if (! $staffProfile) {
+            return response()->json(['message' => 'Staff profile not found.'], 403);
+        }
 
-        return RequestStage::where('request_id', $stage->request_id)
-            ->where('sequence_order', $stage->sequence_order - 1)
-            ->where('status', 'approved')
-            ->exists();
-    });
+        $departmentIds = $staffProfile->departments()->pluck('departments.id');
 
-    return RequestStageResource::collection($filtered->values());
+        $requestStages = RequestStage::query()
+            ->whereIn('department_id', $departmentIds)
+            ->where('status', 'pending')
+            ->whereNull('handled_by')
+            ->where(function ($query) {
+                $query->where('sequence_order', 1)
+                    ->orWhereExists(function ($sub) {
+                        $sub->select(DB::raw(1))
+                            ->from('request_stages as prev')
+                            ->whereColumn('prev.request_id', 'request_stages.request_id')
+                            ->whereColumn('prev.sequence_order', DB::raw('request_stages.sequence_order - 1'))
+                            ->where('prev.status', 'approved');
+                    });
+            })
+            ->with([
+                'request.requestType',
+                'request.student.studentProfile',
+                'request.attachments',
+                'department',
+                'handled_by',
+            ])
+            ->get();
+
+        return RequestStageResource::collection($requestStages);
     }
-
-    // OTHERWISE: Fetch the staff department queue
-    $staffProfile = $user->staffProfile ?? $user->staff_profile;
-    
-    if (!$staffProfile) {
-        return response()->json(['message' => 'Staff profile not found.'], 403);
-    }
-
-    $departmentIds = $staffProfile->departments()->pluck('departments.id');
-
-    $requestStages = RequestStage::query()
-        ->whereIn('department_id', $departmentIds)
-        ->where('status', 'pending')
-        ->whereNull('handled_by')
-        ->where(function ($query) {
-            $query->where('sequence_order', 1)
-                  ->orWhereExists(function ($sub) {
-                      $sub->select(DB::raw(1))
-                          ->from('request_stages as prev')
-                          ->whereColumn('prev.request_id', 'request_stages.request_id')
-                          ->whereColumn('prev.sequence_order', DB::raw('request_stages.sequence_order - 1'))
-                          ->where('prev.status', 'approved');
-                  });
-        })
-        ->with([
-            'request.requestType', 
-            'request.student.studentProfile',
-            'request.attachments',
-            'department', 
-            'handled_by'
-        ])
-        ->get();
-
-    return RequestStageResource::collection($requestStages);
-}
 
 public function myCases(): JsonResponse
 {

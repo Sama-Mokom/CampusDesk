@@ -1,14 +1,14 @@
 # CampusDesk CI/CD Comprehensive Implementation and Operations Guide
 
-**Coverage:** Local Docker foundation completed 25 September 2026 through the first unattended staging recovery cycle verified 7 October 2026
+**Coverage:** Local Docker foundation completed 25 September 2026 through account-security and credential-remediation implementation verified 9 October 2026
 
-**Last reviewed and updated:** 7 October 2026
+**Last reviewed and updated:** 9 October 2026
 
-**Repository branch:** `development`; recovery automation and its validation record were merged by PR #20 at merge commit `989ca54`
+**Repository branches:** `development` remains the deployment integration target; the account-security change sequence was prepared on `valib`. Recovery automation and its validation record were merged by PR #20 at merge commit `989ca54`.
 
 **Verified recovery implementation commit:** `e3c53363f85369c0a0f9f6823c3cef4d041b532a Add staging backup and recovery automation`
 
-**Current phase:** CI, immutable ECR publication, manually approved SSM deployment automation, attachment-volume hardening, staging functional verification, off-host backup automation, isolated restore testing, scheduled freshness monitoring, and the first unattended timer-triggered recovery cycle are complete
+**Current phase:** CI, immutable ECR publication, manually approved SSM deployment automation, attachment-volume hardening, staging functional verification, off-host backup automation, isolated restore testing, scheduled freshness monitoring, and account-security implementation are complete; deployment and execution of the staging credential-remediation runbook remain pending
 
 **Runtime status:** the staging application is healthy and reachable through an SSH tunnel at `http://localhost:18080`; the request lifecycle, role transitions, notifications, collection, private attachment upload/download, manual and scheduled off-host recovery capture, isolated restore, and backup-freshness heartbeat have been functionally verified
 
@@ -802,7 +802,7 @@ The full demonstration seed was run once and completed successfully. `DatabaseSe
 
 Seeding is not part of normal deployments. Several seeders create additive business data and are not globally idempotent. The top-level seed is also not wrapped in one transaction; individual seeders commit independently. If a future seed attempt fails, inspect table counts before considering a rerun.
 
-The generated demo accounts use the known factory password `password`. **The current seeded environment must remain private until those accounts are removed, disabled, or assigned unique credentials.**
+The generated demo accounts use the known factory password `password`. Permanent account disablement and staging-only remediation commands are implemented in the repository, but **the current seeded environment must remain private until that release is deployed and the remediation runbook completes successfully.**
 
 ### Super Admin
 
@@ -816,6 +816,24 @@ staff_profiles.admin_level = super_admin
 ```
 
 The password was supplied through a non-echoing shell prompt, passed to the temporary container by environment-variable name, and hashed by the `User` model's `hashed` cast. The credentials must not be recorded in this repository.
+
+### Account-security and credential-remediation release
+
+The 9 October 2026 implementation adds:
+
+- nullable indexed `users.disabled_at` account state;
+- generic login rejection for disabled accounts and `active_account` enforcement on protected API routes;
+- explicit, transactional, idempotent Super Admin disable/enable transitions;
+- immediate Sanctum-token, password-reset-token, and remember-token invalidation;
+- enabled-only last-Super-Admin protection for disablement, demotion, and deletion;
+- append-only `administrative_actions` records and a separate Super Admin-only read endpoint;
+- safe password rotation for administrator changes and self-service resets;
+- a staging-only non-echoing retained-persona password command; and
+- a staging-only count-only bulk remediation command that aborts on a matching Super Admin and requires confirmation before apply.
+
+The full backend suite passes with 71 tests and 457 assertions. The commands are present in the application image only after this release is built and deployed. Repository completion is not evidence that the live staging database has been remediated.
+
+Follow [STAGING_CREDENTIAL_REMEDIATION.md](STAGING_CREDENTIAL_REMEDIATION.md) exactly after deployment. Never add real user IDs, emails, passwords, reset tokens, bearer tokens, environment values, or command transcripts containing them to this document or to Git history.
 
 ## Stable EC2 command helper
 
@@ -1090,7 +1108,7 @@ The accepted objectives remain a 12-hour RPO and one-hour RTO. The isolated rest
 
 ### Security
 
-- Seeded users share the known factory password `password`; the stack must remain private.
+- Seeded users may still share the known factory password until the documented remediation is applied and verified; the stack must remain private until then.
 - HTTP is currently unencrypted inside the SSH tunnel, and there is no public TLS endpoint.
 - SSH remains an exposed administrative path, although source-restricted.
 - Secrets remain in a host file rather than AWS Systems Manager Parameter Store or Secrets Manager.
@@ -1131,11 +1149,14 @@ Get-Content .github\workflows\ci.yml
 Get-Content compose.staging.yaml
 ```
 
-Expected Git state at the last review:
+Expected account-security commit sequence at this review:
 
-- branch `development`;
-- HEAD `7d9b45f` before these documentation-only updates are committed; and
-- documentation changes should be reviewed and committed deliberately.
+- `8fdb14f Remove dead request-stage queue branch`;
+- `9abfa49 Add account disabling and staging credential remediation`;
+- `0d4b219 Add Super Admin account state controls`; and
+- one following documentation-only commit containing this handoff update and the private-safe remediation runbook.
+
+Review the active branch and working tree rather than assuming a fixed final HEAD. Merge through the normal reviewed path into `development` before deploying staging.
 
 An unrelated zero-byte file named `tatus --short` was present at repository root during the 2 October documentation audit. It is not part of CampusDesk and must be inspected by the operator before deletion or inclusion; broad `git add .` commands should be avoided.
 
@@ -1166,7 +1187,8 @@ Do not paste the resulting account ID, public hostname, image digests, environme
 4. [x] Back up `attachments_data` and test restoration.
 5. [x] Record the currently deployed backend, frontend, and MySQL digests in each root-only, encrypted, versioned recovery set.
 6. [x] Verify the first unattended timer-triggered capture, offsite validation, freshness heartbeat, and post-capture application health.
-7. [ ] Decide whether the demo users should be deleted, disabled, or assigned unique passwords before any broader access.
+7. [x] Implement permanent disablement, credential revocation, retained-persona password rotation, count-only dry-run reporting, and transactional bulk remediation.
+8. [ ] Deploy the account-security release and complete [STAGING_CREDENTIAL_REMEDIATION.md](STAGING_CREDENTIAL_REMEDIATION.md), including retained-persona login checks, bulk apply, a zero-result second dry run, audit verification, and a new post-remediation recovery capture.
 
 ### Priority 2: harden administrative access
 
@@ -1189,7 +1211,7 @@ The manually approved SSM deployment workflow is implemented and verified. Its n
 
 Before opening the application beyond the SSH tunnel:
 
-1. remove the shared demo password risk;
+1. complete and record the staging credential-remediation runbook;
 2. establish a stable address and DNS strategy;
 3. add TLS termination and automatic certificate renewal;
 4. expose only ports 80/443 through a reviewed security group;
