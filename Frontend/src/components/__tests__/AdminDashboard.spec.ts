@@ -25,7 +25,9 @@ vi.mock('@/services/admin', () => ({
   createAdmin: vi.fn(),
   updateAdmin: vi.fn(),
   deleteAdmin: vi.fn(),
-  setAdminLevel: vi.fn()
+  setAdminLevel: vi.fn(),
+  disableAdminUser: vi.fn(),
+  enableAdminUser: vi.fn()
 }))
 vi.mock('@/services/requests', () => ({ reopenRequest: vi.fn() }))
 
@@ -327,6 +329,144 @@ describe('Super Admin pages', () => {
       12,
       expect.objectContaining({ name: 'Updated Student', matricule: 'SC123' })
     )
+  })
+
+  it('shows account-state badges, filters by state, and hides self-disable', async () => {
+    useAuth().setUser({
+      id: 1,
+      name: 'Current Admin',
+      email: 'admin@example.edu',
+      password: '',
+      role: 'staff',
+      created_at: '',
+      staff_profile: {
+        staff_id: 'ADMIN-1',
+        admin_level: 'super_admin',
+        departments: []
+      }
+    })
+    vi.mocked(admin.listAdmin).mockImplementation(async (kind) =>
+      kind === 'users'
+        ? (page([
+            {
+              id: 1,
+              name: 'Current Admin',
+              email: 'admin@example.edu',
+              role: 'staff',
+              disabled_at: null,
+              is_disabled: false,
+              student_profile: null,
+              staff_profile: {
+                staff_id: 'ADMIN-1',
+                admin_level: 'super_admin',
+                departments: []
+              }
+            },
+            {
+              id: 2,
+              name: 'Disabled User',
+              email: 'disabled@example.edu',
+              role: 'staff',
+              disabled_at: '2026-10-08T18:00:00Z',
+              is_disabled: true,
+              student_profile: null,
+              staff_profile: {
+                staff_id: 'STAFF-2',
+                admin_level: null,
+                departments: []
+              }
+            }
+          ]) as never)
+        : (page() as never)
+    )
+
+    const wrapper = mount(AdminUsersPage)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Enabled')
+    expect(wrapper.text()).toContain('Disabled')
+    expect(wrapper.find('[aria-label="Disable Current Admin"]').exists()).toBe(false)
+    expect(wrapper.find('[aria-label="Re-enable Disabled User"]').exists()).toBe(true)
+
+    await wrapper
+      .findAll('select')
+      .find((select) => select.find('option[value="disabled"]').exists())!
+      .setValue('disabled')
+    await flushPromises()
+    expect(admin.listAdmin).toHaveBeenLastCalledWith(
+      'users',
+      expect.objectContaining({ status: 'disabled', page: 1 })
+    )
+  })
+
+  it('confirms disabling with an optional reason and keeps server errors visible', async () => {
+    vi.mocked(admin.listAdmin).mockImplementation(async (kind) =>
+      kind === 'users'
+        ? (page([
+            {
+              id: 12,
+              name: 'Other Admin',
+              email: 'other@example.edu',
+              role: 'staff',
+              disabled_at: null,
+              is_disabled: false,
+              student_profile: null,
+              staff_profile: {
+                staff_id: 'ADMIN-12',
+                admin_level: 'super_admin',
+                departments: []
+              }
+            }
+          ]) as never)
+        : (page() as never)
+    )
+    vi.mocked(admin.disableAdminUser).mockRejectedValue({
+      response: {
+        data: { message: 'The last active Super Admin cannot be disabled or removed.' }
+      }
+    })
+
+    const wrapper = mount(AdminUsersPage)
+    await flushPromises()
+    await wrapper.get('[aria-label="Disable Other Admin"]').trigger('click')
+    await wrapper.get('dialog textarea').setValue('No longer required')
+    await wrapper
+      .findAll('dialog button')
+      .find((button) => button.text() === 'Disable account')!
+      .trigger('click')
+    await flushPromises()
+
+    expect(admin.disableAdminUser).toHaveBeenCalledWith(12, 'No longer required')
+    expect(wrapper.get('dialog [role="alert"]').text()).toContain('last active Super Admin')
+    expect(wrapper.find('dialog').exists()).toBe(true)
+  })
+
+  it('re-enables an account and explains that a fresh sign-in is required', async () => {
+    vi.mocked(admin.listAdmin).mockImplementation(async (kind) =>
+      kind === 'users'
+        ? (page([
+            {
+              id: 12,
+              name: 'Disabled User',
+              email: 'disabled@example.edu',
+              role: 'student',
+              disabled_at: '2026-10-08T18:00:00Z',
+              is_disabled: true,
+              student_profile: null,
+              staff_profile: null
+            }
+          ]) as never)
+        : (page() as never)
+    )
+    vi.mocked(admin.enableAdminUser).mockResolvedValue({} as never)
+
+    const wrapper = mount(AdminUsersPage)
+    await flushPromises()
+    await wrapper.get('[aria-label="Re-enable Disabled User"]').trigger('click')
+    await flushPromises()
+
+    expect(admin.enableAdminUser).toHaveBeenCalledWith(12)
+    expect(wrapper.text()).toContain('They must sign in again.')
   })
 
   it('loads only the request page collections and uses returned pagination', async () => {

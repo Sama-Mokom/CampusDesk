@@ -56,7 +56,7 @@
           Create user
         </button>
       </div>
-      <div class="grid gap-3 sm:grid-cols-[1fr_220px]">
+      <div class="grid gap-3 sm:grid-cols-[1fr_220px_220px]">
         <label class="text-xs font-medium text-slate-600"
           >Search users<input
             v-model="userSearch"
@@ -71,6 +71,15 @@
             <option value="">All roles</option>
             <option value="student">Student</option>
             <option value="staff">Staff</option>
+          </select></label
+        ><label class="text-xs font-medium text-slate-600"
+          >Account status<select
+            v-model="userStatus"
+            class="input-field mt-1"
+          >
+            <option value="">All accounts</option>
+            <option value="enabled">Enabled</option>
+            <option value="disabled">Disabled</option>
           </select></label
         >
       </div>
@@ -93,7 +102,7 @@
       </div>
       <EmptyState
         v-else-if="!users.data.length"
-        :title="userSearch || userRole ? 'No matching people' : 'No users yet'"
+        :title="userSearch || userRole || userStatus ? 'No matching people' : 'No users yet'"
         description="Create an account or adjust your search."
       />
       <div
@@ -113,6 +122,10 @@
               <span class="badge bg-slate-100 text-slate-600 capitalize">{{
                 user.role
               }}</span>
+              <span
+                class="badge"
+                :class="user.is_disabled ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'"
+              >{{ user.is_disabled ? 'Disabled' : 'Enabled' }}</span>
             </div>
             <p class="mt-1 break-all text-sm text-slate-500">
               {{ user.email }}
@@ -152,6 +165,22 @@
               @click="openUser(user)"
             >
               Edit</button
+            ><button
+              v-if="user.is_disabled"
+              class="btn-secondary text-emerald-700"
+              :disabled="pending"
+              :aria-label="`Re-enable ${user.name}`"
+              @click="enableAccount(user)"
+            >
+              Re-enable</button
+            ><button
+              v-else-if="signedInUser?.id !== user.id"
+              class="btn-secondary text-amber-700"
+              :disabled="pending"
+              :aria-label="`Disable ${user.name}`"
+              @click="askDisable(user)"
+            >
+              Disable</button
             ><button
               class="btn-secondary text-red-700"
               :disabled="pending"
@@ -217,6 +246,50 @@
         </button></template
       >
     </BaseModal>
+    <BaseModal
+      :open="!!disableTarget"
+      title="Disable account"
+      size="sm"
+      :busy="pending"
+      @close="closeDisable"
+    >
+      <p class="text-sm text-slate-700">
+        Disable <strong>{{ disableTarget?.name }}</strong>? Their active sessions and password-reset links will be revoked immediately.
+      </p>
+      <label class="mt-4 block text-sm font-medium text-slate-700">
+        Reason (optional)
+        <textarea
+          v-model="disableReason"
+          class="input-field mt-1"
+          rows="3"
+          maxlength="500"
+          placeholder="Why is this account being disabled?"
+        />
+      </label>
+      <p
+        v-if="disableError"
+        role="alert"
+        class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-800"
+      >
+        {{ disableError }}
+      </p>
+      <template #footer>
+        <button
+          class="btn-secondary"
+          :disabled="pending"
+          @click="closeDisable"
+        >
+          Cancel
+        </button>
+        <button
+          class="btn-primary bg-red-700 hover:bg-red-800"
+          :disabled="pending"
+          @click="confirmDisable"
+        >
+          {{ pending ? 'Disabling…' : 'Disable account' }}
+        </button>
+      </template>
+    </BaseModal>
     <AdminDeleteDialog
       :target="deleteTarget"
       :busy="pending"
@@ -248,6 +321,8 @@ const {
   collectionErrors,
   userSearch,
   userRole,
+  userStatus,
+  signedInUser,
   loadUsers,
   initialize,
   loading,
@@ -266,6 +341,13 @@ const {
   closeUser,
   saveUser,
   changeLevel,
+  disableTarget,
+  disableReason,
+  disableError,
+  askDisable,
+  closeDisable,
+  confirmDisable,
+  enableAccount,
   askRemove
 } = useAdminUsers()
 </script>
