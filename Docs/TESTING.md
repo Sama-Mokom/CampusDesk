@@ -1,13 +1,18 @@
 # CampusDesk — Testing
 
-**Last reviewed:** 7 October 2026
+**Last reviewed:** 9 October 2026
 
 ## Current State
 
-Automated tests cover authentication, the request lifecycle, department administration, the Super Admin API, notifications, attachment storage/access, routed role pages, and shared frontend interactions. On 7 October 2026 the full local suites passed:
+Automated tests cover authentication, account disablement and credential remediation, the request lifecycle, department administration, the Super Admin API, notifications, attachment storage/access, routed role pages, and shared frontend interactions. On 9 October 2026 the full backend suite passed:
 
-- `php artisan test`: **58 tests, 373 assertions**.
+- `php artisan test`: **71 tests, 457 assertions**.
+
+The latest recorded full frontend-suite result remains the 7 October 2026 baseline:
+
 - `npm test -- --maxWorkers=2 --minWorkers=1`: **14 files, 132 tests**.
+
+Focused frontend verification on 8 October 2026 passed all **20 tests** in `AdminDashboard.spec.ts`, including account badges, enabled/disabled filtering, disable confirmation and reason submission, self-disable suppression, API error display, and re-enablement. `npm run lint` and `npm run typecheck` also passed.
 
 The pull request and merged `development` workflows also passed their applicable quality gates. The two pull-request image-publication jobs were correctly skipped; the merge push published the backend and frontend images.
 
@@ -88,6 +93,14 @@ Tests that guard correct behaviour that must not regress:
 
 Covers the Super Admin gate, reference CRUD and safe deletion, staff creation and elevation, token revocation, self/last-admin protection, profile consistency, routing-template validation, statistics, and paginated request/status-history reads.
 
+#### `AccountDisablingTest.php`
+
+Covers enabled and disabled login behavior, the generic authentication failure, active-account middleware, immediate token/reset-token/remember-token invalidation, role authorization, self-disable protection, enabled-only Super Admin counting, idempotent disable/enable transitions, re-authentication after password rotation, safe audit values, and append-only audit-model enforcement.
+
+#### `DemoCredentialRemediationCommandTest.php`
+
+Covers staging-environment enforcement, dry-run immutability and count summaries, known-password selection, Super Admin abort behavior, non-echoing retained-persona rotation, transactional apply behavior, random password replacement, account disablement, credential invalidation, audit creation, retained-persona exclusion, and second-run idempotency.
+
 #### `AttachmentStorageTest.php`
 
 Covers the attachment-backed student request path and the staging defect that previously persisted `file_path = 0` after an unwritable-volume failure:
@@ -161,7 +174,7 @@ Ensures guests do not request protected notifications and authenticated users lo
 
 #### `AdminDashboard.spec.ts`
 
-Covers server-backed collection loading and pagination, rejected-request reopen, protected document viewing, request filtering, and the searchable faculty-grouped staff membership form.
+Covers server-backed collection loading and pagination, rejected-request reopen, protected document viewing, request filtering, the searchable faculty-grouped staff membership form, account-state badges and filters, disable confirmation with an optional reason, self-disable suppression, backend protection errors, and re-enablement.
 
 ---
 
@@ -221,11 +234,11 @@ Covers server-backed collection loading and pagination, rejected-request reopen,
 | DocumentViewer component (frontend) | ✅ Five tests cover empty, image, PDF, fallback, and collapse behavior using the authenticated blob flow |
 | Staff resolution workspace (frontend) | ✅ Covered by unit tests |
 | RequestTimeline component (frontend) | ✅ Covered by unit tests |
-| Authentication flows | ✅ Registration, verification, password reset, login, logout, and token behavior pass against the current API and fixtures |
+| Authentication flows | ✅ Registration, verification, password reset, login, logout, disabled-account rejection, and token revocation pass against the current API and fixtures |
 | Attachment storage and authorization | ✅ Covered by `AttachmentStorageTest`; invalid/oversized validation cases remain open |
 | Student request submission | ✅ Attachment-backed creation path covered; broader routing-template cases remain open |
 | Notification system | ✅ Backend and bell tests |
-| Admin endpoints | ✅ Focused department and Super Admin feature tests |
+| Admin endpoints | ✅ Department and Super Admin feature tests, including account transitions and administrative audit records |
 | Frontend E2E | ❌ Not covered |
 
 ## Current verification limits

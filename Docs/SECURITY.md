@@ -1,6 +1,6 @@
 # CampusDesk — Security Documentation
 
-**Last reviewed:** 7 October 2026
+**Last reviewed:** 9 October 2026
 
 ## Authentication Mechanism
 
@@ -20,6 +20,18 @@
 - Passwords hashed via `Hash::make()` (bcrypt, Laravel default) on registration
 - Login validated via Breeze-provided `LoginRequest::authenticate()` flow
 - Password reset backend routes exist (from Breeze scaffolding) but no frontend UI was built for them
+- Administrator-driven password changes and successful self-service resets revoke all Sanctum tokens and rotate the remember token. Administrator-driven changes also delete pending password-reset tokens and append a `user.password_rotated` administrative action without storing password material.
+
+## Account Disablement and Credential Revocation
+
+- `users.disabled_at` is the authoritative account-state field; `null` means enabled.
+- Login adds `disabled_at = null` to the credential lookup while retaining Laravel's generic authentication-failure response.
+- Every protected API route except logout runs `active_account` immediately after `auth:sanctum`. A disabled account that still presents an otherwise valid token receives HTTP 401 with code `ACCOUNT_DISABLED`.
+- Super Admins use explicit `PATCH /api/admin/users/{user}/disable` and `/enable` transitions. Disablement is transactional: it locks the user, blocks self-disable, protects the last enabled Super Admin, rotates the remember token, removes Sanctum and reset tokens, and writes an audit event.
+- Enablement is idempotent and does not recreate credentials. The user must authenticate again.
+- Super Admin demotion and deletion count only enabled Super Admins when enforcing the last-administrator invariant.
+- `administrative_actions` is append-only at the model/API layer and is separate from request workflow history. Its Super Admin-only read endpoint is `GET /api/admin/administrative-actions`; no update or delete routes exist.
+- Audit payloads are limited to safe state such as account status, role, reason, and operation source. Passwords, password hashes, bearer tokens, and reset tokens are prohibited.
 
 ## Role-Based Authorization
 
@@ -101,7 +113,7 @@ PHPUnit regression tests in `SequentialRoutingPreservationTest` lock this behavi
 
 5. **No CSRF protection needed/considered** — since the app uses Bearer tokens exclusively (stateless), CSRF is not applicable to API routes. This is correct for the chosen auth strategy.
 
-6. **Status history access** — `/api/admin/audit-log` is Super Admin only. It records request/stage transitions, not administrative CRUD or privilege changes; those require the separate task 9 audit table.
+6. **Separate audit domains** — `/api/admin/audit-log` remains the Super Admin-only request/stage workflow history. Account disablement, enablement, administrative password rotation, and staging remediation use the separate append-only `/api/admin/administrative-actions` resource.
 
 7. **Email content includes request details** — `RequestStatusUpdated` mailable includes request type and status. Standard for this kind of system; no additional sensitivity controls have been discussed.
 
@@ -109,7 +121,16 @@ PHPUnit regression tests in `SequentialRoutingPreservationTest` lock this behavi
 
 9. **`personal_access_tokens` table is manually migrated** — Sanctum tokens are stored in `personal_access_tokens` via migration `2026_04_12_232151_create_personal_access_tokens_table`. This is redundant with Sanctum's own migration. Verify this does not cause conflicts (no issues observed in practice).
 
-10. **Staging remains private and single-hosted** — access is still through an SSH tunnel and deployments have planned downtime. Encrypted, versioned off-host recovery, download verification, freshness monitoring, and an isolated database/attachment/backend-image restore have been proven; automatic failover and destructive live restoration have not. Public exposure must still wait for credential remediation, DNS, and HTTPS.
+10. **Staging remains private and single-hosted** — access is still through an SSH tunnel and deployments have planned downtime. Encrypted, versioned off-host recovery, download verification, freshness monitoring, and an isolated database/attachment/backend-image restore have been proven; automatic failover and destructive live restoration have not. The remediation capability is implemented but must still be deployed and applied successfully before public exposure, alongside DNS and HTTPS work.
+
+## Staging Credential Remediation
+
+Two staging-only Artisan commands provide the approved path:
+
+- `staging:rotate-persona-password {user_id}` prompts twice without echoing, rejects reused passwords, revokes old credentials, and retains the enabled persona.
+- `staging:remediate-demo-credentials` defaults to a dry run; `--apply` requires interactive confirmation, aborts if any matching account is a Super Admin, replaces the known password with an unrecorded random value, disables each affected account, revokes credentials, and records `demo_credentials.remediated`.
+
+Both commands refuse to run unless `APP_ENV=staging`. The exact operator sequence is documented in [STAGING_CREDENTIAL_REMEDIATION.md](STAGING_CREDENTIAL_REMEDIATION.md). That runbook is safe to commit because it contains no account identifiers, email addresses, passwords, tokens, hostnames, or environment values.
 
 ## Staging Deployment Security
 

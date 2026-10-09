@@ -1,12 +1,12 @@
 # CampusDesk — Roadmap
 
-**Last reviewed:** 7 October 2026
+**Last reviewed:** 9 October 2026
 
 ## Completed ✅
 
 - [x] System modeling (ERD, state machine, permission matrix)
 - [x] Laravel project setup
-- [x] All migrations (28 total) and Eloquent models
+- [x] All current migrations (30 total) and Eloquent models
 - [x] Authentication via Sanctum Bearer tokens
 - [x] Core request lifecycle: submit, stage generation, claim, resolve
 - [x] Automatic status history via Observer pattern
@@ -62,6 +62,12 @@
 - [x] Upload and download-verify every recovery artifact with the configured KMS key and S3 version IDs
 - [x] Restore-test a recovery set in isolated Docker resources without changing live volumes
 - [x] Enable 15-minute backup-freshness monitoring and verify the first unattended timer-triggered backup cycle
+- [x] Remove the unreachable request-stage queue branch that used the obsolete PHP-level predecessor filter
+- [x] Add permanent account disablement, active-token rejection, credential revocation, enabled-only last-Super-Admin protection, and idempotent enablement
+- [x] Add append-only administrative actions with a separate Super Admin-only read API
+- [x] Add staging-only retained-persona password rotation and transactional known-demo-credential remediation commands
+- [x] Add Super Admin account-state badges, filters, disable confirmation/reason handling, self-disable suppression, and re-enable controls
+- [x] Verify the backend security changes with 71 PHPUnit tests / 457 assertions and focused Super Admin UI coverage
 
 ## Immediate Fixes Cleared ✅
 
@@ -71,7 +77,7 @@ All previously listed immediate fixes are complete.
 
 1. **Staging security and recovery operations**
    - Continue scheduled capture and monitoring; investigate every failed service run and perform periodic isolated restore drills.
-   - Remove, disable, or rotate the demonstration users that share the factory password `password` before broader access.
+   - Deploy the account-security release, rotate the retained personas, and apply the count-only demonstration credential remediation runbook before broader access.
    - Record deployed image digests, backup IDs, restore evidence, and operator decisions in an approved operational location.
 
 2. **Controlled deployment maintenance**
@@ -98,10 +104,10 @@ See [CI_CD_SESSION_2_HANDOFF.md](CI_CD_SESSION_2_HANDOFF.md) for the complete im
     - Broader request-submission routing integration cases beyond the attachment-backed path
     - Frontend E2E tests (Cypress or Playwright — not currently installed)
 
-9. **Administrative action audit log**
-   - Add a dedicated, append-only table for Super Admin CRUD and staff elevation/demotion actions, separate from request `status_history` and stage handoff records.
-   - Record actor, action, entity type and ID, timestamp, and appropriate before/after details without storing passwords or tokens.
-   - Add a paginated, Super Admin-only API and dashboard view for these events. This is deferred from task 7 and must not be presented as part of its request-status audit log.
+9. **Administrative action audit expansion**
+   - The append-only table, safe account-transition/password/remediation events, and paginated Super Admin-only API are complete and remain separate from request `status_history`.
+   - Extend coverage to the remaining Super Admin CRUD and staff elevation/demotion actions.
+   - Add a dedicated dashboard view for administrative actions; do not merge these records into the request-status audit UI.
 
 ## Future Strategic Initiatives
 
@@ -134,6 +140,4 @@ These GitHub issues are intentionally deferred. They require design review and m
 
 ## Needs Decision
 
-- **Should `RequestStageController::index()`'s dead code branch (the `$docRequest` path) be removed?** It uses the old PHP-level `filter()` approach and would reintroduce the concurrency bug if accidentally triggered. It is currently unreachable from any registered route, but it is confusing and should be cleaned up.
-
-- **Which remaining initiative should follow the completed admin dashboards:** broader regression coverage, the administrative action audit, or future payment/support work?
+- **Which remaining initiative should follow the account-security work:** broader regression coverage, the administrative action dashboard/coverage expansion, or future payment/support work?
