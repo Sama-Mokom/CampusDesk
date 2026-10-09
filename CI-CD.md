@@ -1,6 +1,6 @@
 # CampusDesk CI/CD Learning Track
 
-**Last reviewed:** 7 October 2026
+**Last reviewed:** 9 October 2026
 
 This file is the entry point for the CampusDesk CI/CD work. Detailed implementation records live under `Docs/`.
 
@@ -28,6 +28,8 @@ This file is the entry point for the CampusDesk CI/CD work. Detailed implementat
 - [x] Complete an isolated database, attachment, and captured-backend-image restore test.
 - [x] Enable 15-minute freshness monitoring and verify the missing-heartbeat CloudWatch alarm returns to `OK`.
 - [x] Verify the first unattended systemd timer-triggered backup cycle.
+- [x] Deploy permanent account disablement and remediate every staging account still matching the known demonstration password.
+- [x] Verify retained-role access, a zero-result follow-up scan, application health, and a post-remediation off-site capture and isolated restore.
 - [ ] Add DNS and HTTPS before controlled public staging access.
 
 ## Comprehensive implementation and operations guide
@@ -81,12 +83,12 @@ flowchart LR
 
 ## Next learning checkpoint
 
-The controlled deployment and recovery workflows are implemented and verified. The next milestone is security and public-access readiness:
+The controlled deployment, credential remediation, and recovery workflows are implemented and verified. The next milestone is public-access readiness and continued operational assurance:
 
-1. remove, disable, or rotate the known shared passwords in the demonstration seed;
-2. record deployed image digests and recovery evidence in an approved operational location;
-3. continue periodic isolated restore drills and investigate every backup/monitor service failure;
+1. keep deployed image digests, backup IDs, and restore evidence in the approved operational record;
+2. continue periodic isolated restore drills and investigate every backup/monitor service failure;
+3. repeat credential remediation after any future full demonstration seed or pre-remediation restore;
 4. evaluate Systems Manager Session Manager so interactive SSH can eventually be removed; and
-5. add DNS and HTTPS only after the remaining private-staging security work is complete.
+5. add stable DNS and HTTPS before controlled public access.
 
 Pushes to `development` publish immutable images automatically. EC2 deployment remains deliberately manual-triggered and approval-gated, and the application remains private behind an SSH tunnel. Repository changes to `compose.staging.yaml` or the fixed host deployment script require a separate reviewed host update.

@@ -4,6 +4,8 @@
 
 **Scope:** One-time remediation of CampusDesk staging accounts that still match the seeded demonstration password.
 
+**Execution status:** Completed on staging on 9 October 2026. The public-safe aggregate result and post-remediation recovery evidence are recorded in [CI_CD_SESSION_2_HANDOFF.md](CI_CD_SESSION_2_HANDOFF.md). Repeat this runbook after any future full demonstration seed or restoration of a pre-remediation recovery set.
+
 **Security classification:** Safe to store in the repository. This document intentionally contains no real account IDs, names, email addresses, passwords, tokens, hostnames, image digests, AWS identifiers, or environment values. Put operational evidence and retained credentials only in the approved private operations record and password manager.
 
 ## Required outcome
