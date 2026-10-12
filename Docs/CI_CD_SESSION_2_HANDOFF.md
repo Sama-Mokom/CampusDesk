@@ -1,16 +1,16 @@
 # CampusDesk CI/CD Comprehensive Implementation and Operations Guide
 
-**Coverage:** Local Docker foundation completed 25 September 2026 through staging credential remediation and post-remediation recovery verification completed 9 October 2026
+**Coverage:** Local Docker foundation completed 25 September 2026 through Session Manager interactive-access and port-forward validation completed 12 October 2026
 
-**Last reviewed and updated:** 9 October 2026
+**Last reviewed and updated:** 12 October 2026
 
 **Repository branches:** `development` remains the deployment integration target; the account-security change sequence was prepared on `valib`. Recovery automation and its validation record were merged by PR #20 at merge commit `989ca54`.
 
 **Verified recovery implementation commit:** `e3c53363f85369c0a0f9f6823c3cef4d041b532a Add staging backup and recovery automation`
 
-**Current phase:** CI, immutable ECR publication, manually approved SSM deployment automation, attachment-volume hardening, staging functional verification, off-host backup automation, isolated restore testing, scheduled freshness monitoring, account-security deployment, staging credential remediation, and post-remediation recovery verification are complete; DNS and HTTPS remain the next public-access gates
+**Current phase:** CI, immutable ECR publication, manually approved SSM deployment automation, attachment-volume hardening, staging functional verification, off-host backup automation, isolated restore testing, scheduled freshness monitoring, account-security deployment, staging credential remediation, post-remediation recovery verification, Session Manager access validation, and host operating-system privilege hardening are complete; SSH removal remains a separately gated decision, while DNS and HTTPS remain the next public-access gates
 
-**Runtime status:** the staging application is healthy and reachable through an SSH tunnel at `http://localhost:18080`; the request lifecycle, role transitions, account disablement, retained-persona access, notifications, collection, private attachment upload/download, manual and scheduled off-host recovery capture, isolated restore, and backup-freshness heartbeat have been functionally verified
+**Runtime status:** the staging application is healthy and reachable through a Session Manager port-forwarding session at `http://localhost:18080`; interactive Session Manager shell access, port forwarding, request lifecycle, role transitions, account disablement, retained-persona access, notifications, collection, private attachment upload/download, manual and scheduled off-host recovery capture, isolated restore, and backup-freshness heartbeat have been functionally verified. Source-restricted SSH remains enabled only as the current rollback path.
 
 ## Purpose
 
@@ -387,7 +387,8 @@ flowchart LR
     EC2Role -->|pull only| ECRF
     EC2Role -->|managed-node channel| SSM
 
-    Laptop[Developer browser] -->|SSH tunnel localhost:18080| Frontend[Frontend: Nginx and Vue]
+    Laptop[Operator workstation and browser] -->|Session Manager port forward localhost:18080| SSM
+    SSM -->|managed-node channel to loopback port 8080| Frontend[Frontend: Nginx and Vue]
     Frontend -->|/api through Docker DNS| Backend[Backend: Apache and Laravel]
     Backend --> DB[(MySQL 8.4)]
     Worker[Laravel queue worker] --> DB
@@ -1032,6 +1033,43 @@ RESULT=WRITABLE
 | Backend and frontend were deployed from different commit tags. | Earlier manual deployment selected the two images independently. | Compared migration history, selected one development commit, and used the first automated deployment to normalize both services to the same release SHA and exact digests. |
 | Authorized attachment downloads returned 404 and API resources showed `/storage/0`. | The named attachment volume was `root:root` mode `0755`; Apache ran as `www-data`, Laravel's non-throwing store call returned `false`, and the database persisted it as `0`. | Corrected the live volume to `www-data:www-data` mode `0750`, added `attachments-init`, explicit local-disk handling, transaction cleanup, scoped staff authorization, and regression tests. New uploads and authenticated retrieval now succeed. |
 
+## Session Manager administrative-access checkpoint
+
+**Verified:** 12 October 2026
+**Status:** Complete. Interactive shell access and application port forwarding are operational. Session Manager Run As maps the IAM operator to the locked, non-privileged `campusdesk-operator` OS identity. The legacy `ssm-user` passwordless sudo grant has been removed with a validated root-owned rollback copy retained. Fresh post-hardening shell, CloudWatch transcript, port-forward, administrative-recovery, SSM Agent, and SSH-reconnection checks all passed. SSH remains enabled and source-restricted pending a separate, explicitly approved removal decision.
+
+The dedicated human operator is the IAM user `campusdesk-operator`. It has console access protected by MFA, no long-lived access keys, and `SignInLocalDevelopmentAccess` for temporary AWS CLI credentials. Its EC2 and Systems Manager read permissions support inspection without granting general infrastructure mutation. Session creation is restricted to the exact CampusDesk staging instance and to `SSM-SessionManagerRunShell` and `AWS-StartPortForwardingSession`. Resume and termination permissions are restricted to sessions owned by the operator. Arbitrary Run Command access is not part of this human-operator policy.
+
+The managed node and audit configuration were verified as follows:
+
+- the Ubuntu managed node reported `Online` after the SSM Agent was upgraded from `3.3.4793.0` to `3.3.5512.0`, which was the current agent version reported by Systems Manager at verification time;
+- the existing `CampusDeskEc2Runtime` instance role retained `AmazonSSMManagedInstanceCore` and received only the CloudWatch Logs write permissions needed for the dedicated Session Manager log group;
+- `/campusdesk/staging/session-manager` has 30-day retention and default CloudWatch Logs server-side encryption;
+- default version `2` of `SSM-SessionManagerRunShell` streams shell output to that log group, uses a 20-minute idle timeout and a 60-minute maximum duration, and enables Run As; `runAsDefaultUser` remains empty because the IAM user's `SSMSessionRunAs=campusdesk-operator` tag selects the OS account, while version `1` remains available as the tested configuration rollback point;
+- the Session Manager data channel retains its default TLS protection; no customer-managed KMS key has yet been configured for the data channel or log group; and
+- SSH port 22 and its existing administrator `/32` rule were not modified during this work.
+
+Functional evidence:
+
+- temporary CLI credentials resolved to `arn:aws:iam::...:user/campusdesk-operator`, not the root principal;
+- EC2 discovery returned the running CampusDesk staging instance and Systems Manager reported the Ubuntu node `Online`;
+- before the Run As cutover, an interactive shell opened as `ssm-user`, produced the marker `campusdesk-session-manager-log-test`, exited normally, and the marker was found in the configured CloudWatch log group;
+- a read-only host privilege audit confirmed that `ssm-user` has UID and primary GID `1001`, belongs only to its own `ssm-user` group, uses `/bin/sh`, and nevertheless receives `(ALL) NOPASSWD: ALL` from the valid root-owned, mode-`0440` `/etc/sudoers.d/ssm-agent-users` file, which is unrestricted passwordless root-equivalent access;
+- after version `2` became the active default, an interactive session opened as UID/GID `1002` `campusdesk-operator`, showed only the matching primary group, set `HOME=/home/campusdesk-operator`, and denied non-interactive sudo with exit code `1`;
+- that restricted session produced `campusdesk-runas-log-test`, exited normally, and the marker was found in the configured CloudWatch log group;
+- after the Run As cutover, an operator-owned `AWS-StartPortForwardingSession` connection again forwarded the loopback application from remote port `8080` to local port `18080` and closed cleanly;
+- the forwarded frontend again returned HTTP `200`, while unauthenticated `/api/user` with `Accept: application/json` returned the expected HTTP `401`;
+- the original root-owned, mode-`0440` `ssm-agent-users` policy was preserved at `/root/ssm-agent-users.before-runas-hardening`, validated with `visudo`, and hash-matched against the active pre-change file;
+- `/etc/sudoers.d/ssm-agent-users` was then replaced with a root-owned, mode-`0440`, comment-only policy; the complete `/etc/sudoers` configuration parsed successfully, policy inspection reported that `ssm-user` is not allowed to run sudo, and an actual non-interactive escalation attempt failed with exit code `1`;
+- the retained SSH `ubuntu` administrator still reached effective UID `0` non-interactively after the policy replacement, preserving the tested host-recovery path;
+- a fresh post-hardening Session Manager shell again opened as UID/GID `1002` `campusdesk-operator`, remained limited to its matching primary group, denied non-interactive sudo with exit code `1`, and exited normally;
+- the unique `campusdesk-post-hardening-log-test` marker from that session was found exactly once in the configured CloudWatch log group;
+- a fresh post-hardening operator-owned port-forward session connected successfully, again returned HTTP `200` for the frontend and the expected HTTP `401` for unauthenticated `/api/user`, and terminated cleanly;
+- a brand-new SSH connection authenticated as `ubuntu`, retained non-interactive effective UID `0`, reported the Snap-managed SSM Agent service `active`, and exited normally, proving that the source-restricted recovery path remained independently reconnectable;
+- the local `campusdesk-operator` identity was created with a locked password, `/bin/bash`, only its matching primary group, no `sudo` or `docker` membership, and a private owner-matched home directory at mode `0750`; a non-interactive nested sudo attempt was denied with exit code `1` before Run As activation and again from the mapped Session Manager shell.
+
+Port-forwarding and SSH session payloads are not captured as Session Manager shell transcripts. Their API-level start and termination activity must instead be audited through Systems Manager session history and CloudTrail. The hardened replacement and recovery checks are complete. Any SSH removal remains a separate change requiring explicit approval and its own rollback plan.
+
 ## Security decisions already made
 
 - No permanent AWS credentials are stored in GitHub or EC2 configuration files.
@@ -1041,7 +1079,7 @@ RESULT=WRITABLE
 - The SSH private key is outside the repository.
 - Real staging secrets live only in the ignored EC2 `.env.staging`, mode `600`.
 - MySQL and Laravel expose no host ports.
-- Nginx binds to loopback, forcing current access through SSH and preventing accidental public port-8080 exposure.
+- Nginx binds to loopback, requiring an approved tunnel such as Session Manager port forwarding and preventing accidental public port-8080 exposure.
 - Migrations and seeds are explicit operations rather than container startup side effects.
 - Application images and MySQL are selected by digest.
 - Private database and attachment state live in named volumes rather than replaceable containers.
@@ -1050,6 +1088,8 @@ RESULT=WRITABLE
 - Attachment download is limited to the owning student, a super administrator, a staff member assigned as a handler, or staff belonging to a department in the request route; unrelated students and staff are denied.
 - Container logs are rotated.
 - Deployment uses an environment-scoped OIDC role, a restricted SSM document, and a fixed root-owned host script rather than an SSH key or arbitrary remote shell input from GitHub.
+- Human Session Manager access uses a separate MFA-protected operator with no access keys and is restricted to the exact staging instance and two approved session documents.
+- SSH remains source-restricted and available as rollback pending a separate, explicitly approved removal decision.
 
 ## Post-start resource verification
 
@@ -1113,8 +1153,10 @@ The accepted objectives remain a 12-hour RPO and one-hour RTO. The isolated rest
 ### Security
 
 - Restoring a pre-remediation recovery set, or running the full demonstration seed again, can reintroduce the known factory-password risk; keep staging private and repeat the remediation runbook after either event.
-- HTTP is currently unencrypted inside the SSH tunnel, and there is no public TLS endpoint.
-- SSH remains an exposed administrative path, although source-restricted.
+- The application protocol remains HTTP on the instance loopback interface; Session Manager protects the tunnel transport, but there is still no public TLS endpoint.
+- SSH remains an exposed administrative rollback path, although source-restricted; it has not been approved for removal.
+- Interactive Session Manager opens through Run As as the restricted `campusdesk-operator`, and the legacy `ssm-user` sudo grant has been removed; the root-owned rollback copy is intentionally retained pending a separate SSH-removal and rollback-retention decision.
+- Session Manager shell logs use CloudWatch Logs default server-side encryption rather than a customer-managed KMS key, and no additional customer-managed KMS encryption is configured for the session data channel.
 - Secrets remain in a host file rather than AWS Systems Manager Parameter Store or Secrets Manager.
 - No image-signing, SBOM, or enforced vulnerability gate has been implemented.
 - Third-party GitHub Actions use version tags rather than reviewed full commit SHAs.
@@ -1196,10 +1238,19 @@ Do not paste the resulting account ID, public hostname, image digests, environme
 
 ### Priority 2: harden administrative access
 
-1. Confirm the SSH `/32` rule still matches the intended administrator.
-2. Systems Manager Run Command is operational for deployment; separately evaluate Session Manager so interactive port 22 access can eventually be removed.
-3. Move runtime secrets to Parameter Store or Secrets Manager and define a rotation procedure.
-4. Add least-privilege permissions only as each new operational capability is introduced.
+1. [x] Confirm the SSH `/32` rule still matches the intended administrator.
+2. [x] Create the MFA-protected `campusdesk-operator` without access keys and restrict Session Manager access to the exact staging instance and approved shell and port-forward documents.
+3. [x] Update the SSM Agent, configure bounded shell-session preferences and CloudWatch logging, and verify an interactive session transcript.
+4. [x] Verify application access through Session Manager port forwarding with the expected HTTP `200` and `401` responses.
+5. [x] Audit the effective groups, `sudo` policy, and passwordless privilege escalation available to `ssm-user` without changing the host; the audit confirmed `(ALL) NOPASSWD: ALL`.
+6. [x] Decide to introduce a dedicated restricted operating-system operator identity.
+7. [x] Create the locked `campusdesk-operator` OS account with no administrative groups or general sudo permissions and a mode-`0750` home directory.
+8. [x] Map the IAM operator to the matching OS identity, enable Run As with version `1` retained as a rollback point, and prove that Session Manager starts its shell as the restricted `campusdesk-operator`; verify the CloudWatch transcript and repeat the `200`/`401` port-forward checks.
+9. [x] Remove the default `ssm-user` sudo grant as defense in depth, retain and validate a root-owned rollback copy, validate the complete sudoers policy, prove actual `ssm-user` escalation fails, and reconfirm the SSH administrator recovery path.
+10. [x] Retest shell access, port forwarding, audit logging, administrative recovery, the active SSM Agent, and a brand-new SSH connection after host privilege hardening.
+11. [ ] Remove SSH only through a separate, explicitly approved change after all replacement and recovery gates pass.
+12. [ ] Move runtime secrets to Parameter Store or Secrets Manager and define a rotation procedure.
+13. Add least-privilege permissions only as each new operational capability is introduced.
 
 ### Priority 3: maintain the controlled deployment path
 
