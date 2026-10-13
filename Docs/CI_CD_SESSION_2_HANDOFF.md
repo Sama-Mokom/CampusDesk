@@ -160,7 +160,7 @@ Generate the application key with:
 docker run --rm campusdesk-backend:local php artisan key:generate --show
 ```
 
-Compose injects these values at runtime; they are not copied into image layers. Users with Docker administrator access can still inspect runtime environment variables, which is acceptable only for the local learning environment. `VITE_*` variables are embedded in browser JavaScript at build time and must never contain secrets.
+Compose injects these values at runtime; they are not copied into image layers. Users with Docker administrator access can still inspect runtime environment variables, which is acceptable only for the isolated local development environment. `VITE_*` variables are embedded in browser JavaScript at build time and must never contain secrets.
 
 ### Local networking and request routing
 
@@ -310,9 +310,9 @@ php artisan migrate:status          -> every migration still Ran
 GET localhost:8080/api/user         -> JSON 401 Unauthorized
 ```
 
-### Local problems and lessons
+### Local problems and resolutions
 
-| Symptom | Cause | Resolution and lesson |
+| Symptom | Cause | Resolution and preventive guidance |
 | --- | --- | --- |
 | Composer could not download packages. | Neither PHP Zip nor `unzip` was available. | Added `unzip` so Composer distribution archives could be extracted. |
 | Multiline commands failed on Windows. | PowerShell backticks were used in Command Prompt, where continuation uses `^`. | Use the correct shell syntax or one-line commands. |
@@ -1007,7 +1007,7 @@ RESULT=WRITABLE
 
 ## Problems encountered and resolved
 
-| Symptom | Cause | Resolution and lesson |
+| Symptom | Cause | Resolution and preventive guidance |
 | --- | --- | --- |
 | GitHub could not assume the AWS role initially. | The OIDC trust-policy subject contained an invalid full GitHub URL/repository form. | Restricted `sub` to the exact repository and `development` ref and kept `aud=sts.amazonaws.com`. Trust answers who can assume; the permission policy answers what the role can do. |
 | Concern about stored AWS access keys in GitHub. | Static credentials would have been long-lived secrets. | Used GitHub OIDC and short-lived STS credentials. No AWS access-key pair is stored in GitHub. |
@@ -1302,7 +1302,7 @@ The next developer or agent must not claim that any of the following already exi
 
 ## Continuation rule
 
-Preserve the established learning and implementation approach:
+Preserve the established engineering and operational approach:
 
 1. explain the operational or security problem first;
 2. compare meaningful alternatives and tradeoffs;

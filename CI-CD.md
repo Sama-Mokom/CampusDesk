@@ -1,4 +1,4 @@
-# CampusDesk CI/CD Learning Track
+# CampusDesk CI/CD and Operations Status
 
 **Last reviewed:** 9 October 2026
 
@@ -11,7 +11,7 @@ This file is the entry point for the CampusDesk CI/CD work. Detailed implementat
 - [x] Dockerize the Vue frontend with an Nginx runtime.
 - [x] Run MySQL, Laravel, the queue worker, and the frontend with Docker Compose.
 - [x] Verify health checks, queue execution, private attachment persistence, database persistence, and same-origin API proxying.
-- [x] Learn the GitHub Actions execution model.
+- [x] Establish the GitHub Actions execution model for quality gates, image publication, and controlled deployment.
 - [x] Add continuous integration for backend and frontend checks.
 - [x] Build images in CI after the quality gates pass.
 - [x] Publish commit-SHA-tagged images to immutable Amazon ECR repositories through GitHub OIDC.
@@ -81,7 +81,7 @@ flowchart LR
     DB --> Data[(Named database volume)]
 ```
 
-## Next learning checkpoint
+## Next operational milestone
 
 The controlled deployment, credential remediation, and recovery workflows are implemented and verified. The next milestone is public-access readiness and continued operational assurance:
 

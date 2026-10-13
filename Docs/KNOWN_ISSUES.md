@@ -1,4 +1,4 @@
-# CampusDesk — Known Issues, Bugs & Lessons Learned
+# CampusDesk — Known Issues, Root Causes & Preventive Guidance
 
 **Last reviewed:** 7 October 2026
 
@@ -169,7 +169,7 @@ export type DegreeType = 'BACHELOR' | 'CERTIFICATE' | 'MASTER' | 'PHD'
 
 **Root cause:** Laravel's mass-assignment protection (`$fillable`) silently ignores keys not listed.
 
-**Lesson:** **Whenever a field is null after create/update despite being in the input, check `$fillable` first.** Always update `$fillable` immediately when adding a migration column.
+**Prevention:** **Whenever a field is null after create/update despite being in the input, check `$fillable` first.** Always update `$fillable` immediately when adding a migration column.
 
 **Current status:** Active model write fields, including `Notification`, have explicit fillable lists. Check these lists when adding fields.
 
@@ -301,7 +301,7 @@ These items were marked UNVERIFIED in the original documentation. They have sinc
 
 ---
 
-## Containerization lessons resolved in CI/CD Session 1
+## Containerization issues resolved in CI/CD Session 1
 
 The full investigation and verification record is in the consolidated [CI/CD implementation and operations guide](CI_CD_SESSION_2_HANDOFF.md).
 

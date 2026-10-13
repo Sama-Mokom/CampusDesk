@@ -1,15 +1,17 @@
 # CampusDesk — Project Overview
 
-**Last reviewed:** 7 October 2026
+**Last reviewed:** 13 October 2026
 
 ## Project Name
 **CampusDesk** — University Document Request & Tracking System
 
 ## Problem Being Solved
 
-At Cameroonian universities (and many African universities generally), students who need official documents — transcripts, attestations, recommendation letters, internship endorsements — submit requests through informal channels and then have no visibility into where their document is, who has it, or when it will be ready. Students make repeated physical trips to offices or spend time pestering secretaries. The process is opaque, slow, and frustrating.
+CampusDesk began with a problem experienced firsthand at the University of Buea: after submitting a request for an official document, a student could have little visibility into what happened next. The request might be waiting for review, moving between offices, or blocked because information was missing or incorrect. Without a clear update, the student might only discover the problem after days of waiting or repeated visits to the faculty records office.
 
-CampusDesk digitises this process: students submit requests online, requests flow through the relevant departments in a defined sequence, staff process each stage, and students receive in-app updates plus queued email notifications.
+That uncertainty has real consequences when a transcript, attestation, recommendation letter, or endorsement is needed for a scholarship, university application, internship, or job opportunity with a deadline. Friends of the project's creator encountered the same pattern, showing that the issue was not an isolated inconvenience but a workflow and communication gap worth solving.
+
+CampusDesk makes that process visible. Students submit requests online, requests move through the responsible offices in a defined sequence, staff process each stage from an organised queue, and students receive in-app and queued email updates when the status changes. A rejection must include a reason, so the student knows what to correct and can reopen the request instead of waiting without direction.
 
 ## Target Users
 
@@ -30,10 +32,10 @@ CampusDesk digitises this process: students submit requests online, requests flo
 
 ## Project Goals
 
-This project has two explicit goals:
-
-1. **Build a real, useful system** — CampusDesk solves a problem the developer has personally experienced at the University of Buea
-2. **Learn Laravel and PHP backend development** — the project is explicitly a learning vehicle. Every assisted change must remain understandable, reviewable, tested, and supported by the framework documentation; automation does not replace the developer's ownership of the design.
+1. **Give students reliable visibility** — make the state, location, outcome, and next required action of each document request clear without repeated office visits.
+2. **Give staff a controlled workflow** — replace informal handoffs with ordered departmental queues, concurrency-safe ownership, and explicit approval or rejection decisions.
+3. **Make the process accountable** — preserve a history of status changes and staff handoffs so that requests can be followed and operational problems can be investigated.
+4. **Prepare for institutional use** — build the security, administration, deployment, recovery, and maintainability needed to evaluate CampusDesk for real university adoption.
 
 ## MVP Scope (completed)
 
@@ -63,15 +65,17 @@ This project has two explicit goals:
 
 - Separate audit of administrative CRUD and privilege changes
 - Broader analytics and real-time event delivery
-- Potential adoption by University of Buea
+- Pilot evaluation and potential adoption by the University of Buea
 
 ## Major Constraints
 
 - **Windows-first local development** — bare XAMPP-style development remains supported, with Docker Compose as the reproducible local runtime
-- **Learning project** — implementation and operations must remain explainable and reviewable by the developer, regardless of which tools assist the work
+- **Maintainability and reviewability** — implementation and operational changes must remain explicit, testable, documented, and supportable by a small team
 - **Private single-host staging** — AWS staging is deployed but deliberately reachable only through an SSH tunnel; public DNS/HTTPS is not configured
 - **Single developer** — operational reviews and approvals still need explicit records even without a development team
 
 ## Project Origin
 
-Suggested by Claude as a non-generic project that solves a real problem the developer personally experiences. Chosen over a todo-app or blog because it naturally covers all Laravel essentials: Eloquent ORM, migrations, relationships, middleware, queues, mail, storage, policies, and RESTful API design.
+CampusDesk grew from Nkeng Sama Mokom's experience requesting official documents at the University of Buea. After submission, progress was largely invisible: finding out whether a document was ready could require repeated visits, while missing or incorrect information might block a request without the student knowing. The stakes became clearer whenever a document was needed for a time-sensitive scholarship, application, internship, or job opportunity.
+
+The project asks a practical question: **what if students could see where their requests were, what needed attention, and what would happen next?** CampusDesk turns that question into an end-to-end workflow for students, staff, department administrators, and system administrators. The longer account of the problem and product idea is available in [Why I built CampusDesk](https://samamokom.vercel.app/writing/why-i-built-campusdesk).

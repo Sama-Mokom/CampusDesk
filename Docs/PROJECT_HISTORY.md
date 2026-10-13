@@ -1,22 +1,21 @@
 # CampusDesk — Project History & Evolution
 
-This timeline reconstructs the project's development chronologically based on the conversation record. Dates are approximate, inferred from message timestamps and file upload timestamps visible in the conversation (project appears to span roughly April–September 2026 based on artifact timestamps, though the developer's system clock in some Tinker outputs shows dates ranging from April to September 2026 — treat exact dates as approximate).
+This timeline records how CampusDesk progressed from an observed university-service problem to a working, staged system. Early dates are approximate because some surviving artifacts contain inconsistent local timestamps; later delivery and operational milestones use the recorded repository and staging evidence.
 
 ---
 
-## Phase 0: Project Selection & Planning
+## Phase 0: Problem Definition & Product Planning
 
-- Developer (Sama Mokom) expressed a goal: improve Laravel/PHP backend skills through independent, hand-coded learning, using AI only as a Socratic mentor — not a code generator.
-- Plan: vibe-code the frontend with v0/Vue, hand-code the backend against Laravel docs and Stack Overflow.
-- Claude was asked to suggest a non-generic project idea reflecting the developer's real context (University of Buea student, past internship experience).
-- **Decision:** CampusDesk — a university document request and tracking system — was chosen over generic alternatives (todo app, blog) specifically because it naturally covers the full breadth of Laravel fundamentals and solves a problem the developer has personally experienced.
-- A full Laravel learning roadmap was created covering 6 phases: project setup, migrations/Eloquent, auth/roles, core request lifecycle, queues/mail, and polish/hardening.
-- A v0 prompt was drafted for initial frontend scaffolding (multi-role dashboards: Student, Staff, Admin).
+- Sama Mokom identified a recurring problem from his experience at the University of Buea: students could submit requests for official documents but had little visibility into their progress, delays, or required corrections.
+- The impact extended beyond inconvenience because transcripts and attestations are often inputs to scholarship, university-application, internship, and employment deadlines.
+- **Product decision:** build CampusDesk as a university document-request and tracking system that makes each request's current stage, outcome, and next action visible.
+- The initial delivery plan covered system modeling, data and identity foundations, the request lifecycle, notifications, security hardening, and operational readiness.
+- Initial frontend scaffolding established separate Student, Staff, and Admin experiences around the same request workflow.
 
 ## Phase 1: System Modeling
 
 - Before any code was written, the full system was modeled: ERD, request lifecycle state machine, and role/permission matrix.
-- Key modeling decisions made through Socratic questioning:
+- Key modeling decisions made during product and architecture analysis:
   - Only students initiate requests (not staff on their behalf)
   - Requests can involve multiple departments in sequence
   - Rejected requests are closed but reopenable (not editable in place) — **ADR-06**
@@ -29,15 +28,15 @@ This timeline reconstructs the project's development chronologically based on th
 
 ## Phase 2: Laravel Project Setup
 
-- Environment: Windows + XAMPP (not Laragon, despite an initial mix-up in the conversation) + VS Code + MySQL via phpMyAdmin.
+- Initial environment: Windows, XAMPP, VS Code, and MySQL via phpMyAdmin.
 - `composer create-project laravel/laravel campusdesk` — Laravel project created (originally installed as Laravel 11, later upgraded to Laravel 12 per `composer.json`).
 - `.env` configured for local MySQL, `php artisan key:generate`, initial `php artisan migrate` confirmed working.
 
 ## Phase 3: Migrations & Models
 
 - 13 initial migrations created in dependency order: faculties → departments → programmes → users (+role) → student_profiles → staff_profiles → department_staff → request_types → requests → request_stages → status_history → attachments → notifications. (The total later grew to 27 through subsequent schema evolution — see Phase 10 and DATABASE.md.)
-- The developer encountered and fixed several migration bugs independently (missing `name` column on `departments`, duplicate faculty seeding, hardcoded ID fragility) — see KNOWN_ISSUES.md.
-- 12 Eloquent models built with relationships, reviewed one at a time by Claude with corrective feedback (e.g., removing `id` from `$fillable`, fixing relationship method casing, fixing foreign key references).
+- Several migration defects were identified and fixed, including a missing `name` column on `departments`, duplicate faculty seeding, and hardcoded-ID fragility — see KNOWN_ISSUES.md.
+- 12 Eloquent models were built with explicit relationships and corrected for mass-assignment boundaries, relationship naming, and foreign-key references.
 - Table name overrides identified and applied: `StatusHistory` → `status_history`, `DepartmentStaff` → `department_staff`.
 
 ## Phase 4: Authentication & Roles
@@ -47,26 +46,26 @@ This timeline reconstructs the project's development chronologically based on th
 - Gates defined in `AppServiceProvider`: the intended names were `is-student`, `is-staff`, `is-dept-admin`, `is-super-admin` (all hyphens). The actual current code has a naming inconsistency: `is_student` and `is_staff` use underscores, `is-super-admin` uses hyphens, and `is_dept-admin` uses mixed convention (underscore + hyphen) — see KNOWN_ISSUES.md.
 - Middleware classes created: `EnsureIsStudent`, `EnsureIsStaff`, `EnsureIsDeptAdmin`, `EnsureIsSuperAdmin` — each checking the corresponding Gate.
 - **Bug partially fixed:** Gate name inconsistency caused legitimate requests to be rejected. The `is_student`/`is_staff` inconsistency was resolved; the `is_dept-admin` mixed naming was introduced and remains unresolved — see KNOWN_ISSUES.md.
-- Login (`AuthenticatedSessionController::store()`) was originally the default Breeze session-based implementation (`$request->session()->regenerate()`), which crashed with "Session store not set on request" once tested via Postman in the API context. **Rewritten to Bearer token issuance** (`createToken()->plainTextToken`) — this was an important learning moment, with Claude explaining the session-vs-token distinction in depth at the developer's request.
+- Login (`AuthenticatedSessionController::store()`) was originally the default Breeze session-based implementation (`$request->session()->regenerate()`), which crashed with "Session store not set on request" in the API context. It was **rewritten to issue Bearer tokens** (`createToken()->plainTextToken`), aligning authentication with the separate Vue client and stateless API boundary.
 
 ## Phase 5: Core Request Lifecycle
 
 - `StoreRequestRequest` and `UpdateStageStatusRequest` Form Request classes created for validation.
 - `RequestController` and `RequestStageController` built via `--resource` scaffolding, then customized.
 - The stage-generation logic in `store()` — looping over `default_department_sequence` to create `request_stages` — went through several rounds of debugging (syntax errors, wrong field names, `$fillable` omissions).
-- The staff pickup/lock mechanic (`claim()`) and resolution mechanic (`resolve()`) were designed and implemented by the developer with Claude reviewing for correctness rather than writing the code — notably the atomic conditional update pattern (`->where('status','pending')->whereNull('handled_by')->update(...)` then checking affected row count) was praised as "exactly the right pattern" for the pickup lock.
+- The staff pickup/lock mechanic (`claim()`) and resolution mechanic (`resolve()`) used an atomic conditional update (`->where('status','pending')->whereNull('handled_by')->update(...)`, followed by an affected-row check) to prevent two staff members from taking the same stage.
 - Routes wired in `api.php`, with several rounds of debugging route-model-binding parameter name mismatches — see KNOWN_ISSUES.md.
 - Full end-to-end Postman testing performed across all endpoints (register, login, submit request, claim, resolve).
 
 ## Phase 6: Automatic Status History via Observer
 
-- Socratic discussion led the developer to identify Laravel Observers as the correct pattern (rather than a manual "helper" function) for guaranteeing status history is logged regardless of the call path (controller, Tinker, seeder, etc.).
+- Laravel Observers were selected over controller-level helper calls so status history would be recorded consistently regardless of the mutation path (controller, Tinker, seeder, or future service code).
 - `RequestStageObserver` created, using `isDirty('status')` and `getOriginal('status')` to detect and log transitions on the `updated` event.
 - Manual `statusHistories()->create()` calls removed from controllers once the observer was confirmed working — full end-to-end regression test performed and passed.
 
 ## Phase 7: Queues & Mail
 
-- Discussion on why synchronous email sending is problematic (blocks HTTP response, risk of silent failure) led into Laravel's queue system.
+- Email delivery was moved off the request path to avoid blocking HTTP responses and to make delivery failures independently retryable.
 - `RequestStatusUpdated` Mailable created (constructor takes User, DocumentRequest, string status; `loadMissing('requestType')` to ensure relationship availability).
 - `SendRequestStatusNotification` Job created, dispatching the Mailable.
 - Mailtrap configured for local dev email testing.
@@ -75,7 +74,7 @@ This timeline reconstructs the project's development chronologically based on th
 
 ## Phase 8: API Hardening (Phase 6 of original roadmap)
 
-- Rate limiting applied to routes, with the developer correctly reasoning through which endpoints needed the strictest limits (auth routes, `POST /requests`) versus looser limits (read routes, staff actions).
+- Rate limiting was applied by risk and workload: stricter limits for authentication and `POST /requests`, with looser limits for read routes and staff actions.
 - API Resources (`RequestResource`, `RequestStageResource`, `UserResource`) built to replace raw Eloquent model responses, using `whenLoaded()` for conditional relationship exposure.
 - Controllers updated to return Resources instead of raw models/collections.
 - Full Postman re-verification of response shapes.
@@ -96,7 +95,7 @@ This was the longest and most debugging-intensive phase.
 ### 9c. API Service Layer (Frontend)
 - Axios installed, `api.ts` created with request interceptor (attach Bearer token from localStorage) and response interceptor (401 → clear token, redirect to login).
 - TypeScript config updated to include `vite/client` types for `import.meta.env`.
-- `auth.ts`, `requests.ts`, `stages.ts`, `reference.ts` service files built incrementally, each reviewed by Claude.
+- `auth.ts`, `requests.ts`, `stages.ts`, and `reference.ts` established the frontend API service boundary.
 - Recurring naming collision bug identified and resolved: native browser `Request`/`Response` types colliding with custom domain types — resolved via type aliasing (`Request as DocumentRequest`) on both frontend TypeScript and backend PHP.
 
 ### 9d. Auth Flow Wiring
@@ -107,7 +106,7 @@ This was the longest and most debugging-intensive phase.
 - Login/register response shapes updated to include nested `student_profile`/`staff_profile` — required for role-based routing to function.
 
 ### 9e. Student Dashboard Wiring
-- Extensive step-by-step guided rewrite of `StudentDashboard.vue`, replacing the earlier mock layer with real service calls (`fetchRequests`, `fetchRequestTypes`, `fetchFaculties`, `fetchDepartments`, `createRequest`).
+- `StudentDashboard.vue` was rewritten to replace the earlier mock layer with real service calls (`fetchRequests`, `fetchRequestTypes`, `fetchFaculties`, `fetchDepartments`, `createRequest`).
 - Multiple response-shape mismatches debugged: Laravel Resource `{data: [...]}` wrapper not being unwrapped, `request_type` type mismatch (object vs string), file upload payload issues (wrong FormData field, Axios `Content-Type` override breaking multipart uploads).
 - File upload flow (`fileList`) rewritten from metadata-only objects to real `File` objects.
 - Detail modal "click to open" bug traced to missing eager-loading on the list endpoint (fixed by calling `fetchRequestById` on click instead of using list-item data directly) and a stale/incorrect route definition (`/request/{requests}` → `/requests/{request}`).
@@ -118,7 +117,7 @@ This was the longest and most debugging-intensive phase.
 - **Backend addition:** discovered that `RequestStageController::index()` (used for the queue) doesn't accept a meaningful `{request}` parameter — a dedicated `GET /api/stages` staff-queue endpoint and `GET /api/stages/my-cases` (active claims) endpoint were added.
 - `RequestStageResource` extended to include nested `request` object with student name/matricule/level and request type — needed for the staff queue cards to display student context.
 - Resolve modal field-name mismatch bug (`resolution`/`action` vs `status`) traced and fixed.
-- **Critical bug discovered and fixed:** the multi-claim concurrency bug (see KNOWN_ISSUES.md) — a request's Stage 2 was claimable before Stage 1 was approved. Claude proposed a two-part fix (query filter + claim guard); the developer identified this initial fix was insufficient (TOCTOU race condition remained) and independently designed and implemented a more robust fix using SQL `whereExists` + `lockForUpdate()` transactional locking.
+- **Critical bug discovered and fixed:** a request's Stage 2 could be claimed before Stage 1 was approved. An initial query filter and claim guard still left a time-of-check/time-of-use race. The final design closed that race with SQL `whereExists` eligibility checks and transactional `lockForUpdate()` locking — see KNOWN_ISSUES.md.
 
 ### 9g. Document Viewing
 - 403 bug on attachment viewing traced to files being stored in private storage but referenced via public-style URLs.
