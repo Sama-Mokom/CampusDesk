@@ -10,7 +10,10 @@ use RuntimeException;
 
 class RequestCreationService
 {
-    public function __construct(private readonly StageGenerationService $stages) {}
+    public function __construct(
+        private readonly StageGenerationService $stages,
+        private readonly RequestEventRecorder $events,
+    ) {}
 
     public function createForStudent(User $student, RequestType $type, ?string $description = null): DocumentRequest
     {
@@ -21,6 +24,11 @@ class RequestCreationService
         }
 
         return DB::transaction(function () use ($student, $type, $description, $profile) {
+            $departmentSequence = $this->stages->resolveSequence(
+                $type->default_department_sequence,
+                $profile,
+            );
+
             $request = $student->requests()->create([
                 'request_type_id' => $type->id,
                 'description' => $description,
@@ -28,7 +36,7 @@ class RequestCreationService
                 'is_reopened' => false,
             ]);
 
-            foreach ($this->stages->resolveSequence($type->default_department_sequence, $profile) as $index => $departmentId) {
+            foreach ($departmentSequence as $index => $departmentId) {
                 $request->requestStages()->create([
                     'department_id' => $departmentId,
                     'sequence_order' => $index + 1,
@@ -43,6 +51,8 @@ class RequestCreationService
                 'request_stage_id' => null,
                 'note' => 'Request submitted by student.',
             ]);
+
+            $this->events->recordRequestCreated($request, $departmentSequence[0]);
 
             return $request;
         });

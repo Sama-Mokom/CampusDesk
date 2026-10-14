@@ -1,0 +1,33 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\Request as DocumentRequest;
+use App\Models\RequestEvent;
+use Illuminate\Support\Str;
+
+class RequestEventRecorder
+{
+    public function recordRequestCreated(DocumentRequest $request, int $firstDepartmentId): RequestEvent
+    {
+        $aggregateSequence = ((int) RequestEvent::query()
+            ->where('request_id', $request->id)
+            ->max('aggregate_sequence')) + 1;
+
+        return RequestEvent::create([
+            'id' => (string) Str::uuid(),
+            'request_id' => $request->id,
+            'event_name' => 'request.created',
+            'schema_version' => 1,
+            'aggregate_sequence' => $aggregateSequence,
+            'delivery_status' => 'pending',
+            'payload' => [
+                'request_id' => $request->id,
+            ],
+            'audiences' => [
+                'users' => [$request->student_id],
+                'departments' => [$firstDepartmentId],
+            ],
+        ]);
+    }
+}
