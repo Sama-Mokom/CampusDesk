@@ -30,4 +30,35 @@ class RequestEventRecorder
             ],
         ]);
     }
+
+    public function recordRequestStatusChanged(DocumentRequest $request): RequestEvent
+    {
+        $aggregateSequence = ((int) RequestEvent::query()
+            ->where('request_id', $request->id)
+            ->max('aggregate_sequence')) + 1;
+
+        $departmentIds = $request->requestStages()
+            ->orderBy('sequence_order')
+            ->pluck('department_id')
+            ->unique()
+            ->map(fn (mixed $departmentId): int => (int) $departmentId)
+            ->values()
+            ->all();
+
+        return RequestEvent::create([
+            'id' => (string) Str::uuid(),
+            'request_id' => $request->id,
+            'event_name' => 'request.status_changed',
+            'schema_version' => 1,
+            'aggregate_sequence' => $aggregateSequence,
+            'delivery_status' => 'pending',
+            'payload' => [
+                'request_id' => $request->id,
+            ],
+            'audiences' => [
+                'users' => [$request->student_id],
+                'departments' => $departmentIds,
+            ],
+        ]);
+    }
 }

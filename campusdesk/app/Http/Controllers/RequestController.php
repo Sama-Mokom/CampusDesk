@@ -7,6 +7,7 @@ use App\Http\Resources\RequestResource;
 use App\Models\Request as UserRequest;
 use App\Models\RequestType;
 use App\Services\RequestCreationService;
+use App\Services\RequestEventRecorder;
 use App\Services\RequestStatusNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -157,12 +158,12 @@ class RequestController extends Controller
         });
     }
 
-    public function collect(UserRequest $request)
+    public function collect(UserRequest $request, RequestEventRecorder $events)
     {
         $user = Auth::user();
         abort_unless($request->student_id === $user->id, 403);
 
-        return DB::transaction(function () use ($request, $user) {
+        return DB::transaction(function () use ($request, $user, $events) {
             $lockedRequest = UserRequest::query()->whereKey($request->id)->lockForUpdate()->firstOrFail();
             abort_unless($lockedRequest->status === 'ready', 422, 'Only ready requests can be marked as collected.');
 
@@ -174,6 +175,8 @@ class RequestController extends Controller
                 'request_stage_id' => null,
                 'note' => 'Request marked as collected by student.',
             ]);
+
+            $events->recordRequestStatusChanged($lockedRequest);
 
             return new RequestResource($lockedRequest->fresh()->load([
                 'requestType', 'requestStages.department', 'attachments', 'statusHistories',

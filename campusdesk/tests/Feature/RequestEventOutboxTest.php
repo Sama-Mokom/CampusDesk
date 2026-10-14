@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Department;
 use App\Models\Faculty;
 use App\Models\Programme;
+use App\Models\Request as DocumentRequest;
 use App\Models\RequestEvent;
 use App\Models\RequestType;
 use App\Models\StudentProfile;
@@ -37,6 +38,50 @@ class RequestEventOutboxTest extends TestCase
             'event_name' => 'request.created',
             'schema_version' => 1,
             'aggregate_sequence' => 1,
+            'delivery_status' => 'pending',
+            'payload' => ['request_id' => $requestId],
+            'audiences' => [
+                'users' => [$student->id],
+                'departments' => [$department->id],
+            ],
+        ], [
+            'request_id' => $event->request_id,
+            'event_name' => $event->event_name,
+            'schema_version' => $event->schema_version,
+            'aggregate_sequence' => $event->aggregate_sequence,
+            'delivery_status' => $event->delivery_status,
+            'payload' => $event->payload,
+            'audiences' => $event->audiences,
+        ]);
+    }
+
+    public function test_collecting_a_ready_request_records_the_next_request_status_changed_event(): void
+    {
+        [$student, $requestType, $department] = $this->makeStudentAndRequestType();
+
+        $creationResponse = $this->actingAs($student, 'sanctum')
+            ->postJson('/api/requests', [
+                'request_type_id' => $requestType->id,
+            ])
+            ->assertCreated();
+
+        $requestId = (int) $creationResponse->json('data.id');
+        DocumentRequest::query()->whereKey($requestId)->update(['status' => 'ready']);
+
+        $this->actingAs($student, 'sanctum')
+            ->patchJson("/api/requests/{$requestId}/collect")
+            ->assertOk();
+
+        $event = RequestEvent::query()
+            ->where('event_name', 'request.status_changed')
+            ->sole();
+
+        $this->assertTrue(Str::isUuid($event->id));
+        $this->assertSame([
+            'request_id' => $requestId,
+            'event_name' => 'request.status_changed',
+            'schema_version' => 1,
+            'aggregate_sequence' => 2,
             'delivery_status' => 'pending',
             'payload' => ['request_id' => $requestId],
             'audiences' => [
