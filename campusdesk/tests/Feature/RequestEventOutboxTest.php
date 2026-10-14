@@ -99,6 +99,54 @@ class RequestEventOutboxTest extends TestCase
         ]);
     }
 
+    public function test_claiming_a_stage_records_the_next_request_stage_claimed_event(): void
+    {
+        [$student, $requestType, $department] = $this->makeStudentAndRequestType();
+
+        $creationResponse = $this->actingAs($student, 'sanctum')
+            ->postJson('/api/requests', [
+                'request_type_id' => $requestType->id,
+            ])
+            ->assertCreated();
+
+        $requestId = (int) $creationResponse->json('data.id');
+        $stageId = (int) $creationResponse->json('data.stages.0.id');
+        $staff = $this->makeStaffInDepartment($department);
+
+        $this->actingAs($staff, 'sanctum')
+            ->postJson("/api/requests/{$requestId}/stages/{$stageId}/claim")
+            ->assertOk();
+
+        $event = RequestEvent::query()
+            ->where('event_name', 'request_stage.claimed')
+            ->sole();
+
+        $this->assertTrue(Str::isUuid($event->id));
+        $this->assertSame([
+            'request_id' => $requestId,
+            'event_name' => 'request_stage.claimed',
+            'schema_version' => 1,
+            'aggregate_sequence' => 2,
+            'delivery_status' => 'pending',
+            'payload' => [
+                'request_id' => $requestId,
+                'request_stage_id' => $stageId,
+            ],
+            'audiences' => [
+                'users' => [$student->id, $staff->id],
+                'departments' => [$department->id],
+            ],
+        ], [
+            'request_id' => $event->request_id,
+            'event_name' => $event->event_name,
+            'schema_version' => $event->schema_version,
+            'aggregate_sequence' => $event->aggregate_sequence,
+            'delivery_status' => $event->delivery_status,
+            'payload' => $event->payload,
+            'audiences' => $event->audiences,
+        ]);
+    }
+
     /**
      * @return array{0: User, 1: RequestType, 2: Department}
      */
@@ -149,5 +197,25 @@ class RequestEventOutboxTest extends TestCase
         ]);
 
         return [$student, $requestType, $department];
+    }
+
+    private function makeStaffInDepartment(Department $department): User
+    {
+        $staff = User::create([
+            'name' => 'Staff One',
+            'email' => 'staff-one@example.test',
+            'email_verified_at' => now(),
+            'password' => 'password',
+            'role' => 'staff',
+        ]);
+
+        $profile = $staff->staffProfile()->create([
+            'staff_id' => 'STAFF-001',
+            'admin_level' => null,
+        ]);
+
+        $profile->departments()->attach($department->id, ['is_primary' => true]);
+
+        return $staff;
     }
 }

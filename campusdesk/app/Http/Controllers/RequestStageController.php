@@ -9,6 +9,7 @@ use App\Models\Request as DocumentRequest;
 use App\Http\Requests\UpdateStageStatusRequest as ResolveStageRequest;
 use Illuminate\Support\Facades\DB;
 use App\Http\Resources\RequestStageResource;
+use App\Services\RequestEventRecorder;
 use App\Services\RequestStatusNotificationService;
 use Illuminate\Http\JsonResponse;
 
@@ -119,7 +120,13 @@ public function forRequest(DocumentRequest $docRequest): \Illuminate\Http\Resour
     {
         //
     }
-public function claim(Request $request, DocumentRequest $docRequest, RequestStage $stage, RequestStatusNotificationService $notifications)
+public function claim(
+    Request $request,
+    DocumentRequest $docRequest,
+    RequestStage $stage,
+    RequestStatusNotificationService $notifications,
+    RequestEventRecorder $events,
+)
 {
 
     abort_if($stage->request_id != $docRequest->id, 404);
@@ -128,7 +135,7 @@ public function claim(Request $request, DocumentRequest $docRequest, RequestStag
     $belongsToDept = $staff->departments->contains('id', $stage->department_id);
     abort_unless($belongsToDept, 403);
 
-    DB::transaction(function () use ($request, $docRequest, $stage, $notifications) {
+    DB::transaction(function () use ($request, $docRequest, $stage, $notifications, $events) {
         $oldRequestStatus = $docRequest->status;
 
         // Re-fetch the row with a pessimistic lock — serialises concurrent transactions
@@ -168,6 +175,7 @@ public function claim(Request $request, DocumentRequest $docRequest, RequestStag
             'request_stage_id' => null,
             'note'             => null,
         ]);
+        $events->recordRequestStageClaimed($docRequest, $lockedStage, $request->user());
         $notifications->notifyStudent($docRequest, 'in_review');
     });
 
