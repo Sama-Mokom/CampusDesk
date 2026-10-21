@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import type { Notification } from '@/types'
 import {
@@ -6,6 +6,7 @@ import {
   markNotificationRead
 } from '@/services/notifications'
 import { useAuth } from '@/composables/useAuth'
+import { useRealtime } from '@/composables/useRealtime'
 import { format } from 'date-fns'
 import SkeletonLoader from './ui/SkeletonLoader.vue'
 
@@ -20,6 +21,19 @@ const unreadCount = computed(
   () => items.value.filter((item) => !item.read).length
 )
 const { isAuthenticated } = useAuth()
+const { onCoalescedInvalidate, onReconnect } = useRealtime()
+
+onCoalescedInvalidate(() => {
+  if (isAuthenticated.value) {
+    void load()
+  }
+})
+
+onReconnect(() => {
+  if (isAuthenticated.value) {
+    void load()
+  }
+})
 async function load() {
   if (!isAuthenticated.value || loading.value) return
   loading.value = true

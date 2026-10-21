@@ -9,21 +9,24 @@ vi.mock('../../services/stages', () => ({
   resolveStage: vi.fn()
 }))
 vi.mock('../../services/requests', () => ({ fetchRequestById: vi.fn() }))
-vi.mock('../../composables/useAuth', () => ({
-  useAuth: () => ({
-    user: {
-      value: {
-        id: 1,
-        name: 'Staff Reviewer',
-        staff_profile: {
-          staff_id: 'S-001',
-          departments: [
-            { id: 1, name: 'Registry', is_primary: true },
-            { id: 2, name: 'Student Affairs', is_primary: false }
-          ]
-        }
+const { mockStaffUser } = vi.hoisted(() => ({
+  mockStaffUser: {
+    value: {
+      id: 1,
+      name: 'Staff Reviewer',
+      staff_profile: {
+        staff_id: 'S-001',
+        departments: [
+          { id: 1, name: 'Registry', is_primary: true },
+          { id: 2, name: 'Student Affairs', is_primary: false }
+        ]
       }
     }
+  }
+}))
+vi.mock('../../composables/useAuth', () => ({
+  useAuth: () => ({
+    user: mockStaffUser
   })
 }))
 
@@ -151,6 +154,17 @@ async function render(path = '/staff/queue') {
 
 beforeEach(() => {
   vi.resetAllMocks()
+  mockStaffUser.value = {
+    id: 1,
+    name: 'Staff Reviewer',
+    staff_profile: {
+      staff_id: 'S-001',
+      departments: [
+        { id: 1, name: 'Registry', is_primary: true },
+        { id: 2, name: 'Student Affairs', is_primary: false }
+      ]
+    }
+  }
   vi.mocked(fetchStaffQueue).mockResolvedValue([queueStage, otherDepartment])
   vi.mocked(fetchMyCases).mockResolvedValue([activeStage])
   vi.mocked(claimStage).mockResolvedValue(undefined)
@@ -194,11 +208,30 @@ describe('Staff workspace', () => {
     expect(wrapper.find('article').text()).toContain('Alice Student')
     await wrapper.get('#staff-department').setValue('2')
     expect(wrapper.find('article').text()).toContain('Bob Student')
+    await wrapper.get('#staff-department').setValue('0')
+    expect(wrapper.findAll('article')).toHaveLength(2)
     await wrapper.get('#staff-department').setValue('1')
     await router.push('/staff/cases')
     await flushPromises()
     expect(wrapper.find('article').text()).toContain('Charlie Student')
     expect(wrapper.text()).toContain('Assigned to you · All your departments')
+  })
+
+  it('correctly defaults queue to primary department when is_primary is only on pivot', async () => {
+    mockStaffUser.value = {
+      id: 1,
+      name: 'Staff Reviewer',
+      staff_profile: {
+        staff_id: 'S-001',
+        departments: [
+          { id: 1, name: 'Registry', pivot: { is_primary: 0 } },
+          { id: 2, name: 'Student Affairs', pivot: { is_primary: 1 } }
+        ] as any
+      }
+    }
+    await render()
+    expect(wrapper.findAll('article')).toHaveLength(1)
+    expect(wrapper.find('article').text()).toContain('Bob Student')
   })
 
   it('searches by matricule, filters by type, and distinguishes a filtered empty state', async () => {

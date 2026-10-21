@@ -9,6 +9,7 @@
         "php": "^8.2",
         "fakerphp/faker": "^1.23",
         "laravel/framework": "^12.0",
+        "laravel/reverb": "^1.12",
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.10.1"
     },
@@ -49,6 +50,10 @@
         "dev-mail": [
         "Composer\\Config::disableProcessTimeout",
         "npx concurrently -c \"#93c5fd,#c4b5fd,#fdba74\" \"php artisan serve\" \"php artisan queue:listen --tries=1 --timeout=0\" \"npm run dev --prefix ../Frontend\" --names=server,queue,vite --kill-others"
+        ],
+        "dev-realtime": [
+        "Composer\\Config::disableProcessTimeout",
+        "npx concurrently -c \"#93c5fd,#c4b5fd,#34d399,#f472b6,#fdba74\" \"php artisan serve\" \"php artisan queue:listen --queue=default,realtime --tries=1 --timeout=0\" \"php artisan reverb:start --debug\" \"php artisan schedule:work\" \"npm run dev --prefix ../Frontend\" --names=server,queue,reverb,schedule,vite"
         ],
         "test": [
             "@php artisan config:clear --ansi",

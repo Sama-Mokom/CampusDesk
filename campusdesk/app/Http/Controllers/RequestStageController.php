@@ -182,18 +182,22 @@ public function claim(
     return response()->json(['message' => 'Stage claimed'], 200);
 }
 
-public function resolve(ResolveStageRequest $formRequest, DocumentRequest $docRequest, RequestStage $stage, RequestStatusNotificationService $notifications)
-{
-    
-      abort_if($stage->request_id !== $docRequest->id, 404);
+public function resolve(
+    ResolveStageRequest $formRequest,
+    DocumentRequest $docRequest,
+    RequestStage $stage,
+    RequestStatusNotificationService $notifications,
+    RequestEventRecorder $events,
+) {
+    abort_if($stage->request_id !== $docRequest->id, 404);
 
-      abort_unless($stage->handled_by === $formRequest->user()->id, 403);
+    abort_unless($stage->handled_by === $formRequest->user()->id, 403);
 
-      abort_unless($stage->status === 'in_review', 422);
+    abort_unless($stage->status === 'in_review', 422);
 
-      $status = $formRequest->validated()['status'];
+    $status = $formRequest->validated()['status'];
 
-      DB::transaction(function () use ($formRequest, $docRequest, $stage, $status, $notifications){
+    DB::transaction(function () use ($formRequest, $docRequest, $stage, $status, $notifications, $events) {
         $oldRequestStatus = $docRequest->status;
         $staffNote = $formRequest->validated()['staff_note'] ?? null;
 
@@ -201,10 +205,10 @@ public function resolve(ResolveStageRequest $formRequest, DocumentRequest $docRe
             'status' => $status,
             'staff_note' => $staffNote,
         ]);
-        if ($status ==='approved') {
-            $this->handleApproval($docRequest,$stage);
+        if ($status === 'approved') {
+            $this->handleApproval($docRequest, $stage);
         } else {
-            $docRequest->update(['status' =>'rejected']);
+            $docRequest->update(['status' => 'rejected']);
         }
         $docRequest->statusHistories()->create([
             'old_status'       => $oldRequestStatus,
@@ -213,10 +217,11 @@ public function resolve(ResolveStageRequest $formRequest, DocumentRequest $docRe
             'request_stage_id' => null,
             'note'             => $staffNote,
         ]);
+        $events->recordRequestStatusChanged($docRequest);
         $notifications->notifyStudent($docRequest, $docRequest->status);
-      });
+    });
 
-      return response()->json(['message'=> 'Stage resolved. '], 200);
+    return response()->json(['message' => 'Stage resolved.'], 200);
 }
 
 private function handleApproval(DocumentRequest $docRequest, RequestStage $stage): void

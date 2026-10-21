@@ -20,6 +20,11 @@ class RequestEvent extends Model
         'delivery_status',
         'payload',
         'audiences',
+        'attempt_count',
+        'last_attempt_at',
+        'published_at',
+        'failed_at',
+        'last_error',
     ];
 
     public function request(): BelongsTo
@@ -34,6 +39,10 @@ class RequestEvent extends Model
             'aggregate_sequence' => 'integer',
             'payload' => 'array',
             'audiences' => 'array',
+            'attempt_count' => 'integer',
+            'last_attempt_at' => 'datetime',
+            'published_at' => 'datetime',
+            'failed_at' => 'datetime',
         ];
     }
 }

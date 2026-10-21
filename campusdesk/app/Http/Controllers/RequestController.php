@@ -94,8 +94,11 @@ class RequestController extends Controller
         );
     }
 
-    public function reopen(UserRequest $request, RequestStatusNotificationService $notifications)
-    {
+    public function reopen(
+        UserRequest $request,
+        RequestStatusNotificationService $notifications,
+        RequestEventRecorder $events,
+    ) {
         $user = Auth::user();
         $isOwner = $request->student_id === $user->id;
         $isSuperAdmin = $user->role === 'staff'
@@ -103,7 +106,7 @@ class RequestController extends Controller
 
         abort_unless($isOwner || $isSuperAdmin, 403);
 
-        return DB::transaction(function () use ($request, $user, $isSuperAdmin, $notifications) {
+        return DB::transaction(function () use ($request, $user, $isSuperAdmin, $notifications, $events) {
             $lockedRequest = UserRequest::query()
                 ->whereKey($request->id)
                 ->lockForUpdate()
@@ -145,6 +148,7 @@ class RequestController extends Controller
                     : 'Request reopened by student.',
             ]);
 
+            $events->recordRequestStatusChanged($lockedRequest);
             $notifications->notifyStudent($lockedRequest, 'pending');
 
             return new RequestResource(

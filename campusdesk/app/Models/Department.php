@@ -12,6 +12,13 @@ class Department extends Model
     // Reference data; no public department write endpoint exists.
     protected $fillable = ['faculty_id', 'name', 'code', 'type'];
 
+    protected $appends = ['is_primary'];
+
+    public function getIsPrimaryAttribute(): bool
+    {
+        return (bool) ($this->pivot?->is_primary ?? false);
+    }
+
     public function faculty(): BelongsTo
     {
         return $this->belongsTo(Faculty::class);

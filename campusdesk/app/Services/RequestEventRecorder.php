@@ -2,43 +2,29 @@
 
 namespace App\Services;
 
+use App\Jobs\PublishRequestEvent;
 use App\Models\Request as DocumentRequest;
 use App\Models\RequestEvent;
 use App\Models\RequestStage;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Throwable;
 
 class RequestEventRecorder
 {
     public function recordRequestCreated(DocumentRequest $request, int $firstDepartmentId): RequestEvent
     {
-        $aggregateSequence = ((int) RequestEvent::query()
-            ->where('request_id', $request->id)
-            ->max('aggregate_sequence')) + 1;
-
-        return RequestEvent::create([
-            'id' => (string) Str::uuid(),
+        return $this->recordAndDispatch($request, 'request.created', [
             'request_id' => $request->id,
-            'event_name' => 'request.created',
-            'schema_version' => 1,
-            'aggregate_sequence' => $aggregateSequence,
-            'delivery_status' => 'pending',
-            'payload' => [
-                'request_id' => $request->id,
-            ],
-            'audiences' => [
-                'users' => [$request->student_id],
-                'departments' => [$firstDepartmentId],
-            ],
+        ], [
+            'users' => [$request->student_id],
+            'departments' => [$firstDepartmentId],
         ]);
     }
 
     public function recordRequestStatusChanged(DocumentRequest $request): RequestEvent
     {
-        $aggregateSequence = ((int) RequestEvent::query()
-            ->where('request_id', $request->id)
-            ->max('aggregate_sequence')) + 1;
-
         $departmentIds = $request->requestStages()
             ->orderBy('sequence_order')
             ->pluck('department_id')
@@ -47,20 +33,11 @@ class RequestEventRecorder
             ->values()
             ->all();
 
-        return RequestEvent::create([
-            'id' => (string) Str::uuid(),
+        return $this->recordAndDispatch($request, 'request.status_changed', [
             'request_id' => $request->id,
-            'event_name' => 'request.status_changed',
-            'schema_version' => 1,
-            'aggregate_sequence' => $aggregateSequence,
-            'delivery_status' => 'pending',
-            'payload' => [
-                'request_id' => $request->id,
-            ],
-            'audiences' => [
-                'users' => [$request->student_id],
-                'departments' => $departmentIds,
-            ],
+        ], [
+            'users' => [$request->student_id],
+            'departments' => $departmentIds,
         ]);
     }
 
@@ -69,25 +46,44 @@ class RequestEventRecorder
         RequestStage $stage,
         User $claimant,
     ): RequestEvent {
+        return $this->recordAndDispatch($request, 'request_stage.claimed', [
+            'request_id' => $request->id,
+            'request_stage_id' => $stage->id,
+        ], [
+            'users' => [$request->student_id, $claimant->id],
+            'departments' => [$stage->department_id],
+        ]);
+    }
+
+    private function recordAndDispatch(
+        DocumentRequest $request,
+        string $eventName,
+        array $payload,
+        array $audiences,
+    ): RequestEvent {
         $aggregateSequence = ((int) RequestEvent::query()
             ->where('request_id', $request->id)
             ->max('aggregate_sequence')) + 1;
 
-        return RequestEvent::create([
+        $event = RequestEvent::create([
             'id' => (string) Str::uuid(),
             'request_id' => $request->id,
-            'event_name' => 'request_stage.claimed',
+            'event_name' => $eventName,
             'schema_version' => 1,
             'aggregate_sequence' => $aggregateSequence,
             'delivery_status' => 'pending',
-            'payload' => [
-                'request_id' => $request->id,
-                'request_stage_id' => $stage->id,
-            ],
-            'audiences' => [
-                'users' => [$request->student_id, $claimant->id],
-                'departments' => [$stage->department_id],
-            ],
+            'payload' => $payload,
+            'audiences' => $audiences,
         ]);
+
+        DB::afterCommit(function () use ($event) {
+            try {
+                PublishRequestEvent::dispatch($event->id);
+            } catch (Throwable $failure) {
+                report($failure);
+            }
+        });
+
+        return $event;
     }
 }

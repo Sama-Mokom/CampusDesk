@@ -51,7 +51,11 @@ export interface DepartmentAssignment {
   id: number
   name: string
   code: string
-  is_primary: boolean
+  is_primary?: boolean
+  pivot?: {
+    is_primary?: boolean | number
+    [key: string]: unknown
+  }
 }
 
 export interface StudentProfile {

@@ -27,6 +27,20 @@ x-backend-environment: &backend-environment
   MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-campusdesk@example.com}
   MAIL_FROM_NAME: ${MAIL_FROM_NAME:-CampusDesk}
 
+  BROADCAST_CONNECTION: reverb
+  REALTIME_DELIVERY_ENABLED: ${REALTIME_DELIVERY_ENABLED:-true}
+  REALTIME_REPLAY_HISTORICAL_BACKLOG: ${REALTIME_REPLAY_HISTORICAL_BACKLOG:-true}
+
+  REVERB_APP_ID: ${REVERB_APP_ID:?REVERB_APP_ID must be set}
+  REVERB_APP_KEY: ${REVERB_APP_KEY:?REVERB_APP_KEY must be set}
+  REVERB_APP_SECRET: ${REVERB_APP_SECRET:?REVERB_APP_SECRET must be set}
+  REVERB_HOST: reverb
+  REVERB_PORT: "8080"
+  REVERB_SCHEME: http
+  REVERB_SERVER_HOST: 0.0.0.0
+  REVERB_SERVER_PORT: "8080"
+  REVERB_ALLOWED_ORIGINS: ${REVERB_ALLOWED_ORIGINS:-${FRONTEND_URL}}
+
 x-logging: &default-logging
   driver: local
   options:
@@ -142,6 +156,65 @@ services:
 
     logging: *default-logging
 
+  realtime-worker:
+    image: ${BACKEND_IMAGE:?BACKEND_IMAGE must be set}
+    pull_policy: never
+    restart: unless-stopped
+
+    command: php artisan queue:work database --queue=realtime --sleep=1 --timeout=30 -v
+
+    environment: *backend-environment
+
+    volumes:
+      - attachments_data:/var/www/html/storage/app/private/attachments
+
+    depends_on:
+      attachments-init:
+        condition: service_completed_successfully
+      db:
+        condition: service_healthy
+
+    stop_signal: SIGTERM
+    stop_grace_period: 35s
+
+    logging: *default-logging
+
+  reverb:
+    image: ${BACKEND_IMAGE:?BACKEND_IMAGE must be set}
+    pull_policy: never
+    restart: unless-stopped
+
+    command: php artisan reverb:start --host=0.0.0.0 --port=8080
+
+    environment: *backend-environment
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+    stop_signal: SIGTERM
+    stop_grace_period: 15s
+
+    logging: *default-logging
+
+  scheduler:
+    image: ${BACKEND_IMAGE:?BACKEND_IMAGE must be set}
+    pull_policy: never
+    restart: unless-stopped
+
+    command: php artisan schedule:work
+
+    environment: *backend-environment
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+    stop_signal: SIGTERM
+    stop_grace_period: 15s
+
+    logging: *default-logging
+
   frontend:
     image: ${FRONTEND_IMAGE:?FRONTEND_IMAGE must be set}
     pull_policy: never
@@ -153,6 +226,8 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+      reverb:
+        condition: service_started
 
     logging: *default-logging
 

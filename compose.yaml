@@ -66,6 +66,20 @@ services:
       MAIL_FROM_ADDRESS: campusdesk@example.com
       MAIL_FROM_NAME: CampusDesk
 
+      BROADCAST_CONNECTION: reverb
+      REALTIME_DELIVERY_ENABLED: ${REALTIME_DELIVERY_ENABLED:-true}
+      REALTIME_REPLAY_HISTORICAL_BACKLOG: ${REALTIME_REPLAY_HISTORICAL_BACKLOG:-true}
+
+      REVERB_APP_ID: ${REVERB_APP_ID:-campusdesk}
+      REVERB_APP_KEY: ${REVERB_APP_KEY:-campusdesk-key}
+      REVERB_APP_SECRET: ${REVERB_APP_SECRET:-campusdesk-secret}
+      REVERB_HOST: reverb
+      REVERB_PORT: "8080"
+      REVERB_SCHEME: http
+      REVERB_SERVER_HOST: 0.0.0.0
+      REVERB_SERVER_PORT: "8080"
+      REVERB_ALLOWED_ORIGINS: http://localhost:8080,http://127.0.0.1:8080
+
     volumes:
       - ./docker-data/attachments:/var/www/html/storage/app/private/attachments
 
@@ -90,6 +104,51 @@ services:
     restart: unless-stopped
     stop_signal: SIGTERM
     stop_grace_period: 70s
+
+  realtime-worker:
+    image: campusdesk-backend:local
+
+    command: php artisan queue:work database --queue=realtime --sleep=1 --timeout=30 -v
+
+    environment: *backend-environment
+
+    volumes:
+      - ./docker-data/attachments:/var/www/html/storage/app/private/attachments
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+    restart: unless-stopped
+    stop_signal: SIGTERM
+    stop_grace_period: 35s
+
+  reverb:
+    image: campusdesk-backend:local
+
+    command: php artisan reverb:start --host=0.0.0.0 --port=8080
+
+    environment: *backend-environment
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+    restart: unless-stopped
+
+  scheduler:
+    image: campusdesk-backend:local
+
+    command: php artisan schedule:work
+
+    environment: *backend-environment
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+    restart: unless-stopped
+
   frontend:
     build:
       context: ./Frontend
@@ -104,6 +163,8 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+      reverb:
+        condition: service_started
 
 volumes:
   db_data:

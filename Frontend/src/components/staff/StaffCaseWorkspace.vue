@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { isAxiosError } from 'axios'
 import { useAuth } from '@/composables/useAuth'
+import { useRealtime } from '@/composables/useRealtime'
 import {
   fetchStaffQueue,
   resolveStage,
@@ -28,12 +29,15 @@ const staffUser = computed(() => auth.user.value)
 const sp = computed(() => staffUser.value?.staff_profile)
 const deptOptions = computed(() => sp.value?.departments ?? [])
 const deptSelect = ref(0)
+const isDeptPrimary = (d?: { is_primary?: boolean; pivot?: { is_primary?: boolean | number } } | null) =>
+  Boolean(d?.is_primary || d?.pivot?.is_primary)
+
 const selectedDeptName = computed(
   () => deptOptions.value.find((d) => d.id === deptSelect.value)?.name ?? ''
 )
 const primaryDeptName = computed(
   () =>
-    deptOptions.value.find((d) => d.is_primary)?.name ??
+    deptOptions.value.find(isDeptPrimary)?.name ??
     deptOptions.value[0]?.name ??
     ''
 )
@@ -261,11 +265,39 @@ function formatDate(iso: string) {
     minute: '2-digit'
   })
 }
+const { onCoalescedInvalidate, onReconnect } = useRealtime()
+
+onCoalescedInvalidate(() => {
+  void loadQueue()
+})
+
+onReconnect(() => {
+  void loadQueue()
+})
+
+watch(
+  deptOptions,
+  (options) => {
+    if (options.length > 0) {
+      const currentValid = options.some((d) => d.id === deptSelect.value)
+      if (!currentValid) {
+        deptSelect.value =
+          options.find(isDeptPrimary)?.id ??
+          options[0]?.id ??
+          0
+      }
+    }
+  },
+  { immediate: true }
+)
+
 onMounted(() => {
-  deptSelect.value =
-    deptOptions.value.find((d) => d.is_primary)?.id ??
-    deptOptions.value[0]?.id ??
-    0
+  if (!deptSelect.value) {
+    deptSelect.value =
+      deptOptions.value.find(isDeptPrimary)?.id ??
+      deptOptions.value[0]?.id ??
+      0
+  }
   void loadQueue()
 })
 </script>
@@ -327,12 +359,13 @@ onMounted(() => {
           v-model.number="deptSelect"
           class="input-field"
         >
+          <option :value="0">All my departments</option>
           <option
             v-for="department in deptOptions"
             :key="department.id"
             :value="department.id"
           >
-            {{ department.name }}{{ department.is_primary ? ' (Primary)' : '' }}
+            {{ department.name }}{{ isDeptPrimary(department) ? ' (Primary)' : '' }}
           </option>
         </select>
         <p

@@ -1,14 +1,31 @@
-﻿<script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+<script setup lang="ts">
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import NotificationBell from './components/NotificationBell.vue'
 import AppIcon from './components/ui/AppIcon.vue'
 import { useAuth } from './composables/useAuth'
+import { useRealtime } from './composables/useRealtime'
 import { logout } from './services/auth'
 
 const route = useRoute()
 const router = useRouter()
-const { user, isAuthenticated, clearAuth } = useAuth()
+const { user, isAuthenticated, clearAuth, refreshUser } = useAuth()
+const { syncUser } = useRealtime()
+
+watch(
+  () => user.value,
+  (currentUser) => {
+    syncUser(currentUser)
+  },
+  { immediate: true }
+)
+
+onMounted(() => {
+  if (localStorage.getItem('token')) {
+    void refreshUser()
+  }
+})
+
 const mobileOpen = ref(false)
 const loggingOut = ref(false)
 const isAuthPage = computed(

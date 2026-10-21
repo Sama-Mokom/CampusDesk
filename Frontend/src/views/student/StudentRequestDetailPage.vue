@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { onScopeDispose, ref, watch } from 'vue'
+import { getCurrentScope, onScopeDispose, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import axios from 'axios'
 import { studentApiMessage } from '@/composables/useStudentRequests'
+import { useRealtime } from '@/composables/useRealtime'
 import {
   fetchRequestById,
   markRequestCollected,
@@ -26,9 +27,11 @@ const actionError = ref('')
 const success = ref('')
 const pending = ref<'reopen' | 'collect' | null>(null)
 let version = 0
-onScopeDispose(() => {
-  version++
-})
+if (getCurrentScope()) {
+  onScopeDispose(() => {
+    version++
+  })
+}
 
 async function loadRequest() {
   const current = ++version
@@ -105,6 +108,20 @@ function formatDate(value: string) {
     timeStyle: 'short'
   })
 }
+const { onInvalidate, onReconnect } = useRealtime()
+
+onInvalidate((event) => {
+  if (request.value && event.request_id === request.value.id) {
+    void loadRequest()
+  }
+})
+
+onReconnect(() => {
+  if (request.value) {
+    void loadRequest()
+  }
+})
+
 watch(() => route.params.id, loadRequest, { immediate: true })
 </script>
 

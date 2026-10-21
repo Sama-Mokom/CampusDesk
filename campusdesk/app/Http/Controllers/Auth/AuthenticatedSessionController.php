@@ -19,6 +19,7 @@ class AuthenticatedSessionController extends Controller
     $request->authenticate();
 
     $user = $request->user();
+    $user->loadMissing(['studentProfile', 'staffProfile.departments']);
 
     $token = $user->createToken('auth_token')->plainTextToken;
 

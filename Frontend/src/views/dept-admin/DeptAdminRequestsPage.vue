@@ -359,6 +359,7 @@ import {
   type DepartmentAdminStage
 } from '@/services/deptAdmin'
 import { claimStage } from '@/services/stages'
+import { useRealtime } from '@/composables/useRealtime'
 import StatusBadge from '@/components/StatusBadge.vue'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
@@ -514,5 +515,19 @@ function formatDate(value: string) {
       })
     : 'Not recorded'
 }
+const { onCoalescedInvalidate, onReconnect } = useRealtime()
+
+onCoalescedInvalidate(() => {
+  if (loaded.value) {
+    void load()
+  }
+})
+
+onReconnect(() => {
+  if (loaded.value) {
+    void load()
+  }
+})
+
 onMounted(load)
 </script>

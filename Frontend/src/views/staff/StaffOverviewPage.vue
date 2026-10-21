@@ -9,7 +9,9 @@ const { user } = useAuth()
 const departments = computed(() => user.value?.staff_profile?.departments ?? [])
 const primaryDepartment = computed(
   () =>
-    departments.value.find((item) => item.is_primary) ?? departments.value[0]
+    departments.value.find(
+      (item) => Boolean(item.is_primary || item.pivot?.is_primary)
+    ) ?? departments.value[0]
 )
 const queue = ref<RequestStage[]>([])
 const cases = ref<RequestStage[]>([])

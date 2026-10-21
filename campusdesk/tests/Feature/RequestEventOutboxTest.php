@@ -147,6 +147,79 @@ class RequestEventOutboxTest extends TestCase
         ]);
     }
 
+    public function test_resolving_a_stage_records_request_status_changed_event(): void
+    {
+        [$student, $requestType, $department] = $this->makeStudentAndRequestType();
+
+        $creationResponse = $this->actingAs($student, 'sanctum')
+            ->postJson('/api/requests', [
+                'request_type_id' => $requestType->id,
+            ])
+            ->assertCreated();
+
+        $requestId = (int) $creationResponse->json('data.id');
+        $stageId = (int) $creationResponse->json('data.stages.0.id');
+        $staff = $this->makeStaffInDepartment($department);
+
+        $this->actingAs($staff, 'sanctum')
+            ->postJson("/api/requests/{$requestId}/stages/{$stageId}/claim")
+            ->assertOk();
+
+        $this->actingAs($staff, 'sanctum')
+            ->patchJson("/api/requests/{$requestId}/stages/{$stageId}/resolve", [
+                'status' => 'approved',
+            ])
+            ->assertOk();
+
+        $event = RequestEvent::query()
+            ->where('event_name', 'request.status_changed')
+            ->sole();
+
+        $this->assertSame($requestId, $event->request_id);
+        $this->assertSame(3, $event->aggregate_sequence);
+        $this->assertSame('pending', $event->delivery_status);
+        $this->assertSame(['users' => [$student->id], 'departments' => [$department->id]], $event->audiences);
+    }
+
+    public function test_reopening_a_request_records_request_status_changed_event(): void
+    {
+        [$student, $requestType, $department] = $this->makeStudentAndRequestType();
+
+        $creationResponse = $this->actingAs($student, 'sanctum')
+            ->postJson('/api/requests', [
+                'request_type_id' => $requestType->id,
+            ])
+            ->assertCreated();
+
+        $requestId = (int) $creationResponse->json('data.id');
+        $stageId = (int) $creationResponse->json('data.stages.0.id');
+        $staff = $this->makeStaffInDepartment($department);
+
+        $this->actingAs($staff, 'sanctum')
+            ->postJson("/api/requests/{$requestId}/stages/{$stageId}/claim")
+            ->assertOk();
+
+        $this->actingAs($staff, 'sanctum')
+            ->patchJson("/api/requests/{$requestId}/stages/{$stageId}/resolve", [
+                'status' => 'rejected',
+                'staff_note' => 'Please provide more details.',
+            ])
+            ->assertOk();
+
+        $this->actingAs($student, 'sanctum')
+            ->postJson("/api/requests/{$requestId}/reopen")
+            ->assertOk();
+
+        $reopenEvent = RequestEvent::query()
+            ->where('event_name', 'request.status_changed')
+            ->orderByDesc('aggregate_sequence')
+            ->firstOrFail();
+
+        $this->assertSame($requestId, $reopenEvent->request_id);
+        $this->assertSame(4, $reopenEvent->aggregate_sequence);
+        $this->assertSame('pending', $reopenEvent->delivery_status);
+    }
+
     /**
      * @return array{0: User, 1: RequestType, 2: Department}
      */
