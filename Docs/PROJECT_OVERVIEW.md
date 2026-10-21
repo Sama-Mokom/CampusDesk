@@ -1,6 +1,6 @@
 # CampusDesk — Project Overview
 
-**Last reviewed:** 13 October 2026
+**Last reviewed:** 21 October 2026
 
 ## Project Name
 **CampusDesk** — University Document Request & Tracking System
@@ -11,7 +11,7 @@ CampusDesk began with a problem experienced firsthand at the University of Buea:
 
 That uncertainty has real consequences when a transcript, attestation, recommendation letter, or endorsement is needed for a scholarship, university application, internship, or job opportunity with a deadline. Friends of the project's creator encountered the same pattern, showing that the issue was not an isolated inconvenience but a workflow and communication gap worth solving.
 
-CampusDesk makes that process visible. Students submit requests online, requests move through the responsible offices in a defined sequence, staff process each stage from an organised queue, and students receive in-app and queued email updates when the status changes. A rejection must include a reason, so the student knows what to correct and can reopen the request instead of waiting without direction.
+CampusDesk makes that process visible. Students submit requests online, requests move through the responsible offices in a defined sequence, staff process each stage from an organised queue, and students receive real-time in-app notifications and queued email updates when the status changes. A rejection must include a reason, so the student knows what to correct and can reopen the request instead of waiting without direction.
 
 ## Target Users
 
@@ -28,7 +28,8 @@ CampusDesk makes that process visible. Students submit requests online, requests
 - Staff get an organised queue instead of informal piles of requests
 - Complete audit trail of every status change
 - Multi-department sequential workflows with automatic routing
-- Email notifications at every stage transition
+- Real-time WebSocket push updates and queued email notifications at every stage transition
+- Granular administrative control with decoupled audit logs for high-privilege actions
 
 ## Project Goals
 
@@ -56,16 +57,20 @@ CampusDesk makes that process visible. Students submit requests online, requests
 
 - Primary-department admin oversight and reassignment of claimed stages
 - Super Admin reference and user management, statistics, request oversight, and request/stage status audit
+- Append-only `administrative_actions` table and Super Admin administrative audit API
+- Account security hardening (permanent account disablement `disabled_at`, credential revocation, enabled-only last-Super-Admin protection)
+- Real-time invalidation and push delivery via Transactional Outbox (`request_events`), Laravel Reverb WebSockets, dedicated queue worker, and Laravel Echo
 - API-backed notification bell, rejected-request reopen, and collected-request transition
 - Shared accessible UI primitives and separate nested task pages for every role
 - GitHub Actions quality gates, immutable ECR publication, and approval-gated SSM deployment to private AWS staging
 - Encrypted off-host database/attachment recovery, isolated restore testing, and scheduled freshness monitoring
+- Expanded 7-service Docker Compose topology (`frontend`, `backend`, `worker`, `db`, `reverb`, `realtime-worker`, `scheduler`)
 
 ## Long-term vision (planned)
 
-- Separate audit of administrative CRUD and privilege changes
-- Broader analytics and real-time event delivery
-- Pilot evaluation and potential adoption by the University of Buea
+- Pilot evaluation and potential institutional adoption by the University of Buea
+- Mobile Money processing fee integration (Fapshi / CamPay)
+- Scoped AI support with human escalation and sanitized transcript routing
 
 ## Major Constraints
 

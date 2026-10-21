@@ -1,6 +1,6 @@
 # CampusDesk — Security Documentation
 
-**Last reviewed:** 9 October 2026
+**Last reviewed:** 21 October 2026
 
 ## Authentication Mechanism
 
@@ -12,6 +12,7 @@
 - Frontend stores the plain token in `localStorage`
 - Every subsequent request attaches `Authorization: Bearer {token}` via an Axios request interceptor in `api.ts`
 - `auth:sanctum` middleware validates the token on every protected route
+- Real-time WebSocket broadcasting route (`POST /api/broadcasting/auth`) is also protected by `auth:sanctum`
 
 **Explicitly NOT used:** `EnsureFrontendRequestsAreStateful` (Sanctum's cookie-based SPA middleware) — this was tried, caused a redirect-based CORS failure, and was removed. See KNOWN_ISSUES.md.
 
@@ -26,7 +27,7 @@
 
 - `users.disabled_at` is the authoritative account-state field; `null` means enabled.
 - Login adds `disabled_at = null` to the credential lookup while retaining Laravel's generic authentication-failure response.
-- Every protected API route except logout runs `active_account` immediately after `auth:sanctum`. A disabled account that still presents an otherwise valid token receives HTTP 401 with code `ACCOUNT_DISABLED`.
+- Every protected API route except logout runs `active_account` immediately after `auth:sanctum`. A disabled account that still presents an otherwise valid token receives HTTP 403 with code `ACCOUNT_DISABLED`.
 - Super Admins use explicit `PATCH /api/admin/users/{user}/disable` and `/enable` transitions. Disablement is transactional: it locks the user, blocks self-disable, protects the last enabled Super Admin, rotates the remember token, removes Sanctum and reset tokens, and writes an audit event.
 - Enablement is idempotent and does not recreate credentials. The user must authenticate again.
 - Super Admin demotion and deletion count only enabled Super Admins when enforcing the last-administrator invariant.
@@ -42,6 +43,15 @@ Three layers, in order of enforcement:
 3. **Controller-level ownership/business-rule checks** — e.g., `RequestController::show()` checks `$request->student_id === Auth::id() || Auth::user()->role === 'staff'`; `RequestStageController::claim()` checks department membership and predecessor-stage approval
 
 The department-admin gate and middleware both use `is-dept-admin`. The protected department-admin routes are active.
+
+## Real-Time Push Notification & WebSocket Security
+
+- **Private Channels Only:** WebSockets communicate exclusively over authenticated private channels:
+  - `private-users.{id}`: Strictly limited to the authenticated user matching `{id}`.
+  - `private-departments.{id}`: Strictly limited to staff members assigned to that department, or Super Admins.
+- **Zero PII on Wire:** Broadcast envelopes strictly avoid transmitting student names, matricules, sensitive staff notes, or attachment details over WebSockets. Payloads contain only event IDs, aggregate sequence numbers, timestamps, target IDs, and request status enums.
+- **Invalidation-and-Refetch Pattern:** The client treats incoming WebSocket messages as cache-invalidation triggers, refetching authoritative, fully authorized domain data over standard Sanctum-authenticated REST endpoints.
+- **Sanitized Audit & Error Logging:** The `request_events` outbox logs delivery attempts and failure reasons using `RequestEventDelivery::summarizeError()`, truncating error strings to 500 characters and eliminating sensitive memory or credential traces.
 
 ## File Upload Security
 
@@ -149,5 +159,5 @@ The 9 October 2026 staging execution retained three role personas with separate 
 ## Deferred Integration Security Requirements
 
 - **AI support:** External models must never receive passwords, bearer tokens, attachments, or unredacted personal data. AI tools must be read-only and allowlisted; all workflow changes remain human-authorized API actions. Human escalation transcripts require role-scoped access and retention rules.
-- **Event delivery:** Outbound webhooks require per-consumer secrets, HMAC signatures, timestamp/replay protection, idempotency keys, bounded retries, and delivery audit logs. Browser clients should use authenticated, authorization-scoped channels rather than public subscriptions.
+- **Outbound Webhooks / Third-Party Consumers:** Any future external webhook delivery will require per-consumer shared secrets, HMAC signatures, timestamp/replay protection, idempotency keys, bounded retries, and delivery audit logs.
 - **Payments:** Provider credentials and webhook secrets belong only in environment configuration. Webhook verification precedes any database write; provider transaction IDs must be unique; payment state changes must be idempotent, locked, logged, and never trusted from the browser redirect alone.

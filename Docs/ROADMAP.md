@@ -1,12 +1,12 @@
 # CampusDesk — Roadmap
 
-**Last reviewed:** 9 October 2026
+**Last reviewed:** 21 October 2026
 
 ## Completed ✅
 
 - [x] System modeling (ERD, state machine, permission matrix)
 - [x] Laravel project setup
-- [x] All current migrations (30 total) and Eloquent models
+- [x] All current migrations (33 total) and Eloquent models
 - [x] Authentication via Sanctum Bearer tokens
 - [x] Core request lifecycle: submit, stage generation, claim, resolve
 - [x] Automatic status history via Observer pattern
@@ -63,13 +63,17 @@
 - [x] Restore-test a recovery set in isolated Docker resources without changing live volumes
 - [x] Enable 15-minute backup-freshness monitoring and verify the first unattended timer-triggered backup cycle
 - [x] Remove the unreachable request-stage queue branch that used the obsolete PHP-level predecessor filter
-- [x] Add permanent account disablement, active-token rejection, credential revocation, enabled-only last-Super-Admin protection, and idempotent enablement
-- [x] Add append-only administrative actions with a separate Super Admin-only read API
+- [x] Add permanent account disablement (`disabled_at`), active-token rejection, credential revocation, enabled-only last-Super-Admin protection, and idempotent enablement
+- [x] Add append-only `administrative_actions` table with a separate Super Admin-only read API
 - [x] Add staging-only retained-persona password rotation and transactional known-demo-credential remediation commands
 - [x] Add Super Admin account-state badges, filters, disable confirmation/reason handling, self-disable suppression, and re-enable controls
-- [x] Verify the backend security changes with 71 PHPUnit tests / 457 assertions and focused Super Admin UI coverage
 - [x] Deploy the account-security release, rotate three retained personas, and remediate 618 remaining known-password staging accounts
-- [x] Verify a zero-result follow-up dry run, matching disabled-account/audit counts, retained-role access, application health, and a post-remediation capture and isolated restore
+- [x] Implement Transactional Outbox pattern (`request_events` table) with strictly ordered aggregate sequences and delivery tracking
+- [x] Implement Real-time event broadcasting via Laravel Reverb (WebSockets) on private Sanctum-authorized channels (`users.{id}`, `departments.{id}`)
+- [x] Add dedicated `realtime` queue worker, asynchronous event publishing (`PublishRequestEvent`), and periodic reconciliation console job (`realtime:reconcile`)
+- [x] Integrate frontend Laravel Echo / Pusher JS subscription, connection lifecycle management, and scoped query invalidation
+- [x] Surgical audit and deduplication of push notification feature across backend and frontend
+- [x] Expand backend feature test suite to 111 tests / 592 assertions (23 suites) and frontend suite to 155 tests (18 files) with zero lint/type errors
 
 ## Immediate Fixes Cleared ✅
 
@@ -84,14 +88,14 @@ All previously listed immediate fixes are complete.
 
 2. **Controlled deployment maintenance**
    - Keep the workflow, protected environment, IAM restrictions, SSM document, and root-owned host script synchronized.
-   - Define a repeatable reviewed rollout for `compose.staging.yaml` and host-script changes, which are intentionally not copied by the image deployment workflow.
+   - Define a repeatable reviewed rollout for `compose.staging.yaml` and host-script changes to deploy the expanded 7-service stack (reverb, realtime-worker, scheduler).
    - Re-run the idempotent no-op check whenever deployment behavior changes.
    - Exercise the documented deployment failure paths in a deliberately isolated environment; do not use live volumes for a destructive drill.
    - Evaluate Systems Manager Session Manager separately so interactive SSH can eventually be removed.
 
 3. **Public staging readiness**
    - Establish stable addressing and DNS.
-   - Add TLS termination and certificate renewal.
+   - Add TLS termination and certificate renewal (including WebSocket WSS termination for Reverb on port 8080/443).
    - Expose only reviewed HTTP/HTTPS ports after DNS, TLS, security-group, and final application-origin review.
    - Configure final application origins and verify authentication, CORS, uploads, queue processing, and authorization.
 
@@ -100,14 +104,13 @@ See [CI_CD_SESSION_2_HANDOFF.md](CI_CD_SESSION_2_HANDOFF.md) for the complete im
 ## Later
 
 8. **Additional automated testing gaps**
-    - Concurrency test (true multi-connection parallel claim attempt)
-    - End-to-end staff requeue test after reopening a stage
-    - Invalid and oversized attachment validation tests
-    - Broader request-submission routing integration cases beyond the attachment-backed path
-    - Frontend E2E tests (Cypress or Playwright — not currently installed)
+   - Concurrency test (true multi-connection parallel claim attempt)
+   - End-to-end staff requeue test after reopening a stage
+   - Invalid and oversized attachment validation tests
+   - Broader request-submission routing integration cases beyond the attachment-backed path
+   - Frontend E2E tests (Cypress or Playwright — not currently installed)
 
 9. **Administrative action audit expansion**
-   - The append-only table, safe account-transition/password/remediation events, and paginated Super Admin-only API are complete and remain separate from request `status_history`.
    - Extend coverage to the remaining Super Admin CRUD and staff elevation/demotion actions.
    - Add a dedicated dashboard view for administrative actions; do not merge these records into the request-status audit UI.
 
@@ -115,23 +118,18 @@ See [CI_CD_SESSION_2_HANDOFF.md](CI_CD_SESSION_2_HANDOFF.md) for the complete im
 
 - **Direct assignment of pending/unclaimed stages:** Intentionally deferred. Staff must continue to use the normal concurrency-safe claim flow; any future direct-assignment feature requires separate workflow and audit design.
 
-These GitHub issues are intentionally deferred. They require design review and must not bypass the current request lifecycle, authorization, or audit-history rules.
+These GitHub issues are intentionally deferred. They require design review and must not bypass the current request lifecycle, authorization, or audit-history rules:
 
 10. **Frontend browser acceptance and E2E automation**
     - Complete the routed-page visual and workflow checklist at 375, 768, 1024, and 1440 pixels.
     - Add browser E2E coverage after selecting Playwright or Cypress; keep the existing API and authorization contracts intact.
 
-11. **Real-time event delivery**
-    - Evolve the current queued `RequestStatusNotificationService` into a domain-event source for request status, stage assignment, and ready-for-collection events.
-    - Prefer WebSockets/SSE for first-party SPA updates; evaluate signed outbound webhooks only for genuine third-party consumers.
-    - Add queued delivery, exponential backoff, idempotency, delivery audit records, and HMAC verification for outbound webhooks.
-
-12. **Scoped AI support with human escalation**
+11. **Scoped AI support with human escalation**
     - Build an isolated AI gateway with read-only, least-privilege tools and retrieval over approved, versioned support content.
     - Redact PII and credentials before any external-model call; never permit the model to approve requests, change roles, or mutate workflow state.
     - Add support conversations, messages, and handoff tickets, routing escalations to the relevant department admin or super admin with the sanitized transcript.
 
-13. **Mobile Money processing fees**
+12. **Mobile Money processing fees**
     - Design-review and select an aggregator (Fapshi is the proposed default; CamPay is the alternative) before implementation.
     - Add fee configuration to request types, a provider-neutral payment gateway interface, payment records, signed webhook processing, and immutable payment/event logs.
     - Model fee-required requests as `awaiting_payment`; use a locked webhook transaction to release only successful payments into the normal queue, while preventing staff claims before payment.
@@ -142,4 +140,4 @@ These GitHub issues are intentionally deferred. They require design review and m
 
 ## Needs Decision
 
-- **Which remaining initiative should follow the account-security work:** broader regression coverage, the administrative action dashboard/coverage expansion, or future payment/support work?
+- **Staging rollout for Reverb & WebSocket support:** Update the staging EC2 host script and Compose topology to activate the 3 new real-time services (`reverb`, `realtime-worker`, `scheduler`) in staging.

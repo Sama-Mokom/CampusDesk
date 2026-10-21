@@ -1,6 +1,6 @@
 # CampusDesk — Features & Implementation Status
 
-**Last reviewed:** 7 October 2026
+**Last reviewed:** 21 October 2026
 
 Status legend: ✅ IMPLEMENTED · 🟡 PARTIALLY IMPLEMENTED · ❌ PLANNED/TODO
 
@@ -73,6 +73,7 @@ Status legend: ✅ IMPLEMENTED · 🟡 PARTIALLY IMPLEMENTED · ❌ PLANNED/TODO
    - The service creates the initial `status_history` entry (old_status: null, new_status: pending, changed_by: null)
    - The controller stores uploaded files through the explicit private local disk and creates `attachments` rows only after successful writes
    - On storage/transaction failure, metadata rolls back and files already written by that request are removed
+   - `RequestEventRecorder` persists a `request.created` event in `request_events` outbox and queues `PublishRequestEvent` after commit
 5. Backend returns the full created request with nested `stages`, `attachments`, `status_history`
 
 **Seeded request types:**
@@ -81,7 +82,7 @@ Status legend: ✅ IMPLEMENTED · 🟡 PARTIALLY IMPLEMENTED · ❌ PLANNED/TODO
 - Attestation of Completion of Degree (`STUDENT_DEPARTMENT` → `FACULTY_RECORDS` → AOC dept)
 - Correction of Transcript (`STUDENT_DEPARTMENT` → `FACULTY_RECORDS` → TRD dept)
 
-**Database interactions:** INSERT `requests`, INSERT `attachments` (0+), INSERT `request_stages` (1+), INSERT `status_history` (1).
+**Database interactions:** INSERT `requests`, INSERT `attachments` (0+), INSERT `request_stages` (1+), INSERT `status_history` (1), INSERT `request_events` (1).
 
 ---
 
@@ -98,6 +99,7 @@ Status legend: ✅ IMPLEMENTED · 🟡 PARTIALLY IMPLEMENTED · ❌ PLANNED/TODO
 4. The detail page shows description, status, reopened state, protected attachments, ordered stage timeline, handler/note data, and status history.
 5. If status is `rejected`, a "Reopen Request" button calls the backend and updates the request in place.
 6. If status is `ready`, a "Mark as Collected" button calls the authenticated collection endpoint.
+7. Detail page listens for real-time WebSocket invalidations and automatically refetches when updates occur.
 
 **Database interactions:** SELECT `requests` with eager-loaded `requestType`, `attachments`, `requestStages`, `statusHistories`.
 
@@ -114,11 +116,12 @@ Status legend: ✅ IMPLEMENTED · 🟡 PARTIALLY IMPLEMENTED · ❌ PLANNED/TODO
 2. Queue shows only actionable stages — a stage only appears if it's the first in its sequence OR its predecessor has `status = approved` (SQL-level `whereExists` filter)
 3. Staff clicks "Pick Up" → `POST /api/requests/{docRequest}/stages/{stage}/claim`
 4. Backend verifies department membership, predecessor approval, and atomically claims inside a locked transaction
-5. Stage moves from queue to "My Active Cases"
+5. `RequestEventRecorder` writes `request_stage.claimed` to outbox and triggers real-time invalidation to student and department staff
+6. Stage moves from queue to "My Active Cases"
 
 **Concurrency safety:** Both the queue filter and the claim endpoint enforce sequential ordering. PHPUnit tests in `tests/Feature/` verify and protect this behaviour.
 
-**Database interactions:** SELECT `request_stages` (filtered), UPDATE `request_stages` (claim), INSERT `status_history`.
+**Database interactions:** SELECT `request_stages` (filtered), UPDATE `request_stages` (claim), INSERT `status_history`, INSERT `request_events`.
 
 ---
 
@@ -135,10 +138,11 @@ Status legend: ✅ IMPLEMENTED · 🟡 PARTIALLY IMPLEMENTED · ❌ PLANNED/TODO
 4. On approval: parent request → `forwarded` (if more stages remain) or `ready` (if final stage)
 5. On rejection: parent request → `rejected`
 6. `RequestStageObserver::updated()` records the stage transition; the controller records the parent transition and invokes `RequestStatusNotificationService` for the student notification and queued email.
+7. `RequestEventRecorder` records `request.status_changed` in the outbox and triggers push invalidation to the student and assigned departments.
 
 **Validation:** `status` required (`approved|rejected`), `staff_note` required if rejecting.
 
-**Database interactions:** UPDATE `request_stages`, UPDATE `requests` (status), INSERT `status_history`.
+**Database interactions:** UPDATE `request_stages`, UPDATE `requests` (status), INSERT `status_history`, INSERT `notifications`, INSERT `request_events`.
 
 ---
 
@@ -199,31 +203,44 @@ Status legend: ✅ IMPLEMENTED · 🟡 PARTIALLY IMPLEMENTED · ❌ PLANNED/TODO
 
 **Design decision (ADR-06):** Preserve the original stages and audit history. The one rejected stage is restored to `pending`, its assignment is cleared, and its staff note is retained.
 
-**Implementation:** `POST /api/requests/{request}/reopen` runs atomically, locks the parent request and rejected stage, requires exactly one rejected stage, clears `handled_by`, sets the stage/request to `pending`, sets `is_reopened = true`, and writes stage and parent audit events. `StudentRequestDetailPage.vue` calls the endpoint and refreshes its standalone detail state with success/error feedback.
+**Implementation:** `POST /api/requests/{request}/reopen` runs atomically, locks the parent request and rejected stage, requires exactly one rejected stage, clears `handled_by`, sets the stage/request to `pending`, sets `is_reopened = true`, and writes stage and parent audit events. `RequestEventRecorder` records `request.status_changed` in the outbox. `StudentRequestDetailPage.vue` calls the endpoint and refreshes its standalone detail state with success/error feedback.
 
 **Status:** ✅ Implemented and covered by backend feature tests and routed student-page Vitest tests.
 
 ---
 
-## Feature 11: Mark Request as Collected ✅
+## Feature 11: Mark Request as Collected ✅ IMPLEMENTED
 
 **Purpose:** Student confirms physical collection, closing the request lifecycle.
 
-**Implementation:** `PATCH /api/requests/{request}/collect` requires the owning student and `ready` status, then records the `collected` transition. `StudentRequestDetailPage.vue` calls this endpoint.
+**Implementation:** `PATCH /api/requests/{request}/collect` requires the owning student and `ready` status, then records the `collected` transition and emits an outbox event. `StudentRequestDetailPage.vue` calls this endpoint.
 
 **Status:** ✅ Implemented. Only the owning student can transition a `ready` request to `collected`; the transition is recorded in status history.
 
 ---
 
-## Feature 12: In-App Notifications (Bell/Dropdown) ✅
+## Feature 12: In-App Notifications & Real-Time Push Delivery ✅ IMPLEMENTED
 
-**Purpose:** Show unread notification count and list in the app UI (separate from email).
+**Purpose:** Provide instantaneous notification updates and live screen refreshes without manual reloading.
 
-**Current state:** The bell uses authenticated API data. Parent request lifecycle transitions create an in-app notification and queue the matching email through `RequestStatusNotificationService`.
+**Implementation Details:**
+1. **Persistent Notifications:**
+   - In-app notification records are stored in `notifications` table (`id`, `user_id`, `type`, `message`, `read`, `read_at`).
+   - `GET /api/notifications` lists the authenticated user's notifications (paginated, newest first).
+   - `PATCH /api/notifications/{notification}/read` marks a specific owned notification as read.
+   - `NotificationBell.vue` renders unread badge, dropdown list, format relative dates, and mark-as-read buttons.
+2. **Real-Time WebSockets via Laravel Reverb & Echo:**
+   - Outbox pattern via `request_events` table ensures reliable, at-least-once delivery.
+   - `RequestEventRecorder` persists events inside business transactions and triggers fast-path queue jobs after transaction commit (`DB::afterCommit`).
+   - Dedicated `realtime` database queue isolates event publication from slow mail jobs.
+   - `PublishRequestEvent` job invokes `RequestEventDelivery::publish()`, broadcasting through `BroadcastingRequestEventTransport` to Reverb WebSockets.
+   - Private channels: `private-users.{id}` (authorized to target user) and `private-departments.{id}` (authorized to assigned department staff or super admin).
+   - Wire event contract: `request.event` carries lightweight invalidation envelope (`event_id`, `event_name`, `request_id`, `aggregate_sequence`, `occurred_at`). No PII or sensitive payload data is sent over WebSockets.
+   - Frontend `RealtimeManager` subscribes to relevant channels, deduplicates by `event_id`, checks per-request high-watermarks, debounces bursts, and triggers invalidation callbacks.
+   - Reconnect handler re-executes REST fetch calls to guarantee UI consistency after network drops.
+   - Background durability: scheduled command `realtime:reconcile` runs every minute to re-enqueue any pending outbox events.
 
-**Implementation:** `GET /api/notifications` lists the authenticated user's notifications; `PATCH /api/notifications/{notification}/read` marks an owned notification as read. `NotificationBell.vue` consumes these endpoints.
-
-**Status:** Implemented.
+**Status:** ✅ Implemented and verified end-to-end.
 
 ---
 
@@ -245,9 +262,9 @@ Status legend: ✅ IMPLEMENTED · 🟡 PARTIALLY IMPLEMENTED · ❌ PLANNED/TODO
 
 **Current state:** `SuperAdminView.vue` hosts guarded pages for overview, requests, users, four reference collections, and status history. Page-scoped composables use protected `/api/admin` endpoints. Lists are server-paginated, rejected requests can be reopened through the existing transition endpoint, and referenced records return 409 on deletion.
 
-**Implementation:** Protected CRUD, staff elevation, system statistics, request oversight, and the request/stage status audit are wired to the routed pages under `Frontend/src/views/admin/`. The user form provides searchable, faculty-grouped staff department assignments.
+**Implementation:** Protected CRUD, staff elevation, system statistics, request oversight, user disable/enable, administrative action logging, and the request/stage status audit are wired to the routed pages under `Frontend/src/views/admin/`. The user form provides searchable, faculty-grouped staff department assignments.
 
-**Status:** Implemented. Administrative action auditing remains roadmap task 9.
+**Status:** Implemented.
 
 ---
 
@@ -266,7 +283,9 @@ Status legend: ✅ IMPLEMENTED · 🟡 PARTIALLY IMPLEMENTED · ❌ PLANNED/TODO
 | Email notifications | ✅ | N/A | ✅ |
 | Reopen request | ✅ | ✅ | ✅ |
 | Mark collected | ✅ | ✅ | ✅ |
-| In-app notifications | ✅ | ✅ | ✅ |
+| In-app notifications & Bell | ✅ | ✅ | ✅ |
+| Real-Time push invalidation (Reverb/Echo) | ✅ | ✅ | ✅ |
 | Department Admin pages | ✅ | ✅ | ✅ |
 | Super Admin pages | ✅ | ✅ | ✅ |
+| User disable/enable & admin audit | ✅ | ✅ | ✅ |
 | Logout (token revocation) | ✅ | ✅ | ✅ |
