@@ -34,7 +34,7 @@ The local Docker Compose environment has been expanded to a 7-service topology: 
 
 The next operational and development tasks are:
 1. Roll out the expanded 7-service stack (`compose.staging.yaml` and deployment script) to AWS staging.
-2. Establish stable public staging addressing, DNS, and TLS termination (including WSS WebSocket termination for Reverb on port 8080/443).
+2. Establish stable public staging addressing, DNS, and TLS termination (including WSS WebSocket termination for Reverb on port 8085/443).
 3. Continue periodic isolated restore drills and backup freshness verification.
 4. Expand administrative action auditing and consider frontend browser E2E test automation (Playwright/Cypress).
 

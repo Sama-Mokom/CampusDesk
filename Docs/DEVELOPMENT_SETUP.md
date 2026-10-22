@@ -60,7 +60,7 @@ The reproducible containerized local environment is the seven-service Docker Com
 - `backend`: Laravel on PHP 8.3 and Apache, reachable internally as `backend:80`;
 - `worker`: Default Laravel database-queue worker processing background email jobs;
 - `db`: MySQL 8.4 with a persistent named volume;
-- `reverb`: Laravel Reverb WebSocket server daemon listening on port 8080 internally;
+- `reverb`: Laravel Reverb WebSocket server daemon listening on port 8085 internally;
 - `realtime-worker`: Dedicated queue worker processing the `realtime` queue for fast-path outbox publishing (`PublishRequestEvent`);
 - `scheduler`: Background console scheduler executing `realtime:reconcile` every 5 minutes to guarantee at-least-once WebSocket delivery.
 
@@ -128,7 +128,7 @@ REVERB_APP_ID=campusdesk
 REVERB_APP_KEY=campusdesk-key
 REVERB_APP_SECRET=campusdesk-secret
 REVERB_HOST="127.0.0.1"
-REVERB_PORT=8080
+REVERB_PORT=8085
 REVERB_SCHEME=http
 ```
 
@@ -164,7 +164,7 @@ php artisan queue:work database --queue=realtime
 
 # Terminal 4: Laravel Reverb WebSocket server
 php artisan reverb:start --debug
-# → ws://127.0.0.1:8080
+# → ws://127.0.0.1:8085
 
 # Terminal 5: Console scheduler (for realtime:reconcile every 5m)
 php artisan schedule:work
@@ -186,7 +186,7 @@ cat << 'EOF' > .env
 VITE_API_URL=http://127.0.0.1:8000/api
 VITE_REVERB_APP_KEY=campusdesk-key
 VITE_REVERB_HOST=127.0.0.1
-VITE_REVERB_PORT=8080
+VITE_REVERB_PORT=8085
 VITE_REVERB_SCHEME=http
 EOF
 
@@ -243,7 +243,7 @@ See KNOWN_ISSUES.md for the full bug history. Quick reference for common setup i
 
 | Symptom | Likely Cause | Fix |
 |---------|-------------|-----|
-| Echo connection fails / WebSockets unavailable | Reverb not running or port 8080 blocked | Start `php artisan reverb:start` and verify `VITE_REVERB_*` match backend `.env` |
+| Echo connection fails / WebSockets unavailable | Reverb not running or port 8085 blocked | Start `php artisan reverb:start` and verify `VITE_REVERB_*` match backend `.env` |
 | Real-time notifications not arriving | `realtime` queue worker not running | Ensure `queue:work database --queue=realtime` is running |
 | CORS error in browser console | `FRONTEND_URL`/`SANCTUM_STATEFUL_DOMAINS` mismatch, or `HandleCors` not prepended | Check `config/cors.php`, `bootstrap/app.php` |
 | Account disabled (HTTP 403) | `disabled_at` is set on user record | Super Admin must re-enable account via `PATCH /api/admin/users/{id}/enable` |

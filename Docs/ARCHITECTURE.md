@@ -45,7 +45,7 @@ The bare development ports above remain available. The reproducible Docker Compo
 flowchart LR
     Browser["Browser<br/>localhost:8080"] --> Frontend["Nginx + compiled Vue"]
     Frontend -->|"/api/*"| Backend["Apache + Laravel"]
-    Frontend -.->|"ws /app/*"| Reverb["Laravel Reverb (8080)"]
+    Frontend -.->|"ws /app/*"| Reverb["Laravel Reverb (8085)"]
     Backend --> DB["MySQL 8.4"]
     Backend --> Reverb
     Worker["Default queue worker"] --> DB

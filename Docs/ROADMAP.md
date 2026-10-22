@@ -95,7 +95,7 @@ All previously listed immediate fixes are complete.
 
 3. **Public staging readiness**
    - Establish stable addressing and DNS.
-   - Add TLS termination and certificate renewal (including WebSocket WSS termination for Reverb on port 8080/443).
+   - Add TLS termination and certificate renewal (including WebSocket WSS termination for Reverb on port 8085/443).
    - Expose only reviewed HTTP/HTTPS ports after DNS, TLS, security-group, and final application-origin review.
    - Configure final application origins and verify authentication, CORS, uploads, queue processing, and authorization.
 

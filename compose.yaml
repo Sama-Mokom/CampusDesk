@@ -74,10 +74,10 @@ services:
       REVERB_APP_KEY: ${REVERB_APP_KEY:-campusdesk-key}
       REVERB_APP_SECRET: ${REVERB_APP_SECRET:-campusdesk-secret}
       REVERB_HOST: reverb
-      REVERB_PORT: "8080"
+      REVERB_PORT: "8085"
       REVERB_SCHEME: http
       REVERB_SERVER_HOST: 0.0.0.0
-      REVERB_SERVER_PORT: "8080"
+      REVERB_SERVER_PORT: "8085"
       REVERB_ALLOWED_ORIGINS: http://localhost:8080,http://127.0.0.1:8080
 
     volumes:
@@ -126,7 +126,7 @@ services:
   reverb:
     image: campusdesk-backend:local
 
-    command: php artisan reverb:start --host=0.0.0.0 --port=8080
+    command: php artisan reverb:start --host=0.0.0.0 --port=8085
 
     environment: *backend-environment
 
