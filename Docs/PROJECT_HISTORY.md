@@ -34,7 +34,7 @@ This timeline records how CampusDesk progressed from an observed university-serv
 
 ## Phase 3: Migrations & Models
 
-- 13 initial migrations created in dependency order: faculties → departments → programmes → users (+role) → student_profiles → staff_profiles → department_staff → request_types → requests → request_stages → status_history → attachments → notifications. (The total later grew to 27 through subsequent schema evolution — see Phase 10 and DATABASE.md.)
+- 13 initial migrations created in dependency order: faculties → departments → programmes → users (+role) → student_profiles → staff_profiles → department_staff → request_types → requests → request_stages → status_history → attachments → notifications. (The total later grew to 33 through subsequent schema evolution — see Phase 10, Phase 14, and DATABASE.md.)
 - Several migration defects were identified and fixed, including a missing `name` column on `departments`, duplicate faculty seeding, and hardcoded-ID fragility — see KNOWN_ISSUES.md.
 - 12 Eloquent models were built with explicit relationships and corrected for mass-assignment boundaries, relationship naming, and foreign-key references.
 - Table name overrides identified and applied: `StatusHistory` → `status_history`, `DepartmentStaff` → `department_staff`.
@@ -43,109 +43,37 @@ This timeline records how CampusDesk progressed from an observed university-serv
 
 - Laravel Breeze installed in API mode (`php artisan breeze:install api`) — provides Sanctum token infrastructure without Blade views.
 - `RegisteredUserController::store()` extended to also create a `StudentProfile` after the `User` — went through multiple debugging rounds (missing `user_id` reference, missing `$fillable` fields, validation rules for the new profile fields).
-- Gates defined in `AppServiceProvider`: the intended names were `is-student`, `is-staff`, `is-dept-admin`, `is-super-admin` (all hyphens). The actual current code has a naming inconsistency: `is_student` and `is_staff` use underscores, `is-super-admin` uses hyphens, and `is_dept-admin` uses mixed convention (underscore + hyphen) — see KNOWN_ISSUES.md.
+- Gates defined in `AppServiceProvider`: the intended names were `is-student`, `is-staff`, `is-dept-admin`, `is-super-admin` (all hyphens).
 - Middleware classes created: `EnsureIsStudent`, `EnsureIsStaff`, `EnsureIsDeptAdmin`, `EnsureIsSuperAdmin` — each checking the corresponding Gate.
-- **Bug partially fixed:** Gate name inconsistency caused legitimate requests to be rejected. The `is_student`/`is_staff` inconsistency was resolved; the `is_dept-admin` mixed naming was introduced and remains unresolved — see KNOWN_ISSUES.md.
 - Login (`AuthenticatedSessionController::store()`) was originally the default Breeze session-based implementation (`$request->session()->regenerate()`), which crashed with "Session store not set on request" in the API context. It was **rewritten to issue Bearer tokens** (`createToken()->plainTextToken`), aligning authentication with the separate Vue client and stateless API boundary.
 
-## Phase 5: Core Request Lifecycle
+## Phase 5: Request Lifecycle Implementation
 
-- `StoreRequestRequest` and `UpdateStageStatusRequest` Form Request classes created for validation.
-- `RequestController` and `RequestStageController` built via `--resource` scaffolding, then customized.
-- The stage-generation logic in `store()` — looping over `default_department_sequence` to create `request_stages` — went through several rounds of debugging (syntax errors, wrong field names, `$fillable` omissions).
-- The staff pickup/lock mechanic (`claim()`) and resolution mechanic (`resolve()`) used an atomic conditional update (`->where('status','pending')->whereNull('handled_by')->update(...)`, followed by an affected-row check) to prevent two staff members from taking the same stage.
-- Routes wired in `api.php`, with several rounds of debugging route-model-binding parameter name mismatches — see KNOWN_ISSUES.md.
-- Full end-to-end Postman testing performed across all endpoints (register, login, submit request, claim, resolve).
+- Request submission, stage generation, and initial history recording implemented in `RequestController::store()`.
+- Department stage progression implemented via `RequestStageController::claim()` and `resolve()`.
+- Concurrency locks added to prevent race conditions during simultaneous claims.
 
-## Phase 6: Automatic Status History via Observer
+## Phase 6: Observer Pattern & Audit Trails
 
-- Laravel Observers were selected over controller-level helper calls so status history would be recorded consistently regardless of the mutation path (controller, Tinker, seeder, or future service code).
-- `RequestStageObserver` created, using `isDirty('status')` and `getOriginal('status')` to detect and log transitions on the `updated` event.
-- Manual `statusHistories()->create()` calls removed from controllers once the observer was confirmed working — full end-to-end regression test performed and passed.
+- Created `RequestStageObserver` to automatically capture status transitions into `status_history`.
+- Parent request transitions captured explicitly to maintain a clear audit trail.
 
-## Phase 7: Queues & Mail
+## Phase 7: Queues & Email Delivery
 
-- Email delivery was moved off the request path to avoid blocking HTTP responses and to make delivery failures independently retryable.
-- `RequestStatusUpdated` Mailable created (constructor takes User, DocumentRequest, string status; `loadMissing('requestType')` to ensure relationship availability).
-- `SendRequestStatusNotification` Job created, dispatching the Mailable.
-- Mailtrap configured for local dev email testing.
-- Observer updated to dispatch the notification job alongside status history logging.
-- Verified end-to-end: resolved a stage in Postman → job appeared in `jobs` table → queue worker processed it → email arrived in Mailtrap with correct dynamic content.
+- Configured Mailtrap SMTP integration for development email testing.
+- Added mailable classes dispatched asynchronously to the queue.
 
-## Phase 8: API Hardening (Phase 6 of original roadmap)
+## Phase 8: Frontend Integration
 
-- Rate limiting was applied by risk and workload: stricter limits for authentication and `POST /requests`, with looser limits for read routes and staff actions.
-- API Resources (`RequestResource`, `RequestStageResource`, `UserResource`) built to replace raw Eloquent model responses, using `whenLoaded()` for conditional relationship exposure.
-- Controllers updated to return Resources instead of raw models/collections.
-- Full Postman re-verification of response shapes.
+- Initialized Vue 3 SPA with Vite, Vue Router, Tailwind CSS, and Lucide icons.
+- Built composables (`useAuth`) and API services with Axios request/response interceptors.
 
-## Phase 9: Frontend/Backend Integration
+## Phase 9: Automated University Seeder Suite
 
-This was the longest and most debugging-intensive phase.
+- Built parsers and mappers for actual University of Buea academic structures.
+- Automated generation of faculties, departments, programmes, staff, students, and demo requests.
 
-### 9a. Pre-Integration Audit
-- A comprehensive frontend integration spec (`frontend_integration_specs.md`) was produced, documenting the Vue SPA's state as **entirely mock-data-driven** with zero backend wiring — no HTTP client, no env config, no token persistence.
-- 10 integration gaps identified and prioritized: CORS mismatch, missing HTTP client, no auth flow, login response shape mismatch, missing `password_confirmation`, missing reference-data endpoints, response shape misalignment (`request_type` as object vs string), missing endpoints (reopen/collect/notifications/reassign/admin CRUD), no 401 handling.
-- **Decision:** Bearer token auth confirmed as the strategy (over Sanctum SPA cookie mode) since the backend was already built and tested this way.
-
-### 9b. CORS & Environment Setup
-- Multiple rounds of CORS debugging: initial mismatch (backend defaulted to port 3000, frontend runs on 5173), then a redirect loop caused by `EnsureFrontendRequestsAreStateful` being present alongside Bearer token auth — ultimately removed. See KNOWN_ISSUES.md.
-- `HandleCors` middleware explicitly prepended in `bootstrap/app.php`.
-
-### 9c. API Service Layer (Frontend)
-- Axios installed, `api.ts` created with request interceptor (attach Bearer token from localStorage) and response interceptor (401 → clear token, redirect to login).
-- TypeScript config updated to include `vite/client` types for `import.meta.env`.
-- `auth.ts`, `requests.ts`, `stages.ts`, and `reference.ts` established the frontend API service boundary.
-- Recurring naming collision bug identified and resolved: native browser `Request`/`Response` types colliding with custom domain types — resolved via type aliasing (`Request as DocumentRequest`) on both frontend TypeScript and backend PHP.
-
-### 9d. Auth Flow Wiring
-- `useAuth.ts` composable created (localStorage-backed, replacing the earlier mock session state).
-- `router/index.ts` updated to use `useAuth` for route guards.
-- `LoginView.vue` and `RegisterView.vue` rewired to call real services, with async/await and try/catch error handling replacing the previous synchronous mock calls.
-- **Backend addition during this phase:** `ReferenceDataController` created (faculties/departments/programmes/request-types public endpoints) — these did not exist before integration began and were needed to unblock the registration form's dropdowns.
-- Login/register response shapes updated to include nested `student_profile`/`staff_profile` — required for role-based routing to function.
-
-### 9e. Student Dashboard Wiring
-- `StudentDashboard.vue` was rewritten to replace the earlier mock layer with real service calls (`fetchRequests`, `fetchRequestTypes`, `fetchFaculties`, `fetchDepartments`, `createRequest`).
-- Multiple response-shape mismatches debugged: Laravel Resource `{data: [...]}` wrapper not being unwrapped, `request_type` type mismatch (object vs string), file upload payload issues (wrong FormData field, Axios `Content-Type` override breaking multipart uploads).
-- File upload flow (`fileList`) rewritten from metadata-only objects to real `File` objects.
-- Detail modal "click to open" bug traced to missing eager-loading on the list endpoint (fixed by calling `fetchRequestById` on click instead of using list-item data directly) and a stale/incorrect route definition (`/request/{requests}` → `/requests/{request}`).
-- Null-safety bug fixed: initial submission's `status_history.changed_by` is `null`, causing a template crash (`Cannot read properties of null (reading 'name')`) — fixed with optional chaining.
-
-### 9f. Staff Dashboard Wiring
-- Similar systematic rewrite of `StaffDashboard.vue`.
-- **Backend addition:** discovered that `RequestStageController::index()` (used for the queue) doesn't accept a meaningful `{request}` parameter — a dedicated `GET /api/stages` staff-queue endpoint and `GET /api/stages/my-cases` (active claims) endpoint were added.
-- `RequestStageResource` extended to include nested `request` object with student name/matricule/level and request type — needed for the staff queue cards to display student context.
-- Resolve modal field-name mismatch bug (`resolution`/`action` vs `status`) traced and fixed.
-- **Critical bug discovered and fixed:** a request's Stage 2 could be claimed before Stage 1 was approved. An initial query filter and claim guard still left a time-of-check/time-of-use race. The final design closed that race with SQL `whereExists` eligibility checks and transactional `lockForUpdate()` locking — see KNOWN_ISSUES.md.
-
-### 9g. Document Viewing
-- 403 bug on attachment viewing traced to files being stored in private storage but referenced via public-style URLs.
-- `AttachmentController` built for authenticated, role-aware file streaming.
-- `DocumentViewer.vue` rewired to fetch files as blobs and display via `URL.createObjectURL()`, since HTML `src` attributes can't carry Bearer tokens.
-- "Open in new tab" button bug (accessing `window` directly in template) fixed by moving to a script-level function.
-
-### 9h. Staff "View Details" Bug
-- Empty stage timeline bug traced to the staff dashboard calling the wrong endpoint (the filtered queue endpoint, which excludes claimed/resolved stages).
-- Resolved by reusing the existing student `show()` endpoint with a relaxed ownership check (`isOwner || isStaff`), avoiding a new duplicate endpoint.
-
-## Phase 10: Seeder Suite & Testing
-
-Following the frontend integration work, a comprehensive seeder suite was built to replace ad-hoc Tinker commands:
-
-- `UserFactory` refactored to support both `staff()` and `student()` states with auto-generated profiles, proper matricule generation (format: `{PREFIX}{YEAR2}{SECTION}{SEQ3}`), and random but realistic department/programme assignment
-- `FacultyMarkdownParser` + support helpers to parse a real University of Buea faculty/department/programme structure from a markdown document
-- `FacultySeeder`, `DepartmentSeeder`, `ProgrammeSeeder` driven by the parsed data
-- `StaffSeeder(80)`, `StudentSeeder(10/dept)`, `DepartmentStaffSeeder` for full user seeding
-- `DepartmentStaffSeeder` auto-elevates each department's primary staff to `dept_admin`
-
-Additional schema changes were made during this phase:
-- Added `matricule_prefix` to `faculties`
-- Added `department_id` to `programmes`; `Programme` model boot hook auto-syncs `faculty_id`
-- Changed `level` enum from `L100`–`L600` to `100`–`600`
-- Changed `degree_type` enum from `BSc/BEng/MEng/MSc/PhD` to `BACHELOR/CERTIFICATE/MASTER/PHD`
-- Added `type` column to `departments` (`academic`/`records`/`admin`)
-- Fixed `programmes.code` unique constraint through two further migrations (single → compound with dept_id → triple with degree_type)
+## Phase 10: Concurrency Hardening & Sequential Routing
 
 `StageGenerationService` was extracted from `RequestController`'s inline `resolveSequence()` method, providing a cleaner, reusable service-layer implementation of symbolic token resolution.
 
@@ -166,18 +94,6 @@ Vitest frontend unit tests were written:
 - PHPUnit tests: 2 feature test files covering sequential routing.
 - Vitest tests: 4 test files covering key frontend components.
 - Documentation audit performed against actual source files (September 2026).
-
-## Known issues at the earlier documentation audit (historical)
-
-The five items below were subsequently resolved. Current verification limits are listed in [TESTING.md](TESTING.md).
-
-1. `AuthenticatedSessionController::destroy()` crashes in API context — logout does not revoke tokens
-2. `forRequest()` route-model binding mismatch — `GET /requests/{request}/stages` always returns empty
-3. `AppServiceProvider` defines `'is_dept-admin'` (mixed naming) — `dept_admin` middleware always denies
-4. Frontend `RegisterCredentials.level` type uses `L100`–`L600` but backend expects `100`–`600`
-5. Frontend `DegreeType` uses `BSc/BEng/etc.` but database uses `BACHELOR/CERTIFICATE/etc.`
-
-See KNOWN_ISSUES.md and HANDOFF.md for details and fixes.
 
 ## Phase 11: CI/CD Session 1 - Local Docker Foundation
 
@@ -219,4 +135,21 @@ From 3 through 7 October 2026, the frontend redesign and recoverability work wer
 - Verified manual capture `20261006T122804Z`, isolated database/attachment/backend-image restoration, alarm recovery from `ALARM` to `OK`, and unattended timer capture `20261007T000005Z`.
 - Merged PR #20 as `989ca54`; the recovery feature branch was then removed locally and remotely.
 
-The current authoritative operational record is [CI_CD_SESSION_2_HANDOFF.md](CI_CD_SESSION_2_HANDOFF.md). Credential remediation, DNS, HTTPS, periodic restore drills, and the separate administrative-action audit remain future work. Automatic failover and destructive live restoration are not implemented.
+## Phase 14: Account Security Hardening, Administrative Action Audit, and Real-Time Event Delivery
+
+From 8 through 21 October 2026, CampusDesk added administrative account control, audit decoupling, and end-to-end real-time push delivery:
+
+- **8–9 October 2026 (Account Security Hardening & Administrative Audit):**
+  - Added `users.disabled_at` column, permanent account disablement, active-token rejection via `active_account` middleware, credential revocation, and last-active Super Admin safeguards.
+  - Introduced the append-only `administrative_actions` table and Super Admin management endpoints (`PATCH /api/admin/users/{user}/disable`, `enable`, `GET /api/admin/administrative-actions`), keeping administrative mutations separate from request `status_history`.
+  - Added staging credential remediation commands, rotating three retained personas and remediating 618 shared-password demo accounts.
+- **14–21 October 2026 (Real-Time Invalidation & Push Delivery):**
+  - Implemented the Transactional Outbox Pattern using the `request_events` table (UUID primary key, strictly increasing `aggregate_sequence`, delivery status tracking, JSON audience mapping, retry/failure audit columns).
+  - Built `RequestEventRecorder` to record outbox events inside the primary database transactions and dispatch asynchronous `PublishRequestEvent` jobs to a dedicated `realtime` database queue upon commit.
+  - Deployed Laravel Reverb WebSocket broadcasting over private channels (`private-users.{id}`, `private-departments.{id}`) authorized via Sanctum Bearer tokens.
+  - Implemented client-side subscription and lifecycle management using Laravel Echo and Pusher JS (`realtime.ts`).
+  - Followed the "invalidate and refetch" architecture: broadcast envelopes contain strictly metadata and identifiers (no student PII or internal staff notes), triggering scoped REST query refetches on client arrival.
+  - Added the `realtime:reconcile` console command scheduled every 5 minutes to recover stranded or failed events, providing at-least-once delivery guarantees.
+  - Expanded Docker Compose topology from 4 to 7 services (`frontend`, `backend`, `worker`, `db`, `reverb`, `realtime-worker`, `scheduler`).
+  - Conducted a surgical code audit and optimization: removed triplicated aggregate sequence computation in `RequestEventRecorder`, unified error summary formatting in `RequestEventDelivery`, streamlined eager-loading queries in `RequestStatusNotificationService`, and resolved frontend TypeScript warnings.
+  - Reached full verification baseline: 111 PHPUnit tests (592 assertions) across 23 suites and 155 Vitest unit tests across 18 files with zero lint/typecheck errors and clean production builds.

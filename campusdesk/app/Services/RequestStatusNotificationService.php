@@ -18,9 +18,10 @@ class RequestStatusNotificationService
             'message' => $message,
         ]);
 
-        $student = $request->student()->first();
+        $request->loadMissing(['student', 'requestType']);
+        $student = $request->student;
         if ($student) {
-            SendRequestStatusNotification::dispatch($student, $request->loadMissing('requestType'), $status)
+            SendRequestStatusNotification::dispatch($student, $request, $status)
                 ->afterCommit();
         }
     }

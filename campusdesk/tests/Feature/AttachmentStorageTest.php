@@ -83,7 +83,7 @@ class AttachmentStorageTest extends TestCase
             ->assertNotFound();
     }
 
-    public function test_failed_attachment_write_rolls_back_the_request_and_attachment_record(): void
+    public function test_failed_attachment_write_rolls_back_the_request_attachment_and_event_records(): void
     {
         [$student, $requestType] = $this->makeStudentAndRequestType('write-failure');
 
@@ -96,6 +96,7 @@ class AttachmentStorageTest extends TestCase
 
         $this->assertDatabaseCount('requests', 0);
         $this->assertDatabaseCount('attachments', 0);
+        $this->assertDatabaseCount('request_events', 0);
     }
 
     public function test_partial_attachment_write_failure_cleans_up_previously_stored_files(): void

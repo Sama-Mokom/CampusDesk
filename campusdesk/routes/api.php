@@ -14,7 +14,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth:sanctum', 'active_account'])->get('/user', function (Request $request) {
-    return $request->user();
+    return $request->user()->loadMissing(['studentProfile', 'staffProfile.departments']);
 });
 Route::middleware(['auth:sanctum', 'active_account'])->group(function () {
     Route::get('/attachments/{attachment}', [AttachmentController::class, 'show']);

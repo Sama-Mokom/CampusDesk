@@ -1,74 +1,70 @@
 # CampusDesk handoff
 
-## Current handoff (updated 7 October 2026)
+## Current handoff (updated 21 October 2026)
 
-Issue #7's shared slate/sky UI and routed role pages are merged into `development`. Student request details are directly addressable; staff queue/cases and each Super Admin management collection have separate URLs. The original redesigned views were visually confirmed, while full browser acceptance of the later page separation remains open. On 7 October 2026 the frontend suite passed 132 tests across 14 files; the earlier lint, typecheck, build, and 17-route preview smoke checks also passed. See [FRONTEND_REDESIGN.md](FRONTEND_REDESIGN.md) for the merge record and remaining manual acceptance work, and [UI_UX.md](UI_UX.md) for the route map.
+The real-time push notification feature and event invalidation delivery pipeline are fully implemented, verified, and surgically refactored end to end. CampusDesk now leverages Laravel Reverb (WebSockets), Laravel Echo, Pusher JS, a dedicated `realtime` database queue worker, and the Transactional Outbox Pattern (`request_events`). In addition, administrative action auditing (`administrative_actions`), permanent account disablement (`disabled_at`), and last-active Super Admin protections are live. The test suite stands at **111 PHPUnit feature tests (592 assertions)** across 23 suites and **155 Vitest unit tests** across 18 test files, passing with 0 ESLint errors/warnings and 0 TypeScript errors.
 
-## Current state (7 October 2026)
+## Current state (21 October 2026)
 
-CampusDesk is a Laravel 12 and Vue 3 university document request system. Students register, submit requests with private attachments, track stages, reopen rejected requests, and mark ready requests as collected. Staff claim and resolve stages. Department admins oversee their primary department and reassign claimed stages. Super Admins manage reference data and users, see system statistics and requests, and review request/stage status history. The notification bell uses the authenticated API. Email dispatch requires a running queue worker.
+CampusDesk is a Laravel 12 and Vue 3 university document request system. Students register, submit requests with private attachments, track stages, reopen rejected requests, and mark ready requests as collected. Staff claim and resolve stages. Department admins oversee their primary department and reassign claimed stages. Super Admins manage reference data and users, see system statistics and requests, disable/enable accounts, and review both request lifecycle history and administrative mutation audits. The notification bell and dashboards update in real time via private WebSocket channels (`private-users.{id}` and `private-departments.{id}`). Email dispatch continues via the default background queue worker.
 
-The local Docker foundation, CI pipeline, immutable ECR publication, manually approved SSM deployment, attachment hardening, and off-host recovery path are complete and verified. Staging runs Vue/Nginx, Laravel/Apache, a separate Laravel queue worker, and MySQL 8.4 on one Ubuntu 24.04 AMD64 EC2 instance. The frontend binds only to EC2 loopback and is reached through an SSH tunnel at local port 18080. A complete request lifecycle and authenticated private attachment upload/download were verified on 2 October 2026. A coherent manual recovery capture, isolated restore, scheduled freshness checks, CloudWatch/SNS heartbeat path, and the first unattended twice-daily backup cycle were verified by 7 October 2026. See the consolidated [CI/CD implementation and operations guide](CI_CD_SESSION_2_HANDOFF.md).
+The local Docker Compose environment has been expanded to a 7-service topology: `frontend`, `backend`, `worker`, `db`, `reverb`, `realtime-worker`, and `scheduler`. Staging runs on an Ubuntu 24.04 AMD64 EC2 instance reachable via SSH tunnel, backed by off-host encrypted S3 recovery with automated twice-daily captures and 15-minute freshness monitoring.
 
 | Area | Implementation |
 |---|---|
-| Student, staff, department admin, and Super Admin workflows | Wired to Laravel APIs |
+| Student, staff, department admin, and Super Admin workflows | Wired to Laravel APIs with real-time UI invalidation |
 | Sanctum Bearer login, registration, logout | Implemented; logout revokes the current token |
-| Sequential routing, stage claim/resolve, reopen, collect | Implemented |
-| Department admin oversight and claimed-stage reassignment | Implemented for the primary department |
+| Account disablement & security | `users.disabled_at`, `active_account` middleware, credential revocation, last-active Super Admin safeguard |
+| Sequential routing, stage claim/resolve, reopen, collect | Implemented with concurrency locking |
+| Department admin oversight and claimed-stage reassignment | Implemented for the primary department with audit logging |
 | Super Admin CRUD, elevation, statistics, oversight, status audit | Implemented under `/api/admin` |
-| Local Docker images and four-service Compose stack | Complete and durability-tested |
-| GitHub Actions quality gates and image build validation | Implemented and passing |
+| Administrative mutation audit | Append-only `administrative_actions` table and Super Admin read API |
+| Real-time push delivery & invalidation | Laravel Reverb WebSockets, Laravel Echo client, `request_events` outbox, dedicated `realtime` worker, and `realtime:reconcile` scheduler |
+| Local Docker images and 7-service Compose stack | Complete, integrated, and durability-tested |
+| GitHub Actions quality gates and image build validation | Implemented and passing (PHPUnit, Vitest, lint, typecheck, build) |
 | GitHub OIDC and immutable Amazon ECR publication | Implemented for pushes to `development` |
 | AWS EC2 staging deployment | Manual GitHub dispatch, protected-environment approval, exact ECR digests, restricted SSM command, and fixed root-owned host script |
-| Staging database initialization | Migrations and one-time full demonstration seed completed |
-| Staging users | Student and manually created Super Admin access verified |
-| Attachment durability and access | One-shot volume initializer, fail-fast write handling, cleanup on rollback, scoped download authorization, regression tests, and staging functional verification complete |
-| Off-host recovery | Private versioned S3, SSE-KMS, least-privilege EC2 access, twice-daily coherent captures, download verification, isolated restore test, 15-minute monitoring, and CloudWatch/SNS alarm path verified |
-| Deployment trigger | Deliberately manual-triggered and approval-gated; not automatic on every push |
-| Public DNS and HTTPS | Not implemented; access remains through an SSH tunnel |
-| Separate audit of administrative CRUD and elevation | Planned as roadmap task 9 |
+| Staging database initialization | Migrations (33 total) and one-time full demonstration seed completed |
+| Staging credential remediation | Staging commands executed; 618 demo accounts remediated and disabled |
+| Attachment durability and access | One-shot volume initializer, fail-fast write handling, cleanup on rollback, scoped download authorization, regression tests complete |
+| Off-host recovery | Private versioned S3, SSE-KMS, least-privilege EC2 access, twice-daily coherent captures, download verification, isolated restore test, 15-minute monitoring verified |
+| Public DNS and HTTPS | Not implemented; staging access remains through an SSH tunnel |
 
 ## Where to work next
 
-The next infrastructure tasks are to remediate shared demonstration credentials, record deployed digests and recovery evidence in an approved operational location, and continue periodic isolated restore drills before broader access. Systems Manager Run Command is already used for deployment without a GitHub SSH key; Session Manager remains a separate future option for interactive administration. Do not expose the seeded environment publicly. See [CI-CD.md](../CI-CD.md), [CI_CD_SESSION_2_HANDOFF.md](CI_CD_SESSION_2_HANDOFF.md), [STAGING_RECOVERY.md](STAGING_RECOVERY.md), and [ROADMAP.md](ROADMAP.md).
+The next operational and development tasks are:
+1. Roll out the expanded 7-service stack (`compose.staging.yaml` and deployment script) to AWS staging.
+2. Establish stable public staging addressing, DNS, and TLS termination (including WSS WebSocket termination for Reverb on port 8085/443).
+3. Continue periodic isolated restore drills and backup freshness verification.
+4. Expand administrative action auditing and consider frontend browser E2E test automation (Playwright/Cypress).
 
-Run the backend and frontend suites before extending the application. Attachments are intentionally loaded through the protected blob flow, so tests must not expect immediate public document URLs. `status_history` records request and stage transitions only. See [TESTING.md](TESTING.md).
+See [CI_CD_SESSION_2_HANDOFF.md](CI_CD_SESSION_2_HANDOFF.md), [STAGING_RECOVERY.md](STAGING_RECOVERY.md), [TECH_STACK.md](TECH_STACK.md), and [ROADMAP.md](ROADMAP.md).
 
 ## Key implementation files
 
-- Backend routes and authorization: `campusdesk/routes/api.php`, `campusdesk/app/Providers/AppServiceProvider.php`, `campusdesk/app/Http/Middleware/`.
+- Backend routes and authorization: `campusdesk/routes/api.php`, `campusdesk/routes/channels.php`, `campusdesk/app/Providers/AppServiceProvider.php`, `campusdesk/app/Http/Middleware/`.
+- Real-time pipeline: `campusdesk/app/Services/RequestEventRecorder.php`, `campusdesk/app/Services/RequestEventDelivery.php`, `campusdesk/app/Jobs/PublishRequestEvent.php`, `campusdesk/app/Console/Commands/ReconcileRequestEventOutbox.php`.
+- Frontend real-time: `Frontend/src/services/echo.ts`, `Frontend/src/services/realtime.ts`.
 - Request lifecycle: `RequestController.php`, `RequestStageController.php`, `StageGenerationService.php`, and `RequestStageObserver.php` under `campusdesk/app/`.
-- Admin API: `campusdesk/app/Http/Controllers/AdminReferenceController.php`, `AdminUserController.php`, and `AdminOverviewController.php`.
-- Frontend: `Frontend/src/router/index.ts`, `App.vue`, role page directories under `src/views/`, page-scoped composables under `src/composables/`, and shared workflow components under `src/components/`; API calls live in `Frontend/src/services/`.
-- Test fixtures: `campusdesk/database/seeders/` and `campusdesk/tests/Feature/`.
-- CI: `.github/workflows/ci.yml`.
-- Staging deployment: `.github/workflows/deploy-staging.yml`; the restricted SSM document calls `/usr/local/sbin/campusdesk-deploy` on EC2.
-- Local containers: `compose.yaml`; the real `.env.docker` is intentionally ignored.
-- Staging containers: `compose.staging.yaml` and `.env.staging.example`; the real EC2 `.env.staging` is intentionally ignored and must remain secret.
-- Staging recovery: `ops/staging/`, `ops/staging/aws/backup-infrastructure.yaml`, and `Docs/STAGING_RECOVERY.md`; `/etc/campusdesk/backup.env` is root-owned mode `0600` on EC2.
-- Images: `campusdesk/Dockerfile`, `Frontend/Dockerfile`, and both `docker/` configuration directories.
+- Admin API: `campusdesk/app/Http/Controllers/AdminReferenceController.php`, `AdminUserController.php`, `AdministrativeActionController.php`, and `AdminOverviewController.php`.
+- Frontend: `Frontend/src/router/index.ts`, `App.vue`, role page directories under `src/views/`, composables under `src/composables/`, and shared workflow components under `src/components/`.
+- Test fixtures: `campusdesk/database/seeders/`, `campusdesk/tests/Feature/`, and `Frontend/tests/`.
+- Local containers: `compose.yaml`.
+- Staging containers: `compose.staging.yaml` and `ops/staging/`.
 
 ## Constraints
 
-- Keep Sanctum Bearer token auth; do not introduce session based API auth.
+- Keep Sanctum Bearer token auth; do not introduce session-based API auth.
 - Preserve the SQL eligibility check and transaction locks in stage claiming.
-- A request type's symbolic routing tokens are resolved when a request is created. Editing a template does not change existing stages.
-- Programme faculty is derived from its department. Staff department admin authority comes from the primary pivot assignment.
-- Stream attachments through authenticated `/api/attachments/{id}`. Do not expose storage paths as public document URLs.
-- Attachment downloads are limited to the owning student, a Super Admin, an assigned handler, or staff in a department on the request route. Do not broaden this to every staff account.
-- Preserve `attachments-init`, explicit local-disk writes, failed-write rejection, and partial-upload cleanup when changing attachment storage.
-- Super Admin deletion returns 409 for referenced records; administrative activity needs its own audit table.
+- Broadcast envelopes must strictly contain event metadata and identifiers; do NOT transmit student PII or staff notes over WebSockets.
+- Real-time events are cache invalidation triggers; clients must refetch authoritative state from existing authenticated REST endpoints.
+- Preserve `disabled_at` checks on protected routes via `active_account` middleware.
+- Stream attachments through authenticated `/api/attachments/{id}`. Do not expose storage paths as public URLs.
 - Super Admin accounts are intentionally not seeded. Use [TINKER_STAFF_USERS.md](TINKER_STAFF_USERS.md) for local testing.
-- The full staging seed creates demo accounts with the known factory password `password`; keep staging private until those accounts are remediated.
-- Staging migrations and seeds are explicit operations and must not be placed in container startup commands.
-- EC2 deploys image digests, not mutable tags; ECR publication tags images with the source commit SHA for traceability.
-- The current single-host Compose deployment is not highly available or zero-downtime.
-- The deployment workflow does not synchronize `compose.staging.yaml` or `/usr/local/sbin/campusdesk-deploy`; host configuration changes require a separate reviewed rollout.
 
 ## Local commands
 
-Verified Docker Compose environment:
+Verified Docker Compose environment (7 services):
 
 ```cmd
 docker compose --env-file .env.docker up -d
@@ -77,32 +73,20 @@ docker compose --env-file .env.docker logs -f
 docker compose --env-file .env.docker down
 ```
 
-EC2 staging helper, defined in an SSH session:
-
-```bash
-cdc() {
-  docker compose \
-    --env-file /opt/campusdesk/.env.staging \
-    --file /opt/campusdesk/compose.staging.yaml \
-    "$@"
-}
-
-cdc config --quiet
-cdc ps
-cdc logs --tail=100 backend
-```
-
 Bare development environment:
 
 ```bash
 cd campusdesk
-composer run dev
-composer run dev-mail  # includes the queue worker for notification email
+
+# Start complete real-time dev environment (server, queues, reverb, scheduler, vite):
+composer run dev-realtime
+
+# Or run tests:
 php artisan test
 
 cd ../Frontend
-npm run dev
 npm test
-npx vue-tsc --noEmit
+npm run lint
+npm run typecheck
 npm run build
 ```

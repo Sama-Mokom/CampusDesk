@@ -1,6 +1,6 @@
 # CampusDesk — Architecture Decision Record (ADR)
 
-**Last reviewed:** 7 October 2026
+**Last reviewed:** 21 October 2026
 
 Each entry: Decision, Context, Options Considered, Decision Made, Reasoning, Consequences, Status.
 
@@ -208,3 +208,30 @@ PHPUnit tests in `SequentialRoutingPreservationTest` and `SequentialRoutingBugCo
 **Implementation:** `FacultyMarkdownParser`, `FacultyMatriculeMapper`, `DepartmentTypeMapper`, `StudentDistributionHelper` in `database/seeders/support/`. `UserFactory` handles profile creation with proper matricule generation.
 
 **Status:** ✅ Implemented and working.
+
+---
+
+## ADR-12: Real-time Invalidation & Push Delivery via Outbox Pattern, Laravel Reverb, and Laravel Echo
+
+**Context:** As users interact with requests across different departments, clients need real-time updates when a request is submitted, claimed, approved, rejected, reassigned, or reopened, without polling the server constantly and without risking dual-write inconsistencies between database transactions and WebSocket broadcasting.
+
+**Options considered:**
+- A. Client-side HTTP polling every N seconds.
+- B. Synchronous WebSocket broadcasting inside controller HTTP requests (`broadcast(new RequestUpdated())`).
+- C. Transactional Outbox pattern (`request_events` table) with asynchronous publishing via a dedicated queue worker, Laravel Reverb WebSockets, and client-side invalidation via Laravel Echo.
+
+**Decision:** C — Transactional Outbox pattern with asynchronous delivery and client-side invalidation.
+
+**Reasoning:**
+1. **Transactional Safety:** Direct broadcasts during HTTP execution can broadcast events for transactions that subsequently roll back, or fail silently if the WebSocket daemon is temporarily unreachable. Storing an outbox record (`request_events`) within the same database transaction guarantees at-least-once persistence.
+2. **Decoupled Asynchronous Transport:** Event dispatching is offloaded to a dedicated `realtime` queue worker running `PublishRequestEvent`. HTTP responses remain instantaneous.
+3. **Reconciliation & Resilience:** The `realtime:reconcile` scheduled console command (running every 5 minutes) scans for any stranded or un-broadcast events, guaranteeing reliability even through worker crashes or network interruptions.
+4. **Data Privacy (Invalidate-and-Refetch):** Broadcast envelopes contain only aggregate metadata (`event_id`, `request_id`, `aggregate_sequence`, `occurred_at`, `current_status`, targeting IDs). No student Personally Identifiable Information (PII) or internal staff notes travel over WebSockets. The client's `realtime.ts` receives the event and triggers targeted, authenticated REST refetches.
+
+**Consequences:**
+- Added `request_events` table with unique constraint `(request_id, aggregate_sequence)`.
+- Added Laravel Reverb server, a dedicated `realtime` database queue worker, and a console scheduler to the application and Docker Compose topology (expanding it to 7 services).
+- Added `routes/channels.php` private channel authorizations for `private-users.{id}` and `private-departments.{id}` with Sanctum Bearer token integration.
+- Frontend integrated Laravel Echo and Pusher JS with connection lifecycle management and automatic fallback refetching on reconnection.
+
+**Status:** ✅ Implemented, optimized, verified (111 PHPUnit tests / 155 Vitest tests).

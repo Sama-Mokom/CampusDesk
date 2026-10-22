@@ -1,6 +1,7 @@
-import { computed, onScopeDispose, ref } from 'vue'
+import { computed, getCurrentScope, onScopeDispose, ref } from 'vue'
 import axios from 'axios'
 import { fetchRequests } from '@/services/requests'
+import { useRealtime } from './useRealtime'
 import type { Request as DocumentRequest } from '@/types'
 
 export function studentApiMessage(cause: unknown, fallback: string): string {
@@ -24,8 +25,24 @@ export function useStudentRequests() {
   const loaded = ref(false)
   const error = ref('')
   let version = 0
-  onScopeDispose(() => {
-    version++
+  if (getCurrentScope()) {
+    onScopeDispose(() => {
+      version++
+    })
+  }
+
+  const { onCoalescedInvalidate, onReconnect } = useRealtime()
+
+  onCoalescedInvalidate(() => {
+    if (loaded.value) {
+      void loadRequests()
+    }
+  })
+
+  onReconnect(() => {
+    if (loaded.value) {
+      void loadRequests()
+    }
   })
 
   const sortedRequests = computed(() =>

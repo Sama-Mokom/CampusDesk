@@ -1,6 +1,6 @@
 # CampusDesk — API Documentation
 
-**Last reviewed:** 7 October 2026
+**Last reviewed:** 21 October 2026
 
 ## Base URL
 
@@ -17,6 +17,7 @@ Accept: application/json
 ```
 
 Token is obtained from `POST /api/login` or `POST /api/register`.
+Protected endpoints also pass through the `active_account` middleware, which ensures that accounts with a non-null `disabled_at` timestamp are blocked immediately with HTTP 403.
 
 ## Response Shape
 
@@ -36,7 +37,7 @@ Laravel API Resources wrap responses in a `data` key for collections and single 
 { "message": "Stage claimed" }
 ```
 
-Frontend must unwrap `response.data.data` for resource endpoints and `response.data` for plain endpoints.
+Frontend unwraps `response.data.data` for resource endpoints and `response.data` for plain endpoints.
 
 ---
 
@@ -63,7 +64,7 @@ Register a new student account.
 }
 ```
 
-**⚠️ Level values:** The `level` field must be `"100"`, `"200"`, `"300"`, `"400"`, `"500"`, or `"600"` (no `L` prefix). The database enum was changed in migration `2026_07_21_111603`. The frontend `RegisterCredentials` TypeScript type still uses `L100`–`L600` — this is a known type mismatch. Verify what `RegisterView.vue` actually sends.
+**Level values:** The `level` field must be `"100"`, `"200"`, `"300"`, `"400"`, `"500"`, or `"600"` (no `L` prefix).
 
 **Validation:**
 - `matricule`: required, unique in `student_profiles`
@@ -109,7 +110,7 @@ Authenticate and receive a Bearer token.
 { "email": "sama@ub.cm", "password": "password" }
 ```
 
-**Response 200:** Same shape as register response (token + user with nested profiles).
+**Response 200:** Same shape as register response (token + user with nested profiles). Disabled accounts (`disabled_at !== null`) are denied authentication with generic credential failure credentials.
 
 ---
 
@@ -118,9 +119,67 @@ Revoke the current token.
 
 **Auth:** Bearer token required
 
-The logout controller deletes the current Sanctum access token and returns HTTP 204. The former session-method bug is resolved.
+Deletes the current Sanctum personal access token and returns HTTP 204.
 
-**Response 204:** No content (when it works).
+**Response 204:** No content.
+
+---
+
+## Real-Time Broadcasting & WebSockets
+
+CampusDesk uses Laravel Reverb and Laravel Echo for real-time invalidation and notification push delivery over private WebSocket channels.
+
+### POST /api/broadcasting/auth
+Authenticates private channel subscriptions for Laravel Echo / Pusher JS.
+
+**Auth:** Bearer token required (`auth:sanctum` via `bootstrap/app.php` broadcasting configuration)
+
+**Request body:**
+```
+socket_id: string
+channel_name: string
+```
+
+**Authorized Channel Patterns (`routes/channels.php`):**
+1. `private-users.{id}`:
+   - Evaluates: `(int) $user->id === (int) $id`
+   - Scopes: Allows students and staff to receive events specifically addressed to their user ID.
+2. `private-departments.{id}`:
+   - Evaluates: `$user->role === 'staff'` AND (`$user->staffProfile->admin_level === 'super_admin'` OR assigned to department `{id}`).
+   - Scopes: Allows departmental staff to receive queue-invalidation events for requests entering or progressing in their department.
+
+**Response 200:**
+```json
+{
+  "auth": "campusdesk-key:signature..."
+}
+```
+
+### Wire Event & Envelope Contract
+
+- **Wire Event Name:** `request.event` (Listened to by Laravel Echo on the client with `.request.event` to bypass Laravel namespace prefixing).
+- **Channels Broadcast To:** `private-users.{id}` and `private-departments.{id}` based on computed event audiences.
+- **Envelope Payload Structure:**
+```json
+{
+  "event_id": "9d41d1a7-6f81-4966-96a9-8397a61d1e44",
+  "event_name": "request.status_updated",
+  "schema_version": 1,
+  "aggregate_sequence": 3,
+  "occurred_at": "2026-10-21T14:30:00.000000Z",
+  "request_id": 12,
+  "student_id": 45,
+  "current_status": "in_review",
+  "current_stage_id": 3,
+  "current_department_id": 2,
+  "target_department_ids": [2],
+  "target_user_ids": [45, 18],
+  "reason": "Stage claimed by staff"
+}
+```
+
+**Security & Privacy Contract:**
+Broadcast payloads strictly avoid transmitting student Personally Identifiable Information (PII) or sensitive staff notes over WebSockets. The payload serves as a lightweight cache-invalidation signal. The frontend client (`realtime.ts`) catches the event and triggers scoped query refetches through standard authenticated API endpoints.
 
 ---
 
@@ -129,51 +188,22 @@ The logout controller deletes the current Sanctum access token and returns HTTP 
 These endpoints require no authentication. Used to populate registration and form dropdowns.
 
 ### GET /api/faculties
-Returns all faculties.
-
-**Response:** Plain JSON array (no `data` wrapper):
-```json
-[
-  {
-    "id": 1,
-    "name": "Faculty of Engineering & Technology",
-    "code": "FET",
-    "created_at": "..."
-  }
-]
-```
+Returns all faculties. Plain JSON array (no `data` wrapper).
 
 ### GET /api/departments
-Returns all departments with `faculty_id`, `code`, and `type`.
-
-**Response:** Plain JSON array:
-```json
-[
-  {
-    "id": 1,
-    "faculty_id": 1,
-    "name": "Computer Engineering",
-    "code": "CE",
-    "created_at": "..."
-  }
-]
-```
-
-**Note:** The `type` field (`academic`/`records`/`admin`) is NOT included in the response — `ReferenceDataController::departments()` only selects `id`, `faculty_id`, `name`, `code`, `created_at`.
+Returns all departments with `id`, `faculty_id`, `name`, `code`, `created_at`.
 
 ### GET /api/programmes
-Returns all programmes with `faculty_id` and `degree_type`.
-
-**Note on degree_type values:** The enum is now `BACHELOR`, `CERTIFICATE`, `MASTER`, `PHD`. The frontend `DegreeType` TypeScript type still uses the old values (`BSc`, `BEng`, etc.).
+Returns all programmes with `id`, `faculty_id`, `department_id`, `name`, `code`, `degree_type`.
 
 ### GET /api/request-types
-Returns all request types with their `default_department_sequence` (JSON array of literal dept IDs and/or symbolic tokens).
+Returns all request types with their `default_department_sequence`.
 
 ---
 
 ## Student Endpoints
 
-All require: `auth:sanctum` + `student` middleware.
+All require: `auth:sanctum` + `active_account` + `student` middleware.
 
 ### GET /api/requests
 Returns all requests for the authenticated student.
@@ -181,85 +211,12 @@ Returns all requests for the authenticated student.
 **Rate limit:** 60/minute
 **Eager loads:** `requestType`, `attachments`, `requestStages.department`, `statusHistories`
 
-**Note:** Despite `requestStages` being eager-loaded, the `RequestResource` only exposes `stages` via `whenLoaded('requestStages')`, so they are included in the list response. The full data is available; however the primary usage pattern is to call `GET /api/requests/{id}` for the detail view since the list is used for cards only.
-
-**Response `data` array item:**
-```json
-{
-  "id": 1,
-  "request_type": "Official Transcript",
-  "description": "Needed for MSc application.",
-  "status": "pending",
-  "is_reopened": false,
-  "created_at": "2026-05-01T17:53:12.000000Z",
-  "stages": [...],
-  "status_history": [...],
-  "attachments": [...]
-}
-```
-
----
-
 ### GET /api/requests/{request}
 Returns a single request with full stage timeline, attachments, and status history.
 
-**Auth:** Also accessible by staff (ownership check bypassed for staff role)
-**Rate limit:** 60/minute (placed in a broader `auth:sanctum` + `throttle:60,1` group — no `student` middleware required for this route)
+**Auth:** `auth:sanctum` + `active_account`. Accessible by the owning student or any staff member.
+**Rate limit:** 60/minute
 **Eager loads:** `requestStages`, `attachments`, `statusHistories`
-
-**Authorization:** Student must own the request OR user must be staff (`role === 'staff'`). Returns 403 otherwise.
-
-**Response `data`:**
-```json
-{
-  "id": 1,
-  "request_type": "Official Transcript",
-  "description": "...",
-  "status": "forwarded",
-  "is_reopened": false,
-  "created_at": "...",
-  "attachments": [
-    {
-      "id": 1,
-      "original_name": "cert.pdf",
-      "file_path": "http://127.0.0.1:8000/storage/attachments/...",
-      "mime_type": "application/pdf"
-    }
-  ],
-  "stages": [
-    {
-      "id": 1,
-      "request_id": 1,
-      "department_name": "Computer Engineering",
-      "sequence_order": 1,
-      "status": "approved",
-      "handled_by": "Dr. Mbah John",
-      "staff_note": "Verified records.",
-      "updated_at": "..."
-    }
-  ],
-  "status_history": [...]
-}
-```
-
-**Note on `stages`:** The `RequestStageResource` exposes `handled_by` as the staff member's NAME (string), not their ID. It is drawn from the `handled_by` relationship loaded via `RequestStage::handled_by()` → `User`.
-
-**Note on `file_path`:** `RequestResource` maps attachments using `asset('storage/' . $file->file_path)`. This produces a public-storage URL. To actually serve the file securely, use the `GET /api/attachments/{id}` endpoint with Bearer token — not the `file_path` URL directly.
-
----
-
-### POST /api/requests/{request}/reopen
-Reopen a rejected request.
-
-**Auth:** `auth:sanctum` with a 60/minute rate limit. The controller authorizes only the request owner or a staff user whose `staffProfile.admin_level` is `super_admin`.
-
-**Guards:** The parent request is re-fetched with `lockForUpdate()` inside a database transaction and must still have `status = rejected`; otherwise the endpoint returns 422. The request must have exactly one rejected stage; an invariant failure returns 500 and rolls back every write.
-
-**Side effects:** The rejected stage becomes `pending`, its `handled_by` is cleared so it re-enters its department queue, and its existing `staff_note` is retained. The parent request becomes `pending`, `is_reopened` becomes true, and both stage-level and parent-level audit rows are written.
-
-**Response 200:** Full `RequestResource` in a `data` wrapper.
-
----
 
 ### POST /api/requests
 Submit a new document request.
@@ -274,149 +231,62 @@ description: "Needed for MSc application abroad."
 attachments[]: (file, optional, pdf/docx/jpg/png, max 5MB each)
 ```
 
-**Validation:**
-- `request_type_id`: required, must exist
-- `description`: nullable, string, max 1000
-- `attachments`: nullable array of files
-- `attachments.*`: file, `mimes:pdf,docx,jpg,png`, `max:5120` (5MB)
-
-**Authorization:** `StoreRequestRequest::authorize()` uses `$this->user()->role === 'student'` (direct role check — NOT `Gate::allows()`, which is unreliable in stateless API context).
-
-**Response 201:** Full request resource with stages and status history.
-
 **Side effects:**
 1. Creates `requests` row
-2. Loads `request_type.default_department_sequence`
-3. Resolves symbolic tokens in sequence via `StageGenerationService::resolveSequence()`
-4. Creates one `request_stages` row per department in resolved sequence
-5. Creates initial `status_history` entry (`changed_by: null`, note: "Request submitted by student.")
-6. Stores uploaded files through the explicit `local` disk under `storage/app/private/attachments/`
-7. Rejects a false/empty storage result; on any failure, rolls back request metadata and removes files already written by that request
-8. Creates `attachments` rows only for successful writes
+2. Resolves symbolic tokens in sequence via `StageGenerationService::resolveSequence()`
+3. Creates one `request_stages` row per department in resolved sequence
+4. Creates initial `status_history` entry
+5. Stores uploaded files privately under `storage/app/private/attachments/`
+6. Records transactional domain event in `request_events` outbox and dispatches `PublishRequestEvent` to `realtime` queue after transaction commits.
+
+### POST /api/requests/{request}/reopen
+Reopen a rejected request.
+
+**Auth:** `auth:sanctum` + `active_account`. Available to owning student or Super Admin.
+**Guards:** Parent request must have `status = rejected`. Resets rejected stage to `pending`, clears `handled_by`, retains `staff_note`, and dispatches outbox event.
+
+### PATCH /api/requests/{request}/collect
+Mark a ready request as collected by the student.
+
+**Auth:** `auth:sanctum` + `active_account` + `student`.
+**Guards:** Request status must be `ready` and student must be the owner. Transitions status to `collected` and dispatches outbox event.
 
 ---
 
 ## Staff Endpoints
 
-All require: `auth:sanctum` + `staff` middleware + 60/minute rate limit.
+All require: `auth:sanctum` + `active_account` + `staff` middleware + 60/minute rate limit.
 
 ### GET /api/stages
 Returns the unclaimed stage queue for the authenticated staff member's departments.
-
-**Filter logic (concurrency-safe):**
-- `status = pending`
-- `handled_by IS NULL`
-- `department_id IN (staff's department IDs)`
-- AND (`sequence_order = 1` OR previous stage for same request with `sequence_order - 1` has `status = approved`)
-
-The last condition uses a SQL-level `whereExists` correlated subquery. This is the production-safe implementation.
-
-**Eager loads:** `request.requestType`, `request.student.studentProfile`, `request.attachments`, `department`, `handled_by`
-
-**Response `data` array item:**
-```json
-{
-  "id": 2,
-  "request_id": 1,
-  "department_name": "Computer Engineering",
-  "sequence_order": 1,
-  "status": "pending",
-  "handled_by": null,
-  "staff_note": null,
-  "updated_at": "...",
-  "request": {
-    "id": 1,
-    "description": "...",
-    "request_type": "Transcript Request",
-    "student_name": "Nkeng Sama Mokom",
-    "student_matricule": "FE24A001",
-    "student_level": "400",
-    "created_at": "...",
-    "attachments": [...]
-  }
-}
-```
-
----
+Uses a SQL-level `whereExists` correlated subquery to ensure predecessor stage approval.
 
 ### GET /api/stages/my-cases
 Returns stages currently claimed by the authenticated staff member (`status = in_review`, `handled_by = auth user id`).
 
-**Response:** Plain JSON array (NOT wrapped in `data` key) — `myCases()` returns `response()->json(ResourceCollection)`.
-
-**Response shape:** Same as queue endpoint items.
-
----
-
-### GET /api/requests/{request}/stages
+### GET /api/requests/{docRequest}/stages
 Returns all stages for a specific request in sequence order.
-
-The route uses `{docRequest}` to match `forRequest(DocumentRequest $docRequest)`. The endpoint returns the ordered stages for that request.
-
----
 
 ### POST /api/requests/{docRequest}/stages/{stage}/claim
 Claim an unclaimed stage.
+Uses `DB::transaction()` with `lockForUpdate()` to prevent race conditions. Sets stage `status = in_review`, `handled_by = auth user id`, records audit history, and dispatches outbox domain event.
 
-**Route model binding:** `{docRequest}` → `DocumentRequest`, `{stage}` → `RequestStage`
-
-**Guards:**
-1. Stage must belong to the specified request (404 if not)
-2. Staff must belong to the stage's department (403 if not)
-3. If `sequence_order > 1`, previous stage must have `status = approved` (422 if not)
-4. Stage must still be `pending` with `handled_by = null` (409 if already claimed)
-
-**Concurrency fix:** Steps 3 and 4 are wrapped in `DB::transaction()` with `lockForUpdate()` to prevent TOCTOU race conditions.
-
-**Response 200:**
-```json
-{ "message": "Stage claimed" }
-```
-
-**Side effects:**
-- Sets stage `status = in_review`, `handled_by = auth user id`
-- Updates parent request `status = in_review`
-- `RequestStageObserver` writes the stage transition history (`request_stage_id` set); the controller writes one parent-request transition (`request_stage_id: null`).
+### PATCH /api/requests/{docRequest}/stages/{stage}/resolve
+Resolve a claimed stage (`approved` or `rejected`).
+If approved and more stages remain, request transitions to `forwarded`. If final stage, transitions to `ready`. If rejected, transitions to `rejected`. Records stage and parent status history, queues email notification, and records outbox domain event for real-time delivery.
 
 ---
 
-### PATCH /api/requests/{docRequest}/stages/{stage}/resolve
-Resolve a claimed stage (approve or reject).
+## Department Admin Endpoints
 
-**Request body:**
-```json
-{
-  "status": "approved",
-  "staff_note": "Verified and approved."
-}
-```
+All require: `auth:sanctum` + `active_account` + `dept_admin` middleware.
 
-**Validation (`UpdateStageStatusRequest`):**
-- `status`: required, one of `approved | rejected`
-- `staff_note`: nullable, string, max 1000, `required_if:status,rejected`
+### GET /api/dept-admin/requests
+Returns all stages, staff members, and summary statistics scoped to the department admin's primary department.
 
-**Authorization:** `UpdateStageStatusRequest::authorize()` uses `Gate::allows('is_staff')`. The gate is defined as `'is_staff'` (underscore) in `AppServiceProvider` — this matches and works correctly.
-
-**Guards (controller):**
-1. Stage must belong to specified request (404)
-2. `handled_by` must equal authenticated user's ID (403)
-3. Stage `status` must be `in_review` (422)
-
-**Side effects on approval:**
-- If more stages remain → parent request `status = forwarded`
-- If final stage → parent request `status = ready`
-- `RequestStageObserver::updated()` records stage status history; the controller calls `RequestStatusNotificationService` for the student notification and queued email
-- The controller records the parent transition (`in_review → forwarded` or `ready`) with `request_stage_id: null`.
-
-**Side effects on rejection:**
-- Parent request `status = rejected`
-- The observer records stage status history; the controller calls the notification service for the parent transition
-- The controller records the parent transition (`in_review → rejected`) with `request_stage_id: null`.
-
-**Response 200:**
-```json
-{ "message": "Stage resolved. " }
-```
+### PATCH /api/dept-admin/stages/{stage}/reassign
+Reassign an active claimed stage from one department staff member to another.
+Writes an immutable audit record in `stage_reassignments`, creates an in-app notification for the receiving staff member, and emits a real-time outbox event.
 
 ---
 
@@ -425,96 +295,72 @@ Resolve a claimed stage (approve or reject).
 ### GET /api/attachments/{attachment}
 Stream a protected attachment file.
 
-**Auth:** Bearer token required (both student and staff — placed in a `auth:sanctum` only group, no role middleware)
-
-**Authorization (controller):**
-- Authenticated user is the request owner, OR
-- Authenticated user is a Super Admin, OR
-- Authenticated user is assigned as the handler of any stage on the request, OR
-- Authenticated user is staff in a department that appears in the request's stage route
-
-Unrelated students and unrelated staff receive HTTP 403. If authorization succeeds but the physical local-disk object is absent, the endpoint returns HTTP 404.
-
-**Response:** Binary file stream via `Storage::disk('local')->response()` with the original filename and correct `Content-Type` header.
-
-**Frontend usage:** Fetched via Axios with `responseType: 'blob'`, displayed via `URL.createObjectURL()` in `DocumentViewer.vue`.
+**Auth:** `auth:sanctum` + `active_account`.
+**Authorization:** Requester must be owning student, Super Admin, stage handler, or staff in a department on the request route. Files are streamed from private storage.
 
 ---
 
-## Endpoint implementation status
+## Super Admin API
 
-### Super Admin API
+All `/api/admin/*` routes require `auth:sanctum`, `active_account`, `super_admin` middleware, and throttling (60/minute). Lists accept `page` (default 1) and `per_page` (default 20, maximum 100), and return `data`, pagination `meta`, and `links`.
 
-All `/api/admin/*` routes require Sanctum, the Super Admin gate, and throttling. Lists accept `page` (default 1) and `per_page` (default 20, maximum 100), and return `data`, pagination `meta`, and `links`. Writes return one `data` object or HTTP 204 for deletion. Invalid input returns 422; referenced deletion returns 409.
-
-| Routes | Inputs |
+| Routes | Inputs / Description |
 |---|---|
-| `GET/POST /api/admin/faculties`, `PATCH/DELETE /api/admin/faculties/{id}` | `name`, unique `code`, unique `matricule_prefix` |
-| `GET/POST /api/admin/departments`, `PATCH/DELETE /api/admin/departments/{id}` | `faculty_id`, `name`, unique `code`, `type` (`academic`, `records`, `admin`) |
-| `GET/POST /api/admin/programmes`, `PATCH/DELETE /api/admin/programmes/{id}` | `department_id`, `name`, `code`, `degree_type`; faculty derives from department |
-| `GET/POST /api/admin/request-types`, `PATCH/DELETE /api/admin/request-types/{id}` | `name`, optional `description`, ordered `default_department_sequence` of IDs, `STUDENT_DEPARTMENT`, or `FACULTY_RECORDS` |
-| `GET/POST /api/admin/users`, `GET/PATCH/DELETE /api/admin/users/{user}` | Account and matching role profile. Password required on create, optional on edit; role cannot change. Staff memberships use `department_ids` and `primary_department_id`. |
-| `PATCH /api/admin/users/{user}/admin-level` | `admin_level`: null, `dept_admin`, or `super_admin` |
-| `GET /api/admin/stats` | Total, today, counts by status, average resolution hours or null, recent status activity |
-| `GET /api/admin/requests`, `GET /api/admin/requests/{request}` | List filters: `search`, `faculty_id`, `department_id`, `request_type_id`, `status`, `reopened`, `date_from`, `date_to`. Details include stages and attachment IDs for protected streaming. |
-| `GET /api/admin/audit-log` | Request/stage `status_history` only. Filters: `request_id`, `actor_id`, `new_status`, `date_from`, `date_to`. Null actor stays null. |
-
-Date filters and "today" use the configured application timezone. Lists sort by newest timestamp, then descending ID. Average resolution measures the current lifecycle from latest reopen (or creation) to first `ready` or `rejected` transition. Administrative CRUD and elevation actions are outside `status_history`; their separate audit table is roadmap task 9.
-
-| Feature | Suggested Endpoint | Status |
-|---------|-------------------|--------|
-| Mark collected | `PATCH /api/requests/{request}/collect` | ✅ Student-owned ready requests only |
-| Get notifications | `GET /api/notifications` | ✅ Authenticated user's newest notifications |
-| Mark notification read | `PATCH /api/notifications/{notification}/read` | ✅ Authenticated owner only |
-| Reassign stage (dept admin) | `PATCH /api/dept-admin/stages/{stage}/reassign` | ✅ Claimed, in-review primary-department stages only |
-| Dept admin: list department requests | `GET /api/dept-admin/requests` | ✅ Primary-department stages, staff, and summary stats |
-| Admin: list all requests | `GET /api/admin/requests` | Implemented |
-| Admin: CRUD faculties | `* /api/admin/faculties` | Implemented |
-| Admin: CRUD departments | `* /api/admin/departments` | Implemented |
-| Admin: CRUD programmes | `* /api/admin/programmes` | Implemented |
-| Admin: CRUD users | `* /api/admin/users` | Implemented |
-| Admin: CRUD request types | `* /api/admin/request-types` | Implemented |
-| System stats | `GET /api/admin/stats` | Implemented |
-| Audit log | `GET /api/admin/audit-log` | Implemented: request/stage status only |
+| `GET/POST /api/admin/faculties`, `PATCH/DELETE /api/admin/faculties/{id}` | Reference CRUD for faculties (`name`, `code`, `matricule_prefix`). |
+| `GET/POST /api/admin/departments`, `PATCH/DELETE /api/admin/departments/{id}` | Reference CRUD for departments (`faculty_id`, `name`, `code`, `type`). |
+| `GET/POST /api/admin/programmes`, `PATCH/DELETE /api/admin/programmes/{id}` | Reference CRUD for programmes (`department_id`, `name`, `code`, `degree_type`). |
+| `GET/POST /api/admin/request-types`, `PATCH/DELETE /api/admin/request-types/{id}` | Reference CRUD for request types (`name`, `description`, `default_department_sequence`). |
+| `GET/POST /api/admin/users`, `GET/PATCH/DELETE /api/admin/users/{user}` | User and profile CRUD. Staff memberships configure `department_ids` and `primary_department_id`. |
+| `PATCH /api/admin/users/{user}/admin-level` | Updates `admin_level`: `null`, `dept_admin`, or `super_admin`. Guarded against removing the last active Super Admin. |
+| `PATCH /api/admin/users/{user}/disable` | Deactivates user account (`disabled_at = now()`), revokes all active Sanctum tokens, guards the last Super Admin, and logs `user.disabled` administrative action. Optional body: `{"reason": "string"}`. |
+| `PATCH /api/admin/users/{user}/enable` | Idempotently re-enables user account (`disabled_at = null`) and logs `user.enabled` administrative action. |
+| `GET /api/admin/administrative-actions` | Super Admin audit log for administrative mutations (user enable/disable, credential rotation). Filters: `action`, `page`, `per_page`. |
+| `GET /api/admin/stats` | System statistics (total, today, counts by status, average resolution hours, recent transitions). |
+| `GET /api/admin/requests`, `GET /api/admin/requests/{request}` | System-wide request oversight with comprehensive filters (`search`, `status`, `reopened`, date range). |
+| `GET /api/admin/audit-log` | Request and stage `status_history` only. Filters: `request_id`, `actor_id`, `new_status`, date range. |
 
 ---
 
-## Route Summary (actual routes from `api.php`)
+## Route Summary (57 registered routes from `api.php`)
 
 ```
-GET  /api/user                              auth:sanctum
-GET  /api/attachments/{attachment}          auth:sanctum
-GET  /api/requests/{request}               auth:sanctum, throttle:60,1
-POST /api/requests/{request}/reopen         auth:sanctum, throttle:60,1
-GET  /api/requests                         auth:sanctum, student, throttle:60,1
-POST /api/requests                         auth:sanctum, student, throttle:10,1
-PATCH /api/requests/{request}/collect       auth:sanctum, student, throttle:10,1
-GET  /api/notifications                    auth:sanctum, throttle:60,1
-PATCH /api/notifications/{notification}/read auth:sanctum, throttle:60,1
-GET  /api/requests/{docRequest}/stages     auth:sanctum, staff, throttle:60,1
-GET  /api/stages                           auth:sanctum, staff, throttle:60,1
-GET  /api/stages/my-cases                  auth:sanctum, staff, throttle:60,1
-POST /api/requests/{docRequest}/stages/{stage}/claim    auth:sanctum, staff
-PATCH /api/requests/{docRequest}/stages/{stage}/resolve auth:sanctum, staff
-GET  /api/dept-admin/requests              auth:sanctum, dept_admin, throttle:60,1
-PATCH /api/dept-admin/stages/{stage}/reassign auth:sanctum, dept_admin, throttle:60,1
-GET/POST/PATCH/DELETE /api/admin/{faculties|departments|programmes|request-types} auth:sanctum, super_admin, throttle:60,1
-GET/POST/PATCH/DELETE /api/admin/users     auth:sanctum, super_admin, throttle:60,1
-PATCH /api/admin/users/{user}/admin-level  auth:sanctum, super_admin, throttle:60,1
-GET  /api/admin/stats                      auth:sanctum, super_admin, throttle:60,1
-GET  /api/admin/requests[/{request}]       auth:sanctum, super_admin, throttle:60,1
-GET  /api/admin/audit-log                  auth:sanctum, super_admin, throttle:60,1
-GET  /api/faculties                        (public)
-GET  /api/departments                      (public)
-GET  /api/programmes                       (public)
-GET  /api/request-types                    (public)
+GET|POST|HEAD api/broadcasting/auth                          auth:sanctum
+GET|HEAD      api/user                                       auth:sanctum, active_account
+GET|HEAD      api/attachments/{attachment}                   auth:sanctum, active_account
+GET|HEAD      api/requests/{request}                         auth:sanctum, active_account, throttle:60,1
+POST          api/requests/{request}/reopen                  auth:sanctum, active_account, throttle:60,1
+GET|HEAD      api/notifications                              auth:sanctum, active_account, throttle:60,1
+PATCH         api/notifications/{notification}/read          auth:sanctum, active_account, throttle:60,1
+GET|HEAD      api/requests                                   auth:sanctum, active_account, student, throttle:60,1
+POST          api/requests                                   auth:sanctum, active_account, student, throttle:10,1
+PATCH         api/requests/{request}/collect                 auth:sanctum, active_account, student, throttle:10,1
+GET|HEAD      api/requests/{docRequest}/stages               auth:sanctum, active_account, staff, throttle:60,1
+GET|HEAD      api/stages                                     auth:sanctum, active_account, staff, throttle:60,1
+GET|HEAD      api/stages/my-cases                            auth:sanctum, active_account, staff, throttle:60,1
+POST          api/requests/{docRequest}/stages/{stage}/claim auth:sanctum, active_account, staff
+PATCH         api/requests/{docRequest}/stages/{stage}/resolve auth:sanctum, active_account, staff
+GET|HEAD      api/dept-admin/requests                        auth:sanctum, active_account, dept_admin, throttle:60,1
+PATCH         api/dept-admin/stages/{stage}/reassign         auth:sanctum, active_account, dept_admin, throttle:60,1
+GET/POST/PATCH/DELETE api/admin/{faculties|departments|programmes|request-types} auth:sanctum, active_account, super_admin, throttle:60,1
+GET/POST/PATCH/DELETE api/admin/users                        auth:sanctum, active_account, super_admin, throttle:60,1
+PATCH         api/admin/users/{user}/admin-level             auth:sanctum, active_account, super_admin, throttle:60,1
+PATCH         api/admin/users/{user}/disable                 auth:sanctum, active_account, super_admin, throttle:60,1
+PATCH         api/admin/users/{user}/enable                  auth:sanctum, active_account, super_admin, throttle:60,1
+GET|HEAD      api/admin/stats                                auth:sanctum, active_account, super_admin, throttle:60,1
+GET|HEAD      api/admin/requests[/{request}]                 auth:sanctum, active_account, super_admin, throttle:60,1
+GET|HEAD      api/admin/audit-log                            auth:sanctum, active_account, super_admin, throttle:60,1
+GET|HEAD      api/admin/administrative-actions               auth:sanctum, active_account, super_admin, throttle:60,1
+GET|HEAD      api/faculties                                  (public)
+GET|HEAD      api/departments                                (public)
+GET|HEAD      api/programmes                                 (public)
+GET|HEAD      api/request-types                              (public)
 
 --- from auth.php ---
-POST /api/register                         guest, throttle:5,1
-POST /api/login                            guest, throttle:5,1
-POST /api/forgot-password                  guest
-POST /api/reset-password                   guest
-GET  /api/verify-email/{id}/{hash}         auth, signed, throttle:6,1
-POST /api/email/verification-notification  auth, throttle:6,1
-POST /api/logout                           auth
+POST          api/register                                   guest, throttle:5,1
+POST          api/login                                      guest, throttle:5,1
+POST          api/forgot-password                            guest
+POST          api/reset-password                             guest
+GET|HEAD      api/verify-email/{id}/{hash}                   auth, signed, throttle:6,1
+POST          api/email/verification-notification            auth, throttle:6,1
+POST          api/logout                                     auth
 ```
