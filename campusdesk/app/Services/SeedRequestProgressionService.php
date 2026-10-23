@@ -17,6 +17,8 @@ class SeedRequestProgressionService
             $request = $request->fresh(['requestStages']) ?? throw new RuntimeException('Request no longer exists.');
             $first = $request->requestStages->sortBy('sequence_order')->firstOrFail();
 
+            $this->markPaid($request);
+
             match ($target) {
                 'pending' => null,
                 'in_review' => $this->claim($request, $first),
@@ -27,6 +29,21 @@ class SeedRequestProgressionService
                 default => throw new RuntimeException("Unsupported seeded request target '{$target}'."),
             };
         });
+    }
+
+    private function markPaid(DocumentRequest $request): void
+    {
+        $request->update([
+            'status'          => 'pending',
+            'amount_paid'     => $request->fee_amount,
+            'paid_at'         => now(),
+            'target_ready_at' => now()->addDays($request->turnaround_days_snapshot ?? 3),
+        ]);
+        $request->statusHistories()->create([
+            'old_status' => 'awaiting_payment',
+            'new_status' => 'pending',
+            'note'       => 'Processing fee paid via mobile money.',
+        ]);
     }
 
     private function claim(DocumentRequest $request, RequestStage $stage): User
@@ -84,8 +101,11 @@ class SeedRequestProgressionService
         $oldStatus = $request->status;
         $request->update(['status' => $status]);
         $request->statusHistories()->create([
-            'old_status' => $oldStatus, 'new_status' => $status, 'changed_by' => $actorId,
-            'request_stage_id' => null, 'note' => $note,
+            'old_status'       => $oldStatus,
+            'new_status'       => $status,
+            'changed_by'       => $actorId,
+            'request_stage_id' => null,
+            'note'             => $note,
         ]);
     }
 }

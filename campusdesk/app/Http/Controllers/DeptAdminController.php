@@ -73,18 +73,24 @@ class DeptAdminController extends Controller
                 ]);
             });
 
-            return $this->stageQuery($department->id)->whereKey($locked->id)->firstOrFail();
+            return $locked;
         });
 
-        return response()->json(['data' => $this->stagePayload($updated)]);
+        return response()->json([
+            'message' => 'Stage reassigned successfully.',
+            'data' => $this->stagePayload($this->stageQuery($department->id)->findOrFail($updated->id)),
+        ]);
     }
 
     private function primaryDepartment(Request $request): Department
     {
         $profile = $request->user()->staffProfile;
-        abort_unless($profile, 403);
-        return $profile->departments()->wherePivot('is_primary', true)->first()
-            ?? abort(422, 'Department admin has no primary department configured.');
+        abort_unless($profile, 403, 'Staff profile required.');
+        $department = $profile->departments()->wherePivot('is_primary', true)->first()
+            ?? $profile->departments()->first();
+        abort_unless($department, 403, 'No assigned department.');
+
+        return $department;
     }
 
     private function stageQuery(int $departmentId)
@@ -127,6 +133,10 @@ class DeptAdminController extends Controller
     /** @return array{is_claimable: bool, blocked_reason: ?string} */
     private function claimability(RequestStage $stage): array
     {
+        if ($stage->request?->status === 'awaiting_payment') {
+            return ['is_claimable' => false, 'blocked_reason' => 'Waiting for student to complete fee payment.'];
+        }
+
         if ($stage->status !== 'pending' || $stage->handled_by !== null) {
             return ['is_claimable' => false, 'blocked_reason' => null];
         }
@@ -146,6 +156,6 @@ class DeptAdminController extends Controller
             return ['is_claimable' => false, 'blocked_reason' => "Stage {$previous->sequence_order} was rejected; the request must be reopened."];
         }
 
-        return ['is_claimable' => false, 'blocked_reason' => "Waiting for stage " . ($stage->sequence_order - 1) . ' to be approved.'];
+        return ['is_claimable' => false, 'blocked_reason' => 'Waiting for stage ' . ($stage->sequence_order - 1) . ' to be approved.'];
     }
 }

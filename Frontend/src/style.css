@@ -127,6 +127,9 @@
   .badge-draft {
     @apply border-slate-200 bg-slate-100 text-slate-600;
   }
+  .badge-awaiting-payment {
+    @apply border-amber-300 bg-amber-50 text-amber-800 font-medium;
+  }
   .badge-pending {
     @apply border-amber-200 bg-amber-100 text-amber-800;
   }

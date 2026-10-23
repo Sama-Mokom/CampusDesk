@@ -33,6 +33,7 @@ const badgeClass = computed(() => {
   }
   const map: Record<RequestStatus, string> = {
     draft: 'badge-draft',
+    awaiting_payment: 'badge-awaiting-payment',
     pending: 'badge-pending',
     in_review: 'badge-in-review',
     forwarded: 'badge-forwarded',

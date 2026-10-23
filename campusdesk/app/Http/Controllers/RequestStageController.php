@@ -34,6 +34,7 @@ class RequestStageController extends Controller
             ->whereIn('request_stages.department_id', $departmentIds)
             ->where('request_stages.status', 'pending')
             ->whereNull('request_stages.handled_by')
+            ->whereNotIn('requests.status', ['awaiting_payment', 'draft', 'rejected'])
             ->where(function ($query) {
                 $query->where('request_stages.sequence_order', 1)
                     ->orWhereExists(function ($sub) {
@@ -58,32 +59,32 @@ class RequestStageController extends Controller
         return RequestStageResource::collection($requestStages);
     }
 
-public function myCases(): JsonResponse
-{
-    $user = Auth::user();
-    $stages = RequestStage::where('handled_by', $user->id)
-        ->where('status', 'in_review')
-        ->with(['request.requestType', 'request.student.studentProfile', 'request.attachments', 'department', 'user'])
-        ->get();
-    return response()->json(RequestStageResource::collection($stages));
-}
+    public function myCases(): JsonResponse
+    {
+        $user = Auth::user();
+        $stages = RequestStage::where('handled_by', $user->id)
+            ->where('status', 'in_review')
+            ->with(['request.requestType', 'request.student.studentProfile', 'request.attachments', 'department', 'user'])
+            ->get();
+        return response()->json(RequestStageResource::collection($stages));
+    }
 
-public function forRequest(DocumentRequest $docRequest): \Illuminate\Http\Resources\Json\AnonymousResourceCollection
-{
-    $stages = RequestStage::query()
-        ->where('request_id', $docRequest->id)
-        ->with([
-            'request.requestType', 
-            'request.student.studentProfile',
-            'request.attachments',
-            'department', 
-            'handled_by'
-        ])
-        ->orderBy('sequence_order', 'asc')
-        ->get();
+    public function forRequest(DocumentRequest $docRequest): \Illuminate\Http\Resources\Json\AnonymousResourceCollection
+    {
+        $stages = RequestStage::query()
+            ->where('request_id', $docRequest->id)
+            ->with([
+                'request.requestType',
+                'request.student.studentProfile',
+                'request.attachments',
+                'department',
+                'handled_by'
+            ])
+            ->orderBy('sequence_order', 'asc')
+            ->get();
 
-    return RequestStageResource::collection($stages);
-}
+        return RequestStageResource::collection($stages);
+    }
 
     /**
      * Show the form for creating a new resource.
@@ -124,120 +125,128 @@ public function forRequest(DocumentRequest $docRequest): \Illuminate\Http\Resour
     {
         //
     }
-public function claim(
-    Request $request,
-    DocumentRequest $docRequest,
-    RequestStage $stage,
-    RequestStatusNotificationService $notifications,
-    RequestEventRecorder $events,
-)
-{
 
-    abort_if($stage->request_id != $docRequest->id, 404);
+    public function claim(
+        Request $request,
+        DocumentRequest $docRequest,
+        RequestStage $stage,
+        RequestStatusNotificationService $notifications,
+        RequestEventRecorder $events,
+    ) {
+        abort_if($stage->request_id != $docRequest->id, 404);
 
-    $staff = $request->user()->staffProfile;
-    $belongsToDept = $staff->departments->contains('id', $stage->department_id);
-    abort_unless($belongsToDept, 403);
+        $staff = $request->user()->staffProfile;
+        $belongsToDept = $staff->departments->contains('id', $stage->department_id);
+        abort_unless($belongsToDept, 403);
 
-    DB::transaction(function () use ($request, $docRequest, $stage, $notifications, $events) {
-        $oldRequestStatus = $docRequest->status;
-
-        // Re-fetch the row with a pessimistic lock — serialises concurrent transactions
-        $lockedStage = RequestStage::where('id', $stage->id)
-            ->lockForUpdate()
-            ->firstOrFail();
-
-        // Sequential guard — now inside the lock (eliminates TOCTOU window)
-        if ($lockedStage->sequence_order > 1) {
-            $previousApproved = RequestStage::where('request_id', $lockedStage->request_id)
-                ->where('sequence_order', $lockedStage->sequence_order - 1)
-                ->where('status', 'approved')
+        DB::transaction(function () use ($request, $docRequest, $stage, $notifications, $events) {
+            $lockedRequest = DocumentRequest::where('id', $docRequest->id)
                 ->lockForUpdate()
-                ->count() > 0;
+                ->firstOrFail();
 
-            abort_unless($previousApproved, 422, 'Previous stage must be approved first.');
-        }
+            abort_if(
+                $lockedRequest->status === 'awaiting_payment',
+                422,
+                'This request cannot be claimed until the processing fee is paid.'
+            );
 
-        // Atomic availability check — stage must still be pending and unclaimed
-        abort_unless(
-            $lockedStage->status === 'pending' && is_null($lockedStage->handled_by),
-            409,
-            'Stage already claimed.'
-        );
+            $oldRequestStatus = $lockedRequest->status;
 
-        $lockedStage->update([
-            'status'     => 'in_review',
-            'handled_by' => $request->user()->id,
+            // Re-fetch the row with a pessimistic lock — serialises concurrent transactions
+            $lockedStage = RequestStage::where('id', $stage->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            // Sequential guard — now inside the lock (eliminates TOCTOU window)
+            if ($lockedStage->sequence_order > 1) {
+                $previousApproved = RequestStage::where('request_id', $lockedStage->request_id)
+                    ->where('sequence_order', $lockedStage->sequence_order - 1)
+                    ->where('status', 'approved')
+                    ->lockForUpdate()
+                    ->count() > 0;
+
+                abort_unless($previousApproved, 422, 'Previous stage must be approved first.');
+            }
+
+            // Atomic availability check — stage must still be pending and unclaimed
+            abort_unless(
+                $lockedStage->status === 'pending' && is_null($lockedStage->handled_by),
+                409,
+                'Stage already claimed.'
+            );
+
+            $lockedStage->update([
+                'status'     => 'in_review',
+                'handled_by' => $request->user()->id,
+            ]);
+
+            $lockedRequest->update(['status' => 'in_review']);
+
+            $lockedRequest->statusHistories()->create([
+                'old_status'       => $oldRequestStatus,
+                'new_status'       => 'in_review',
+                'changed_by'       => Auth::id(),
+                'request_stage_id' => null,
+                'note'             => null,
+            ]);
+            $events->recordRequestStageClaimed($lockedRequest, $lockedStage, $request->user());
+            $notifications->notifyStudent($lockedRequest, 'in_review');
+        });
+
+        return response()->json(['message' => 'Stage claimed'], 200);
+    }
+
+    public function resolve(
+        ResolveStageRequest $formRequest,
+        DocumentRequest $docRequest,
+        RequestStage $stage,
+        RequestStatusNotificationService $notifications,
+        RequestEventRecorder $events,
+    ) {
+        abort_if($stage->request_id !== $docRequest->id, 404);
+
+        abort_unless($stage->handled_by === $formRequest->user()->id, 403);
+
+        abort_unless($stage->status === 'in_review', 422);
+
+        $status = $formRequest->validated()['status'];
+
+        DB::transaction(function () use ($formRequest, $docRequest, $stage, $status, $notifications, $events) {
+            $oldRequestStatus = $docRequest->status;
+            $staffNote = $formRequest->validated()['staff_note'] ?? null;
+
+            $stage->update([
+                'status' => $status,
+                'staff_note' => $staffNote,
+            ]);
+            if ($status === 'approved') {
+                $this->handleApproval($docRequest, $stage);
+            } else {
+                $docRequest->update(['status' => 'rejected']);
+            }
+            $docRequest->statusHistories()->create([
+                'old_status'       => $oldRequestStatus,
+                'new_status'       => $docRequest->status,
+                'changed_by'       => Auth::id(),
+                'request_stage_id' => null,
+                'note'             => $staffNote,
+            ]);
+            $events->recordRequestStatusChanged($docRequest);
+            $notifications->notifyStudent($docRequest, $docRequest->status);
+        });
+
+        return response()->json(['message' => 'Stage resolved.'], 200);
+    }
+
+    private function handleApproval(DocumentRequest $docRequest, RequestStage $stage): void
+    {
+        $isFinalStage = ! RequestStage::where('request_id', $docRequest->id)
+            ->where('sequence_order', '>', $stage->sequence_order)
+            ->exists();
+        $docRequest->update([
+            'status' => $isFinalStage ? 'ready' : 'forwarded',
         ]);
-
-        $docRequest->update(['status' => 'in_review']);
-
-        $docRequest->statusHistories()->create([
-            'old_status'       => $oldRequestStatus,
-            'new_status'       => 'in_review',
-            'changed_by'       => Auth::id(),
-            'request_stage_id' => null,
-            'note'             => null,
-        ]);
-        $events->recordRequestStageClaimed($docRequest, $lockedStage, $request->user());
-        $notifications->notifyStudent($docRequest, 'in_review');
-    });
-
-    return response()->json(['message' => 'Stage claimed'], 200);
-}
-
-public function resolve(
-    ResolveStageRequest $formRequest,
-    DocumentRequest $docRequest,
-    RequestStage $stage,
-    RequestStatusNotificationService $notifications,
-    RequestEventRecorder $events,
-) {
-    abort_if($stage->request_id !== $docRequest->id, 404);
-
-    abort_unless($stage->handled_by === $formRequest->user()->id, 403);
-
-    abort_unless($stage->status === 'in_review', 422);
-
-    $status = $formRequest->validated()['status'];
-
-    DB::transaction(function () use ($formRequest, $docRequest, $stage, $status, $notifications, $events) {
-        $oldRequestStatus = $docRequest->status;
-        $staffNote = $formRequest->validated()['staff_note'] ?? null;
-
-        $stage->update([
-            'status' => $status,
-            'staff_note' => $staffNote,
-        ]);
-        if ($status === 'approved') {
-            $this->handleApproval($docRequest, $stage);
-        } else {
-            $docRequest->update(['status' => 'rejected']);
-        }
-        $docRequest->statusHistories()->create([
-            'old_status'       => $oldRequestStatus,
-            'new_status'       => $docRequest->status,
-            'changed_by'       => Auth::id(),
-            'request_stage_id' => null,
-            'note'             => $staffNote,
-        ]);
-        $events->recordRequestStatusChanged($docRequest);
-        $notifications->notifyStudent($docRequest, $docRequest->status);
-    });
-
-    return response()->json(['message' => 'Stage resolved.'], 200);
-}
-
-private function handleApproval(DocumentRequest $docRequest, RequestStage $stage): void
-{
-    $isFinalStage = !RequestStage::where('request_id',$docRequest->id)
-        ->where('sequence_order', '>', $stage->sequence_order)
-        ->exists();
-    $docRequest->update([
-        'status' => $isFinalStage ? 'ready' : 'forwarded',
-    ]);
-}
-
+    }
 
     /**
      * Remove the specified resource from storage.

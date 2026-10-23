@@ -178,6 +178,7 @@ class PublishRequestEventTest extends TestCase
 
         $requestId = (int) $createResponse->json('data.id');
         $stageId = (int) $createResponse->json('data.stages.0.id');
+        DocumentRequest::query()->whereKey($requestId)->update(['status' => 'pending', 'paid_at' => now()]);
         $staff = $this->makeStaffInDepartment($department, 'stage-claim');
 
         $this->actingAs($staff, 'sanctum')

@@ -18,6 +18,7 @@ import StatusBadge from '@/components/StatusBadge.vue'
 import TierBadge, { formatXAF } from '@/components/TierBadge.vue'
 import RequestTimeline from '@/components/RequestTimeline.vue'
 import DocumentViewer from '@/components/DocumentViewer.vue'
+import StudentPaymentPanel from '@/components/student/StudentPaymentPanel.vue'
 
 const route = useRoute()
 const request = ref<DocumentRequest | null>(null)
@@ -103,6 +104,16 @@ async function performAction(action: 'reopen' | 'collect') {
     if (current === version) pending.value = null
   }
 }
+
+function onPaymentCompleted(updated: DocumentRequest) {
+  request.value = updated
+  success.value = 'Payment confirmed! Your request has entered the processing queue.'
+}
+
+function onRequestUpdated(updated: DocumentRequest) {
+  request.value = updated
+}
+
 function formatDate(value: string) {
   return new Date(value).toLocaleString('en-GB', {
     dateStyle: 'medium',
@@ -183,6 +194,14 @@ watch(() => route.params.id, loadRequest, { immediate: true })
       ></EmptyState
     >
     <template v-else-if="request">
+      <!-- Prominent Payment Panel if Request is Awaiting Payment -->
+      <StudentPaymentPanel
+        v-if="request.status === 'awaiting_payment'"
+        :request="request"
+        @payment-completed="onPaymentCompleted"
+        @request-updated="onRequestUpdated"
+      />
+
       <p
         v-if="actionError"
         role="alert"
@@ -243,6 +262,18 @@ watch(() => route.params.id, loadRequest, { immediate: true })
                 <dt class="text-xs text-slate-500">Processing Fee</dt>
                 <dd class="mt-1 text-sm font-medium">
                   {{ formatXAF(request.fee_amount) }}
+                  <span
+                    v-if="request.amount_paid != null && request.amount_paid >= request.fee_amount"
+                    class="ml-1 text-xs text-emerald-700 font-semibold"
+                  >
+                    (Paid)
+                  </span>
+                  <span
+                    v-else-if="request.amount_due != null && request.amount_due > 0"
+                    class="ml-1 text-xs text-amber-700 font-semibold"
+                  >
+                    ({{ formatXAF(request.amount_due) }} due)
+                  </span>
                 </dd>
               </div>
               <div v-if="request.target_ready_at">
@@ -255,6 +286,12 @@ watch(() => route.params.id, loadRequest, { immediate: true })
                 <dt class="text-xs text-slate-500">Target Turnaround</dt>
                 <dd class="mt-1 text-sm font-medium">
                   ~{{ request.turnaround_days }} days
+                  <span
+                    v-if="request.status === 'awaiting_payment'"
+                    class="text-xs text-slate-400 block"
+                  >
+                    (starts after payment)
+                  </span>
                 </dd>
               </div>
             </dl>

@@ -4,14 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Models\Request as DocumentRequest;
 use App\Models\StatusHistory;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class AdminOverviewController extends Controller
 {
-    private const STATUSES = ['draft', 'pending', 'in_review', 'forwarded', 'ready', 'collected', 'rejected'];
+    private const STATUSES = ['draft', 'awaiting_payment', 'pending', 'in_review', 'forwarded', 'ready', 'collected', 'rejected'];
 
     private function filters(Request $request, array $extra = []): array
     {

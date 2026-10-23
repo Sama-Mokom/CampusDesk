@@ -111,6 +111,7 @@ class RequestEventOutboxTest extends TestCase
 
         $requestId = (int) $creationResponse->json('data.id');
         $stageId = (int) $creationResponse->json('data.stages.0.id');
+        DocumentRequest::query()->whereKey($requestId)->update(['status' => 'pending', 'paid_at' => now()]);
         $staff = $this->makeStaffInDepartment($department);
 
         $this->actingAs($staff, 'sanctum')
@@ -159,6 +160,7 @@ class RequestEventOutboxTest extends TestCase
 
         $requestId = (int) $creationResponse->json('data.id');
         $stageId = (int) $creationResponse->json('data.stages.0.id');
+        DocumentRequest::query()->whereKey($requestId)->update(['status' => 'pending', 'paid_at' => now()]);
         $staff = $this->makeStaffInDepartment($department);
 
         $this->actingAs($staff, 'sanctum')
@@ -193,6 +195,7 @@ class RequestEventOutboxTest extends TestCase
 
         $requestId = (int) $creationResponse->json('data.id');
         $stageId = (int) $creationResponse->json('data.stages.0.id');
+        DocumentRequest::query()->whereKey($requestId)->update(['status' => 'pending', 'paid_at' => now()]);
         $staff = $this->makeStaffInDepartment($department);
 
         $this->actingAs($staff, 'sanctum')
