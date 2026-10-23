@@ -114,6 +114,26 @@
                 'No routing steps configured'
               }}
             </p>
+            <div
+              v-if="activeTab === 'request-types' && row.tiers?.length"
+              class="mt-2 flex flex-wrap gap-1.5"
+            >
+              <span
+                v-for="tier in row.tiers"
+                :key="tier.id || tier.code"
+                class="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium"
+                :class="{
+                  'bg-purple-50 text-purple-700 ring-1 ring-purple-600/20': tier.priority === 3,
+                  'bg-amber-50 text-amber-700 ring-1 ring-amber-600/20': tier.priority === 2,
+                  'bg-slate-100 text-slate-700': tier.priority === 1,
+                  'opacity-50 line-through': !tier.is_active
+                }"
+              >
+                <span>{{ tier.name }}:</span>
+                <span class="font-semibold">{{ Number(tier.fee_amount).toLocaleString('en-US') }} {{ tier.currency || 'XAF' }}</span>
+                <span class="text-slate-400">({{ tier.turnaround_days }}d)</span>
+              </span>
+            </div>
           </div>
           <div class="flex shrink-0 gap-2">
             <button
@@ -324,8 +344,147 @@
               "
             >
               Add step
-            </button></template
-          >
+            </button>
+
+            <!-- Processing Tiers Section -->
+            <div class="space-y-3 pt-3 border-t border-slate-200">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h3 class="text-sm font-semibold text-slate-900">
+                    Processing tiers & fees
+                  </h3>
+                  <p class="mt-0.5 text-xs text-slate-500">
+                    Configure service levels, turnaround times, queue priorities, and processing fees.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  class="btn-secondary text-xs"
+                  @click="addTier"
+                >
+                  + Add tier
+                </button>
+              </div>
+
+              <div
+                v-if="!refForm.tiers.length"
+                class="rounded-xl border border-dashed border-slate-300 p-4 text-center text-xs text-slate-500"
+              >
+                No tiers configured. A default standard tier will apply if none are defined.
+              </div>
+
+              <div
+                v-for="(tier, tIndex) in refForm.tiers"
+                :key="tIndex"
+                class="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3"
+              >
+                <div class="flex items-center justify-between gap-2">
+                  <span class="text-xs font-bold text-slate-700">Tier #{{ tIndex + 1 }}</span>
+                  <div class="flex items-center gap-2">
+                    <label class="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
+                      <input
+                        v-model="tier.is_active"
+                        type="checkbox"
+                        class="rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                      />
+                      Active
+                    </label>
+                    <button
+                      type="button"
+                      class="btn-secondary text-xs"
+                      :disabled="tIndex === 0"
+                      :aria-label="`Move tier ${tIndex + 1} up`"
+                      @click="moveTier(tIndex, -1)"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      class="btn-secondary text-xs"
+                      :disabled="tIndex === refForm.tiers.length - 1"
+                      :aria-label="`Move tier ${tIndex + 1} down`"
+                      @click="moveTier(tIndex, 1)"
+                    >
+                      ↓
+                    </button>
+                    <button
+                      type="button"
+                      class="btn-secondary text-xs text-red-700"
+                      :aria-label="`Remove tier ${tIndex + 1}`"
+                      @click="removeTier(tIndex)"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+
+                <div class="grid gap-3 sm:grid-cols-2">
+                  <label class="block text-xs font-medium text-slate-700">
+                    Name
+                    <input
+                      v-model="tier.name"
+                      placeholder="e.g. Fast Mode"
+                      required
+                      class="input-field mt-1"
+                    />
+                  </label>
+                  <label class="block text-xs font-medium text-slate-700">
+                    Code
+                    <input
+                      v-model="tier.code"
+                      placeholder="e.g. fast"
+                      required
+                      class="input-field mt-1"
+                    />
+                  </label>
+                </div>
+
+                <div class="grid gap-3 sm:grid-cols-3">
+                  <label class="block text-xs font-medium text-slate-700">
+                    Fee (XAF)
+                    <input
+                      v-model.number="tier.fee_amount"
+                      type="number"
+                      min="100"
+                      step="100"
+                      required
+                      class="input-field mt-1"
+                    />
+                  </label>
+                  <label class="block text-xs font-medium text-slate-700">
+                    Turnaround (days)
+                    <input
+                      v-model.number="tier.turnaround_days"
+                      type="number"
+                      min="1"
+                      required
+                      class="input-field mt-1"
+                    />
+                  </label>
+                  <label class="block text-xs font-medium text-slate-700">
+                    Priority
+                    <select
+                      v-model.number="tier.priority"
+                      class="input-field mt-1"
+                    >
+                      <option :value="1">Priority 1 (Normal)</option>
+                      <option :value="2">Priority 2 (Fast)</option>
+                      <option :value="3">Priority 3 (Super Fast / Urgent)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <label class="block text-xs font-medium text-slate-700">
+                  Description (optional)
+                  <input
+                    v-model="tier.description"
+                    placeholder="Brief description for students"
+                    class="input-field mt-1"
+                  />
+                </label>
+              </div>
+            </div>
+          </template>
         </fieldset>
         <p
           v-if="formError"
@@ -404,6 +563,9 @@ const {
   closeReference,
   saveReference,
   moveStep,
+  addTier,
+  removeTier,
+  moveTier,
   askRemove
 } = useAdminReferences(props.kind)
 </script>

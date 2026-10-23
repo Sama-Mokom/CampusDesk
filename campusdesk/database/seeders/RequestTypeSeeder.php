@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Department;
 use App\Models\RequestType;
+use App\Models\RequestTypeTier;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -38,7 +39,7 @@ class RequestTypeSeeder extends Seeder
             //
             // Format: ['STUDENT_DEPARTMENT', 'FACULTY_RECORDS', <literal_id>]
 
-            RequestType::updateOrCreate(
+            $transcript = RequestType::updateOrCreate(
                 ['name' => 'Transcript Request'],
                 [
                     'description'                  => 'Official academic transcript.',
@@ -46,29 +47,96 @@ class RequestTypeSeeder extends Seeder
                 ]
             );
 
-            RequestType::updateOrCreate(
-                ['name' => 'Attestation of Enrollment'],
+            $transcriptTiers = [
                 [
-                    'description'                  => 'Official attestation confirming current enrollment.',
-                    'default_department_sequence'  => ['STUDENT_DEPARTMENT', 'FACULTY_RECORDS', $aoeId],
-                ]
-            );
+                    'code'            => 'normal',
+                    'name'            => 'Normal Mode',
+                    'description'     => 'Standard processing time for official transcripts.',
+                    'fee_amount'      => 1000,
+                    'currency'        => 'XAF',
+                    'turnaround_days' => 14,
+                    'priority'        => 1,
+                    'is_active'       => true,
+                    'sort_order'      => 1,
+                ],
+                [
+                    'code'            => 'fast',
+                    'name'            => 'Fast Mode',
+                    'description'     => 'Expedited transcript processing.',
+                    'fee_amount'      => 2500,
+                    'currency'        => 'XAF',
+                    'turnaround_days' => 7,
+                    'priority'        => 2,
+                    'is_active'       => true,
+                    'sort_order'      => 2,
+                ],
+                [
+                    'code'            => 'super_fast',
+                    'name'            => 'Super Fast Mode',
+                    'description'     => 'Urgent transcript issuance with highest queue priority.',
+                    'fee_amount'      => 5000,
+                    'currency'        => 'XAF',
+                    'turnaround_days' => 3,
+                    'priority'        => 3,
+                    'is_active'       => true,
+                    'sort_order'      => 3,
+                ],
+            ];
 
-            RequestType::updateOrCreate(
-                ['name' => 'Attestation of Completion of Degree'],
-                [
-                    'description'                  => 'Official attestation confirming completion of degree.',
-                    'default_department_sequence'  => ['STUDENT_DEPARTMENT', 'FACULTY_RECORDS', $aocId],
-                ]
-            );
+            foreach ($transcriptTiers as $tierData) {
+                RequestTypeTier::updateOrCreate(
+                    [
+                        'request_type_id' => $transcript->id,
+                        'code'            => $tierData['code'],
+                    ],
+                    $tierData
+                );
+            }
 
-            RequestType::updateOrCreate(
-                ['name' => 'Correction of Transcript'],
+            $standardTypes = [
                 [
-                    'description'                  => 'Request to correct errors on an issued transcript.',
-                    'default_department_sequence'  => ['STUDENT_DEPARTMENT', 'FACULTY_RECORDS', $trdId],
-                ]
-            );
+                    'name'        => 'Attestation of Enrollment',
+                    'description' => 'Official attestation confirming current enrollment.',
+                    'sequence'    => ['STUDENT_DEPARTMENT', 'FACULTY_RECORDS', $aoeId],
+                ],
+                [
+                    'name'        => 'Attestation of Completion of Degree',
+                    'description' => 'Official attestation confirming completion of degree.',
+                    'sequence'    => ['STUDENT_DEPARTMENT', 'FACULTY_RECORDS', $aocId],
+                ],
+                [
+                    'name'        => 'Correction of Transcript',
+                    'description' => 'Request to correct errors on an issued transcript.',
+                    'sequence'    => ['STUDENT_DEPARTMENT', 'FACULTY_RECORDS', $trdId],
+                ],
+            ];
+
+            foreach ($standardTypes as $typeDef) {
+                $type = RequestType::updateOrCreate(
+                    ['name' => $typeDef['name']],
+                    [
+                        'description'                 => $typeDef['description'],
+                        'default_department_sequence' => $typeDef['sequence'],
+                    ]
+                );
+
+                RequestTypeTier::updateOrCreate(
+                    [
+                        'request_type_id' => $type->id,
+                        'code'            => 'standard',
+                    ],
+                    [
+                        'name'            => 'Standard',
+                        'description'     => 'Standard processing service.',
+                        'fee_amount'      => 2000,
+                        'currency'        => 'XAF',
+                        'turnaround_days' => 3,
+                        'priority'        => 2,
+                        'is_active'       => true,
+                        'sort_order'      => 1,
+                    ]
+                );
+            }
         });
     }
 }

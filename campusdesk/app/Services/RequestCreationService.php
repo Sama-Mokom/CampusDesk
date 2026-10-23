@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Request as DocumentRequest;
 use App\Models\RequestType;
+use App\Models\RequestTypeTier;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -15,25 +16,61 @@ class RequestCreationService
         private readonly RequestEventRecorder $events,
     ) {}
 
-    public function createForStudent(User $student, RequestType $type, ?string $description = null): DocumentRequest
-    {
+    public function createForStudent(
+        User $student,
+        RequestType $type,
+        ?string $description = null,
+        ?int $tierId = null,
+    ): DocumentRequest {
         $profile = $student->studentProfile;
 
         if ($student->role !== 'student' || $profile === null) {
             throw new RuntimeException('Requests can only be created for users with a student profile.');
         }
 
-        return DB::transaction(function () use ($student, $type, $description, $profile) {
+        return DB::transaction(function () use ($student, $type, $description, $profile, $tierId) {
+            $tier = null;
+            if ($tierId) {
+                $tier = $type->tiers()->where('id', $tierId)->first();
+            }
+
+            if (! $tier) {
+                $tier = $type->activeTiers()->first();
+            }
+
+            if (! $tier) {
+                $tier = $type->tiers()->create([
+                    'code'            => 'standard',
+                    'name'            => 'Standard',
+                    'description'     => 'Standard processing service.',
+                    'fee_amount'      => 2000,
+                    'currency'        => 'XAF',
+                    'turnaround_days' => 3,
+                    'priority'        => 2,
+                    'is_active'       => true,
+                    'sort_order'      => 1,
+                ]);
+            }
+
             $departmentSequence = $this->stages->resolveSequence(
                 $type->default_department_sequence,
                 $profile,
             );
 
             $request = $student->requests()->create([
-                'request_type_id' => $type->id,
-                'description' => $description,
-                'status' => 'pending',
-                'is_reopened' => false,
+                'request_type_id'          => $type->id,
+                'request_type_tier_id'     => $tier->id,
+                'tier_name_snapshot'       => $tier->name,
+                'fee_amount'               => $tier->fee_amount,
+                'amount_paid'              => 0,
+                'currency'                 => $tier->currency,
+                'turnaround_days_snapshot' => $tier->turnaround_days,
+                'tier_priority'            => $tier->priority,
+                'paid_at'                  => null,
+                'target_ready_at'          => null,
+                'description'              => $description,
+                'status'                   => 'pending',
+                'is_reopened'              => false,
             ]);
 
             foreach ($departmentSequence as $index => $departmentId) {

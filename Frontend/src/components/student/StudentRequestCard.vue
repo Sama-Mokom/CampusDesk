@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import type { Request as DocumentRequest } from '../../types'
 import StatusBadge from '../StatusBadge.vue'
+import TierBadge from '../TierBadge.vue'
 
 const props = defineProps<{ request: DocumentRequest }>()
 const emit = defineEmits<{ view: [request: DocumentRequest] }>()
@@ -48,11 +49,20 @@ const date = computed(() =>
             <p class="text-xs font-medium text-slate-500">
               Request #{{ request.id }}
             </p>
-            <h3
-              class="mt-1 break-words text-[15px] font-semibold text-slate-900"
-            >
-              {{ request.request_type }}
-            </h3>
+            <div class="mt-1 flex flex-wrap items-center gap-2">
+              <h3
+                class="break-words text-[15px] font-semibold text-slate-900"
+              >
+                {{ request.request_type }}
+              </h3>
+              <TierBadge
+                v-if="request.tier_name"
+                :name="request.tier_name"
+                :priority="request.tier_priority"
+                :turnaround-days="request.turnaround_days"
+                :fee-amount="request.fee_amount"
+              />
+            </div>
           </div>
           <StatusBadge
             kind="request"

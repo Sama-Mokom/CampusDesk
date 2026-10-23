@@ -1,6 +1,7 @@
 import { onMounted, reactive, ref, watch } from 'vue'
 import { createAdmin, listAdmin, updateAdmin } from '@/services/admin'
 import type { Page } from '@/services/admin'
+import type { RequestTypeTier } from '@/types'
 import {
   degrees,
   emptyPage,
@@ -42,7 +43,8 @@ export function useAdminReferences(kind: ReferenceKind) {
     type: 'academic',
     degree_type: 'BACHELOR',
     description: '',
-    default_department_sequence: [] as (number | string)[]
+    default_department_sequence: [] as (number | string)[],
+    tiers: [] as RequestTypeTier[]
   })
 
   let referenceVersion = 0
@@ -106,13 +108,15 @@ export function useAdminReferences(kind: ReferenceKind) {
       type: 'academic',
       degree_type: 'BACHELOR',
       description: '',
-      default_department_sequence: []
+      default_department_sequence: [],
+      tiers: []
     })
     if (row)
       Object.assign(refForm, row, {
         default_department_sequence: [
           ...(row.default_department_sequence ?? [])
-        ]
+        ],
+        tiers: (row.tiers ?? []).map((t) => ({ ...t }))
       })
     referenceModal.value = true
   }
@@ -130,6 +134,40 @@ export function useAdminReferences(kind: ReferenceKind) {
       refForm.default_department_sequence[index]!
     ]
   }
+
+  function addTier() {
+    const nextOrder = refForm.tiers.length + 1
+    refForm.tiers.push({
+      id: 0,
+      request_type_id: refForm.id,
+      name: '',
+      code: '',
+      description: '',
+      fee_amount: 1000,
+      currency: 'XAF',
+      turnaround_days: 7,
+      priority: 2,
+      is_active: true,
+      sort_order: nextOrder
+    })
+  }
+
+  function removeTier(index: number) {
+    refForm.tiers.splice(index, 1)
+  }
+
+  function moveTier(index: number, delta: number) {
+    const next = index + delta
+    if (next < 0 || next >= refForm.tiers.length) return
+    ;[refForm.tiers[index], refForm.tiers[next]] = [
+      refForm.tiers[next]!,
+      refForm.tiers[index]!
+    ]
+    refForm.tiers.forEach((t, i) => {
+      t.sort_order = i + 1
+    })
+  }
+
   async function saveReference() {
     if (pending.value) return
     formError.value = ''
@@ -151,6 +189,29 @@ export function useAdminReferences(kind: ReferenceKind) {
       formError.value = 'Add at least one routing step.'
       return
     }
+    if (activeTab.value === 'request-types' && refForm.tiers.length > 0) {
+      for (let i = 0; i < refForm.tiers.length; i++) {
+        const t = refForm.tiers[i]!
+        if (!t.name.trim() || !t.code.trim()) {
+          formError.value = `Tier #${i + 1} must have a name and code.`
+          return
+        }
+        if (Number(t.fee_amount) < 100) {
+          formError.value = `Tier "${t.name}" fee must be at least 100 XAF.`
+          return
+        }
+        if (Number(t.turnaround_days) < 1) {
+          formError.value = `Tier "${t.name}" turnaround days must be at least 1.`
+          return
+        }
+      }
+      const codes = refForm.tiers.map((t) => t.code.trim().toLowerCase())
+      if (new Set(codes).size !== codes.length) {
+        formError.value = 'Each tier must have a unique code.'
+        return
+      }
+    }
+
     const body =
       activeTab.value === 'faculties'
         ? {
@@ -175,7 +236,23 @@ export function useAdminReferences(kind: ReferenceKind) {
             : {
                 name: refForm.name,
                 description: refForm.description,
-                default_department_sequence: refForm.default_department_sequence
+                default_department_sequence: refForm.default_department_sequence,
+                ...(refForm.tiers.length > 0
+                  ? {
+                      tiers: refForm.tiers.map((t, idx) => ({
+                        ...(t.id ? { id: t.id } : {}),
+                        name: t.name.trim(),
+                        code: t.code.trim().toLowerCase(),
+                        description: t.description || null,
+                        fee_amount: Number(t.fee_amount),
+                        currency: t.currency || 'XAF',
+                        turnaround_days: Number(t.turnaround_days),
+                        priority: Number(t.priority) as 1 | 2 | 3,
+                        is_active: Boolean(t.is_active),
+                        sort_order: idx + 1
+                      }))
+                    }
+                  : {})
               }
     pending.value = true
     success.value = ''
@@ -220,6 +297,9 @@ export function useAdminReferences(kind: ReferenceKind) {
     closeReference,
     saveReference,
     moveStep,
+    addTier,
+    removeTier,
+    moveTier,
     deleteTarget,
     askRemove,
     closeDelete,

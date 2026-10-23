@@ -18,6 +18,16 @@ class RequestType extends Model
         return $this->hasMany(Request::class);
     }
 
+    public function tiers(): HasMany
+    {
+        return $this->hasMany(RequestTypeTier::class);
+    }
+
+    public function activeTiers(): HasMany
+    {
+        return $this->hasMany(RequestTypeTier::class)->where('is_active', true)->orderBy('sort_order', 'asc')->orderBy('priority', 'asc');
+    }
+
     protected function casts(): array
     {
         return [
