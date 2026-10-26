@@ -3,9 +3,11 @@ import { computed, nextTick, reactive, ref, watch } from 'vue'
 import type {
   CreateRequestPayload,
   Request as DocumentRequest,
-  RequestTypeEntity
+  RequestTypeEntity,
+  RequestTypeTier
 } from '../../types'
 import SkeletonLoader from '../ui/SkeletonLoader.vue'
+import { formatXAF } from '../TierBadge.vue'
 
 const props = defineProps<{
   requestTypes: RequestTypeEntity[]
@@ -20,24 +22,53 @@ const emit = defineEmits<{
   view: [request: DocumentRequest]
 }>()
 const typeControl = ref<HTMLSelectElement | null>(null)
-const form = reactive({ request_type_id: '', description: '' })
+const form = reactive({
+  request_type_id: '',
+  request_type_tier_id: '',
+  description: ''
+})
 const files = ref<File[]>([])
 const validation = ref('')
 const attempted = ref(false)
 const dragging = ref(false)
+
 const selectedType = computed(() =>
   props.requestTypes.find((type) => type.id === Number(form.request_type_id))
 )
+
+const activeTiers = computed<RequestTypeTier[]>(() =>
+  (selectedType.value?.tiers ?? []).filter((t) => t.is_active !== false)
+)
+
+const selectedTier = computed<RequestTypeTier | undefined>(() =>
+  activeTiers.value.find(
+    (tier) => String(tier.id) === String(form.request_type_tier_id)
+  )
+)
+
+watch(
+  () => form.request_type_id,
+  () => {
+    if (activeTiers.value.length === 1 && activeTiers.value[0]) {
+      form.request_type_tier_id = String(activeTiers.value[0].id)
+    } else {
+      form.request_type_tier_id = ''
+    }
+  }
+)
+
 const orderedDepartments = computed(() =>
   [...(props.confirmation?.stages ?? [])].sort(
     (a, b) => a.sequence_order - b.sequence_order
   )
 )
+
 watch(
   () => props.confirmation,
   (confirmation) => {
     if (!confirmation) return
     form.request_type_id = ''
+    form.request_type_tier_id = ''
     form.description = ''
     files.value = []
     validation.value = ''
@@ -93,6 +124,10 @@ function submit() {
     typeControl.value?.focus()
     return
   }
+  if (activeTiers.value.length > 1 && !selectedTier.value) {
+    validation.value = 'Choose a processing tier to continue.'
+    return
+  }
   if (!form.description.trim()) {
     validation.value =
       'Add a description so your department knows what you need.'
@@ -104,12 +139,14 @@ function submit() {
   }
   emit('submit', {
     request_type_id: selectedType.value.id,
+    request_type_tier_id: selectedTier.value ? selectedTier.value.id : undefined,
     description: form.description.trim(),
     attachments: [...files.value]
   })
 }
 function reset() {
   form.request_type_id = ''
+  form.request_type_tier_id = ''
   form.description = ''
   files.value = []
   validation.value = ''
@@ -146,8 +183,12 @@ function reset() {
         Request submitted
       </h2>
       <p class="mt-2 text-sm leading-6 text-slate-600">
-        Request #{{ confirmation.id }} is in the queue. Track its progress as
-        each department reviews it.
+        Request #{{ confirmation.id }}
+        <span v-if="confirmation.tier_name" class="font-medium text-slate-900">
+          ({{ confirmation.tier_name }}
+          <span v-if="confirmation.fee_amount">· {{ formatXAF(confirmation.fee_amount) }}</span>)
+        </span>
+        is in the queue. Track its progress as each department reviews it.
       </p>
       <ol
         v-if="orderedDepartments.length"
@@ -279,7 +320,89 @@ function reset() {
           >
             {{ selectedType.description }}
           </p>
+
+          <!-- Single Tier Summary Card -->
+          <div
+            v-if="selectedType && activeTiers.length === 1 && activeTiers[0]"
+            class="mt-3 rounded-xl border border-sky-100 bg-sky-50/50 p-3.5"
+            data-testid="tier-summary-card"
+          >
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <span class="text-xs font-semibold uppercase tracking-wider text-sky-800">
+                  Processing Fee
+                </span>
+                <p class="mt-0.5 text-base font-bold text-slate-900">
+                  {{ formatXAF(activeTiers[0].fee_amount) }}
+                </p>
+              </div>
+              <div class="text-right">
+                <span class="text-xs font-semibold uppercase tracking-wider text-sky-800">
+                  Target Turnaround
+                </span>
+                <p class="mt-0.5 text-sm font-medium text-slate-700">
+                  ~{{ activeTiers[0].turnaround_days }} days
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Multiple Tiers Radio Cards -->
+          <fieldset
+            v-else-if="selectedType && activeTiers.length > 1"
+            class="mt-4 space-y-2"
+            data-testid="tier-selector-fieldset"
+          >
+            <legend class="mb-2 block text-sm font-medium text-slate-700">
+              Processing tier & fee
+              <span class="text-red-600" aria-hidden="true">*</span>
+            </legend>
+            <div class="grid gap-3 sm:grid-cols-3">
+              <label
+                v-for="tier in activeTiers"
+                :key="tier.id"
+                :class="[
+                  'relative flex cursor-pointer flex-col justify-between rounded-xl border p-3.5 transition-all',
+                  String(form.request_type_tier_id) === String(tier.id)
+                    ? 'border-sky-600 bg-sky-50/60 shadow-sm ring-2 ring-sky-500/20'
+                    : 'border-slate-200 bg-white hover:border-slate-300'
+                ]"
+              >
+                <div class="flex items-start justify-between gap-1.5">
+                  <span class="text-sm font-semibold text-slate-900">{{ tier.name }}</span>
+                  <input
+                    type="radio"
+                    name="request-tier"
+                    :value="String(tier.id)"
+                    v-model="form.request_type_tier_id"
+                    class="sr-only"
+                    :disabled="submitting"
+                  />
+                  <span
+                    v-if="tier.priority === 3"
+                    class="shrink-0 rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-bold text-purple-700"
+                  >
+                    Top Priority
+                  </span>
+                  <span
+                    v-else-if="tier.priority === 2"
+                    class="shrink-0 rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-bold text-sky-700"
+                  >
+                    Priority
+                  </span>
+                </div>
+                <div class="mt-2.5">
+                  <p class="text-base font-bold text-slate-900">{{ formatXAF(tier.fee_amount) }}</p>
+                  <p class="mt-0.5 text-xs text-slate-500">~{{ tier.turnaround_days }} days turnaround</p>
+                </div>
+                <p v-if="tier.description" class="mt-2 text-[11px] leading-4 text-slate-500">
+                  {{ tier.description }}
+                </p>
+              </label>
+            </div>
+          </fieldset>
         </div>
+
         <div>
           <label
             for="student-description"
@@ -389,7 +512,12 @@ function reset() {
           class="btn-primary w-full"
           :disabled="submitting"
         >
-          {{ submitting ? 'Submitting request…' : 'Submit request'
+          {{
+            submitting
+              ? 'Submitting request…'
+              : selectedTier
+                ? `Submit request (${formatXAF(selectedTier.fee_amount)})`
+                : 'Submit request'
           }}<span
             v-if="!submitting"
             aria-hidden="true"

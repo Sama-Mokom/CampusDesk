@@ -21,6 +21,11 @@ class Request extends Model
         return $this->belongsTo(RequestType::class);
     }
 
+    public function requestTypeTier(): BelongsTo
+    {
+        return $this->belongsTo(RequestTypeTier::class);
+    }
+
     public function requestStages(): HasMany
     {
         return $this->hasMany(RequestStage::class);
@@ -38,6 +43,15 @@ class Request extends Model
 
     protected $fillable = [
         'request_type_id',
+        'request_type_tier_id',
+        'tier_name_snapshot',
+        'fee_amount',
+        'amount_paid',
+        'currency',
+        'turnaround_days_snapshot',
+        'tier_priority',
+        'paid_at',
+        'target_ready_at',
         'description',
         'status',
         'is_reopened',
@@ -48,6 +62,12 @@ class Request extends Model
     {
         return [
             'is_reopened' => 'boolean',
+            'fee_amount' => 'integer',
+            'amount_paid' => 'integer',
+            'turnaround_days_snapshot' => 'integer',
+            'tier_priority' => 'integer',
+            'paid_at' => 'datetime',
+            'target_ready_at' => 'datetime',
         ];
     }
 }

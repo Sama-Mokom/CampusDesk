@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Faculty;
 use App\Models\Department;
+use App\Models\Faculty;
 use App\Models\Programme;
-use App\Models\RequestType; // Assuming your Model is named RequestType
+use App\Models\RequestType;
 use Illuminate\Http\JsonResponse;
 
 class ReferenceDataController extends Controller
@@ -42,9 +42,27 @@ class ReferenceDataController extends Controller
      */
     public function requestTypes(): JsonResponse
     {
-        // If default_department_sequence is stored as JSON in your database,
-        // make sure you cast it to an array in your RequestType Model!
-        $requestTypes = RequestType::all(['id', 'name', 'description', 'default_department_sequence']);
+        $requestTypes = RequestType::with(['activeTiers'])->get()->map(function (RequestType $type) {
+            return [
+                'id' => $type->id,
+                'name' => $type->name,
+                'description' => $type->description,
+                'default_department_sequence' => $type->default_department_sequence,
+                'tiers' => $type->activeTiers->map(fn ($tier) => [
+                    'id'              => $tier->id,
+                    'code'            => $tier->code,
+                    'name'            => $tier->name,
+                    'description'     => $tier->description,
+                    'fee_amount'      => $tier->fee_amount,
+                    'currency'        => $tier->currency,
+                    'turnaround_days' => $tier->turnaround_days,
+                    'priority'        => $tier->priority,
+                    'is_active'       => $tier->is_active,
+                    'sort_order'      => $tier->sort_order,
+                ])->values(),
+            ];
+        });
+
         return response()->json($requestTypes);
     }
 }

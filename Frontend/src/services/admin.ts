@@ -1,4 +1,5 @@
 import api from './api'
+import type { RequestTypeTier } from '@/types'
 
 export interface Page<T> {
   data: T[]
@@ -9,7 +10,13 @@ export interface Page<T> {
 export interface Faculty { id: number; name: string; code: string; matricule_prefix: string }
 export interface Department { id: number; faculty_id: number; name: string; code: string; type: 'academic' | 'records' | 'admin' }
 export interface Programme { id: number; department_id: number; faculty_id: number; name: string; code: string; degree_type: string }
-export interface RequestType { id: number; name: string; description: string | null; default_department_sequence: (number | string)[] }
+export interface RequestType {
+  id: number
+  name: string
+  description: string | null
+  default_department_sequence: (number | string)[]
+  tiers?: RequestTypeTier[]
+}
 export interface AdminUser {
   id: number; name: string; email: string; role: 'student' | 'staff'
   disabled_at: string | null; is_disabled: boolean
@@ -19,6 +26,14 @@ export interface AdminUser {
 export interface AdminRequest {
   id: number; status: string; description: string | null; is_reopened: boolean; created_at: string
   request_type: { id: number; name: string }; student: { id: number; name: string; student_profile?: { matricule: string } }
+  tier_name?: string
+  fee_amount?: number
+  amount_paid?: number
+  currency?: string
+  turnaround_days?: number
+  tier_priority?: number
+  paid_at?: string | null
+  target_ready_at?: string | null
   stages?: { id: number; sequence_order: number; status: string; department: { name: string } | null; handled_by?: number | null; staff_note?: string | null; updated_at?: string | null }[]
   attachments?: { id: number; original_name: string; mime_type?: string }[]; status_history?: AuditRow[]
 }

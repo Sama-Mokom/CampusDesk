@@ -31,6 +31,10 @@ export async function reopenRequest(id: number): Promise<DocumentRequest> {
   return response.data.data ?? response.data
 }
 
+/**
+ * POST /requests/{id}/collect
+ * Confirm physical collection of a completed document request.
+ */
 export async function markRequestCollected(id: number): Promise<DocumentRequest> {
   const response = await api.patch(`/requests/${id}/collect`)
   return response.data.data ?? response.data
@@ -41,27 +45,28 @@ export async function markRequestCollected(id: number): Promise<DocumentRequest>
  * Submit a new student request. Handles both simple JSON and file uploads.
  */
 export const createRequest = async (payload: CreateRequestPayload): Promise<DocumentRequest> => {
-  // If the user included file attachments, we must use FormData
+  // If the user included file attachments, use FormData
   if (payload.attachments && payload.attachments.length > 0) {
     const formData = new FormData();
     formData.append('request_type_id', payload.request_type_id.toString());
+    if (payload.request_type_tier_id !== undefined && payload.request_type_tier_id !== null) {
+      formData.append('request_type_tier_id', payload.request_type_tier_id.toString());
+    }
     formData.append('description', payload.description);
-
     payload.attachments.forEach((file) => {
       formData.append('attachments[]', file);
     });
-    const response: AxiosResponse<{ data: DocumentRequest }> = await api.post('/requests', formData, {
-  //  headers: {
-  //   'Content-Type': 'multipart/form-data',
-  // },
-   })
-    return response.data.data
+    const response: AxiosResponse<{ data: DocumentRequest }> = await api.post('/requests', formData);
+    return response.data.data;
   }
-
   // Otherwise, send a clean JSON request
-   const response: AxiosResponse<{ data: DocumentRequest }> = await api.post('/requests', {
+  const body: Record<string, unknown> = {
     request_type_id: payload.request_type_id,
     description: payload.description,
-  })
-  return response.data.data
+  };
+  if (payload.request_type_tier_id !== undefined && payload.request_type_tier_id !== null) {
+    body.request_type_tier_id = payload.request_type_tier_id;
+  }
+  const response: AxiosResponse<{ data: DocumentRequest }> = await api.post('/requests', body);
+  return response.data.data;
 };

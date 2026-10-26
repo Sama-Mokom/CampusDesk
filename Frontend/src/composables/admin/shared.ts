@@ -8,7 +8,7 @@ import type {
   Programme,
   RequestType
 } from '@/services/admin'
-import type { RequestStatus } from '@/types'
+import type { RequestStatus, RequestTypeTier } from '@/types'
 
 export type ReferenceKind =
   | 'faculties'
@@ -26,6 +26,7 @@ export type ReferenceRecord = {
   description?: string | null
   faculty_id?: number
   department_id?: number
+  tiers?: RequestTypeTier[]
 }
 export const statuses: RequestStatus[] = [
   'draft',

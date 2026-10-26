@@ -2,6 +2,7 @@
 import type { RequestStage } from '../../types'
 import LevelBadge from '../LevelBadge.vue'
 import StatusBadge from '../StatusBadge.vue'
+import TierBadge from '../TierBadge.vue'
 
 defineProps<{ stage: RequestStage; active: boolean }>()
 defineEmits<{ claim: []; resolve: []; details: [] }>()
@@ -42,6 +43,13 @@ function formatDate(iso: string) {
             kind="stage"
             :status="stage.status"
           />
+          <TierBadge
+            v-if="stage.request?.tier_name"
+            :name="stage.request.tier_name"
+            :priority="stage.request.tier_priority"
+            :turnaround-days="stage.request.turnaround_days"
+            :fee-amount="stage.request.fee_amount"
+          />
         </div>
         <h3 class="mt-2 break-words text-[15px] font-semibold text-slate-900">
           {{ stage.request?.request_type || 'Student request' }}
@@ -66,12 +74,16 @@ function formatDate(iso: string) {
         >
           {{ stage.request.description }}
         </p>
-        <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+        <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
           <span
             >{{ stage.department_name }} · Stage
             {{ stage.sequence_order }}</span
           ><span v-if="stage.request?.created_at"
             >Submitted {{ formatDate(stage.request.created_at) }}</span
+          ><span v-if="stage.request?.target_ready_at" class="font-medium text-sky-800"
+            >Due {{ formatDate(stage.request.target_ready_at) }}</span
+          ><span v-else-if="stage.request?.turnaround_days"
+            >Target: ~{{ stage.request.turnaround_days }}d</span
           ><span v-if="active && stage.updated_at"
             >Updated {{ formatDate(stage.updated_at) }}</span
           >

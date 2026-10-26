@@ -45,6 +45,14 @@ class AdminOverviewController extends Controller
         $request->load(['student:id,name,email', 'student.studentProfile', 'requestType:id,name', 'requestStages.department:id,name', 'attachments', 'statusHistories.user:id,name']);
         return response()->json(['data' => [
             'id' => $request->id, 'student' => $request->student, 'request_type' => $request->requestType,
+            'tier_name' => $request->tier_name_snapshot,
+            'fee_amount' => $request->fee_amount,
+            'amount_paid' => $request->amount_paid,
+            'currency' => $request->currency,
+            'turnaround_days' => $request->turnaround_days_snapshot,
+            'tier_priority' => $request->tier_priority,
+            'paid_at' => $request->paid_at,
+            'target_ready_at' => $request->target_ready_at,
             'description' => $request->description, 'status' => $request->status, 'is_reopened' => $request->is_reopened,
             'created_at' => $request->created_at, 'stages' => $request->requestStages,
             'attachments' => $request->attachments->map(fn ($a) => ['id' => $a->id, 'original_name' => $a->original_name, 'mime_type' => $a->mime_type]),

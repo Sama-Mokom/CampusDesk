@@ -26,8 +26,13 @@ class AdminReferenceController extends Controller
     public function index(Request $request)
     {
         $input = $request->validate(['search' => 'sometimes|string|max:100', 'page' => 'sometimes|integer|min:1', 'per_page' => 'sometimes|integer|min:1|max:100']);
-        $model = $this->model($request->route('kind'));
-        $rows = $model::query()->when($input['search'] ?? null, fn ($q, $term) => $q->where('name', 'like', '%'.$term.'%'))
+        $kind = $request->route('kind');
+        $model = $this->model($kind);
+        $query = $model::query();
+        if ($kind === 'request-types') {
+            $query->with('tiers');
+        }
+        $rows = $query->when($input['search'] ?? null, fn ($q, $term) => $q->where('name', 'like', '%'.$term.'%'))
             ->orderByDesc('created_at')->orderByDesc('id')->paginate($input['per_page'] ?? 20);
         return response()->json(['data' => $rows->items(), 'meta' => ['current_page' => $rows->currentPage(), 'last_page' => $rows->lastPage(), 'per_page' => $rows->perPage(), 'total' => $rows->total()], 'links' => ['next' => $rows->nextPageUrl(), 'prev' => $rows->previousPageUrl()]]);
     }
@@ -36,9 +41,22 @@ class AdminReferenceController extends Controller
     {
         $kind = $request->route('kind');
         $data = $this->validated($request, $kind);
+        $tiers = null;
+        if ($kind === 'request-types' && array_key_exists('tiers', $data)) {
+            $tiers = $data['tiers'];
+            unset($data['tiers']);
+        }
         $model = $this->model($kind);
-        $row = DB::transaction(fn () => $model::create($data));
-        return response()->json(['data' => $row], 201);
+        $row = DB::transaction(function () use ($model, $data, $kind, $tiers) {
+            $created = $model::create($data);
+            if ($kind === 'request-types' && is_array($tiers)) {
+                foreach ($tiers as $tierData) {
+                    $created->tiers()->create($tierData);
+                }
+            }
+            return $created;
+        });
+        return response()->json(['data' => $kind === 'request-types' ? $row->load('tiers') : $row], 201);
     }
 
     public function update(Request $request, int $id)
@@ -47,6 +65,11 @@ class AdminReferenceController extends Controller
         $model = $this->model($kind);
         $row = $model::findOrFail($id);
         $data = $this->validated($request, $kind, $row);
+        $tiers = null;
+        if ($kind === 'request-types' && array_key_exists('tiers', $data)) {
+            $tiers = $data['tiers'];
+            unset($data['tiers']);
+        }
         if ($kind === 'faculties' && array_key_exists('matricule_prefix', $data) && $data['matricule_prefix'] !== $row->matricule_prefix && StudentProfile::where('faculty_id', $id)->exists()) {
             abort(409, 'The matricule prefix cannot change while students belong to this faculty.');
         }
@@ -54,8 +77,27 @@ class AdminReferenceController extends Controller
         if ($kind === 'programmes' && isset($data['department_id']) && $data['department_id'] !== $row->department_id && StudentProfile::where('programme_id', $id)->exists()) {
             abort(409, 'A programme with students cannot move to another department.');
         }
-        DB::transaction(fn () => $row->update($data));
-        return response()->json(['data' => $row->fresh()]);
+        DB::transaction(function () use ($row, $data, $kind, $tiers) {
+            $row->update($data);
+            if ($kind === 'request-types' && is_array($tiers)) {
+                foreach ($tiers as $tierData) {
+                    $row->tiers()->updateOrCreate(
+                        ['code' => $tierData['code']],
+                        [
+                            'name'            => $tierData['name'],
+                            'description'     => $tierData['description'] ?? null,
+                            'fee_amount'      => $tierData['fee_amount'],
+                            'currency'        => $tierData['currency'] ?? 'XAF',
+                            'turnaround_days' => $tierData['turnaround_days'],
+                            'priority'        => $tierData['priority'] ?? 1,
+                            'is_active'       => $tierData['is_active'] ?? true,
+                            'sort_order'      => $tierData['sort_order'] ?? 1,
+                        ]
+                    );
+                }
+            }
+        });
+        return response()->json(['data' => $kind === 'request-types' ? $row->fresh(['tiers']) : $row->fresh()]);
     }
 
     public function destroy(Request $request, int $id)
@@ -101,6 +143,17 @@ class AdminReferenceController extends Controller
                 'description' => ['sometimes', 'nullable', 'string'],
                 'default_department_sequence' => [$partial, 'array', 'min:1'],
                 'default_department_sequence.*' => ['required'],
+                'tiers' => ['sometimes', 'array', 'min:1'],
+                'tiers.*.id' => ['sometimes', 'integer', 'exists:request_type_tiers,id'],
+                'tiers.*.code' => ['required_with:tiers', 'string', 'max:50'],
+                'tiers.*.name' => ['required_with:tiers', 'string', 'max:100'],
+                'tiers.*.description' => ['sometimes', 'nullable', 'string'],
+                'tiers.*.fee_amount' => ['required_with:tiers', 'integer', 'min:100'],
+                'tiers.*.currency' => ['sometimes', 'string', 'size:3'],
+                'tiers.*.turnaround_days' => ['required_with:tiers', 'integer', 'min:1'],
+                'tiers.*.priority' => ['required_with:tiers', 'integer', Rule::in([1, 2, 3])],
+                'tiers.*.is_active' => ['sometimes', 'boolean'],
+                'tiers.*.sort_order' => ['sometimes', 'integer', 'min:1'],
             ],
         };
         $data = $request->validate($rules);

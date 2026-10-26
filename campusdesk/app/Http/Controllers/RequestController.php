@@ -43,6 +43,7 @@ class RequestController extends Controller
                     Auth::user(),
                     $type,
                     $request->description,
+                    $request->input('request_type_tier_id') ? (int) $request->input('request_type_tier_id') : null,
                 );
 
                 if ($request->hasFile('attachments')) {

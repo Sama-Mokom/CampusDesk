@@ -114,15 +114,31 @@ export interface UserSummary {
   name: string
 }
 
+export interface RequestTypeTier {
+  id: number
+  request_type_id?: number
+  code: string
+  name: string
+  description?: string | null
+  fee_amount: number
+  currency: string
+  turnaround_days: number
+  priority: number
+  is_active?: boolean
+  sort_order?: number
+}
+
 export interface RequestTypeEntity {
   id: number
   name: string
   description: string
   default_department_sequence: number[]
+  tiers?: RequestTypeTier[]
 }
 
 export interface CreateRequestPayload {
   request_type_id: number
+  request_type_tier_id?: number
   description: string
   attachments?: File[] // For handling file uploads if needed
 }
@@ -148,6 +164,13 @@ export interface RequestStage {
     id: number
     description: string
     request_type?: string
+    tier_name?: string
+    tier_priority?: number
+    turnaround_days?: number
+    fee_amount?: number
+    currency?: string
+    paid_at?: string | null
+    target_ready_at?: string | null
     created_at: string
     student_name?: string
     student_matricule?: string
@@ -186,6 +209,15 @@ export interface StatusHistoryEntry {
 export interface Request {
   id: number
   request_type: string
+  request_type_tier_id?: number | null
+  tier_name?: string
+  fee_amount?: number
+  amount_paid?: number
+  currency?: string
+  turnaround_days?: number
+  tier_priority?: number
+  paid_at?: string | null
+  target_ready_at?: string | null
   description: string
   status: RequestStatus
   is_reopened: boolean
@@ -199,6 +231,11 @@ export interface RequestDetails {
   id: number
   description: string
   request_type: string
+  tier_name?: string
+  fee_amount?: number
+  currency?: string
+  turnaround_days?: number
+  tier_priority?: number
   created_at: string
   student_name: string
   student_matricule: string

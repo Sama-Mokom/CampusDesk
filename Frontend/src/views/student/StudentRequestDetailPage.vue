@@ -15,6 +15,7 @@ import PageHeader from '@/components/ui/PageHeader.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import SkeletonLoader from '@/components/ui/SkeletonLoader.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
+import TierBadge, { formatXAF } from '@/components/TierBadge.vue'
 import RequestTimeline from '@/components/RequestTimeline.vue'
 import DocumentViewer from '@/components/DocumentViewer.vue'
 
@@ -225,6 +226,35 @@ watch(() => route.params.id, loadRequest, { immediate: true })
                 <dt class="text-xs text-slate-500">Submitted</dt>
                 <dd class="mt-1 text-sm font-medium">
                   {{ formatDate(request.created_at) }}
+                </dd>
+              </div>
+              <div v-if="request.tier_name">
+                <dt class="text-xs text-slate-500">Processing Tier</dt>
+                <dd class="mt-1">
+                  <TierBadge
+                    :name="request.tier_name"
+                    :priority="request.tier_priority"
+                    :turnaround-days="request.turnaround_days"
+                    :fee-amount="request.fee_amount"
+                  />
+                </dd>
+              </div>
+              <div v-if="request.fee_amount != null">
+                <dt class="text-xs text-slate-500">Processing Fee</dt>
+                <dd class="mt-1 text-sm font-medium">
+                  {{ formatXAF(request.fee_amount) }}
+                </dd>
+              </div>
+              <div v-if="request.target_ready_at">
+                <dt class="text-xs text-slate-500">Estimated Ready Date</dt>
+                <dd class="mt-1 text-sm font-medium text-sky-800">
+                  {{ formatDate(request.target_ready_at) }}
+                </dd>
+              </div>
+              <div v-else-if="request.turnaround_days">
+                <dt class="text-xs text-slate-500">Target Turnaround</dt>
+                <dd class="mt-1 text-sm font-medium">
+                  ~{{ request.turnaround_days }} days
                 </dd>
               </div>
             </dl>

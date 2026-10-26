@@ -29,11 +29,13 @@ class RequestStageController extends Controller
         $departmentIds = $staffProfile->departments()->pluck('departments.id');
 
         $requestStages = RequestStage::query()
-            ->whereIn('department_id', $departmentIds)
-            ->where('status', 'pending')
-            ->whereNull('handled_by')
+            ->join('requests', 'requests.id', '=', 'request_stages.request_id')
+            ->select('request_stages.*')
+            ->whereIn('request_stages.department_id', $departmentIds)
+            ->where('request_stages.status', 'pending')
+            ->whereNull('request_stages.handled_by')
             ->where(function ($query) {
-                $query->where('sequence_order', 1)
+                $query->where('request_stages.sequence_order', 1)
                     ->orWhereExists(function ($sub) {
                         $sub->select(DB::raw(1))
                             ->from('request_stages as prev')
@@ -42,6 +44,8 @@ class RequestStageController extends Controller
                             ->where('prev.status', 'approved');
                     });
             })
+            ->orderBy('requests.tier_priority', 'desc')
+            ->orderBy('requests.created_at', 'asc')
             ->with([
                 'request.requestType',
                 'request.student.studentProfile',
