@@ -26,6 +26,23 @@ onMounted(() => {
   }
 })
 
+const SIDEBAR_STORAGE_KEY = 'campusdesk_sidebar_collapsed'
+const isCollapsed = ref(false)
+try {
+  isCollapsed.value = localStorage.getItem(SIDEBAR_STORAGE_KEY) === 'true'
+} catch {
+  // localStorage disabled or not available
+}
+
+function toggleSidebar() {
+  isCollapsed.value = !isCollapsed.value
+  try {
+    localStorage.setItem(SIDEBAR_STORAGE_KEY, String(isCollapsed.value))
+  } catch {
+    // Ignore storage errors
+  }
+}
+
 const mobileOpen = ref(false)
 const loggingOut = ref(false)
 const isAuthPage = computed(
@@ -141,21 +158,43 @@ async function onLogout() {
     >
     <aside
       v-if="!isAuthPage"
-      class="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col bg-slate-900 text-white lg:flex"
+      class="fixed inset-y-0 left-0 z-30 hidden flex-col bg-slate-900 text-white transition-[width] duration-200 ease-in-out lg:flex"
+      :class="isCollapsed ? 'w-16' : 'w-60'"
     >
-      <router-link
-        :to="home"
-        class="flex h-20 items-center gap-3 px-6"
+      <div
+        class="flex h-20 items-center border-b border-slate-800"
+        :class="isCollapsed ? 'justify-center px-2' : 'justify-between px-4'"
       >
-        <span
-          class="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/15 text-sky-300"
-          ><AppIcon name="building"
-        /></span>
-        <span class="text-xl font-bold tracking-tight"
-          >CampusDesk<span class="text-sky-400">.</span></span
+        <router-link
+          :to="home"
+          class="flex items-center gap-2.5 overflow-hidden"
+          :title="isCollapsed ? 'CampusDesk Home' : undefined"
         >
-      </router-link>
-      <div class="px-6 pb-6 pt-4">
+          <span
+            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-500/15 text-sky-300"
+            ><AppIcon name="building"
+          /></span>
+          <span
+            v-if="!isCollapsed"
+            class="truncate text-xl font-bold tracking-tight"
+            >CampusDesk<span class="text-sky-400">.</span></span
+          >
+        </router-link>
+        <button
+          v-if="!isCollapsed"
+          type="button"
+          class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+          title="Collapse sidebar"
+          aria-label="Collapse sidebar"
+          @click="toggleSidebar"
+        >
+          <AppIcon name="chevron-left" />
+        </button>
+      </div>
+      <div
+        v-if="!isCollapsed"
+        class="px-6 pb-6 pt-4"
+      >
         <p
           class="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400"
         >
@@ -165,24 +204,30 @@ async function onLogout() {
       </div>
       <nav
         aria-label="Main navigation"
-        class="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 pb-4"
+        class="no-scrollbar min-h-0 flex-1 space-y-1.5 overflow-y-auto pb-4"
+        :class="isCollapsed ? 'px-2' : 'px-3'"
       >
         <router-link
           v-for="item in navigation"
           :key="item.href"
           :to="item.href"
           :aria-current="activeHref === item.href ? 'page' : undefined"
-          class="flex min-h-12 items-center gap-3 rounded-lg px-4 py-3 text-sm transition-colors"
-          :class="
+          :title="isCollapsed ? item.label : undefined"
+          class="flex min-h-11 items-center rounded-lg transition-colors"
+          :class="[
+            isCollapsed ? 'justify-center px-0' : 'gap-3 px-4 py-2.5 text-sm',
             activeHref === item.href
               ? 'bg-sky-800 font-semibold text-white'
               : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-          "
+          ]"
         >
-          <AppIcon :name="item.icon" />{{ item.label }}
+          <AppIcon :name="item.icon" /><span :class="{ 'sr-only': isCollapsed }">{{ item.label }}</span>
         </router-link>
       </nav>
-      <div class="mx-5 mb-6 shrink-0 border-t border-slate-700 pt-5">
+      <div
+        v-if="!isCollapsed"
+        class="mx-5 mb-6 shrink-0 border-t border-slate-700 pt-5"
+      >
         <div class="flex items-start gap-3 text-slate-400">
           <AppIcon name="shield" />
           <p class="text-xs leading-relaxed">
@@ -194,7 +239,12 @@ async function onLogout() {
         </p>
       </div>
     </aside>
-    <div :class="{ 'lg:pl-60': !isAuthPage }">
+    <div
+      :class="[
+        !isAuthPage ? (isCollapsed ? 'lg:pl-16' : 'lg:pl-60') : '',
+        'transition-[padding-left] duration-200 ease-in-out'
+      ]"
+    >
       <header
         class="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur"
       >
@@ -212,6 +262,16 @@ async function onLogout() {
               @click="mobileOpen = !mobileOpen"
             >
               <AppIcon :name="mobileOpen ? 'close' : 'menu'" />
+            </button>
+            <button
+              v-if="!isAuthPage && isCollapsed"
+              class="icon-button hidden text-slate-600 hover:text-slate-900 lg:inline-flex"
+              type="button"
+              title="Expand sidebar"
+              aria-label="Expand sidebar"
+              @click="toggleSidebar"
+            >
+              <AppIcon name="menu" />
             </button>
             <router-link
               :to="isAuthPage ? '/login' : home"
