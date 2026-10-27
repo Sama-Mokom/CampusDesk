@@ -254,6 +254,7 @@ export interface Request {
   payments?: Payment[]
   latest_payment?: Payment | null
   pending_upgrade_tier?: RequestTypeTier | null
+  available_tiers?: RequestTypeTier[]
 }
 
 export interface RequestDetails {

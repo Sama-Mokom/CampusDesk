@@ -110,6 +110,7 @@ class RequestController extends Controller
 
         return new RequestResource(
             $request->load([
+                'requestType.activeTiers',
                 'requestStages',
                 'attachments',
                 'statusHistories',
@@ -166,7 +167,7 @@ class RequestController extends Controller
 
                 return new RequestResource(
                     $lockedRequest->fresh()->load([
-                        'requestType',
+                        'requestType.activeTiers',
                         'requestStages.department',
                         'attachments',
                         'statusHistories',
@@ -211,7 +212,7 @@ class RequestController extends Controller
 
                 return new RequestResource(
                     $lockedRequest->fresh()->load([
-                        'requestType',
+                        'requestType.activeTiers',
                         'requestStages.department',
                         'attachments',
                         'statusHistories',
@@ -246,7 +247,7 @@ class RequestController extends Controller
 
             return new RequestResource(
                 $lockedRequest->fresh()->load([
-                    'requestType',
+                    'requestType.activeTiers',
                     'requestStages.department',
                     'attachments',
                     'statusHistories',

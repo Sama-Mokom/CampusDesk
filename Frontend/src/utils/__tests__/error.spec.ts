@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import axios, { AxiosError, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
+import { AxiosError, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
 import { isTechnicalMessage, parseApiError } from '../error'
 
 function makeAxiosError<T = unknown>(

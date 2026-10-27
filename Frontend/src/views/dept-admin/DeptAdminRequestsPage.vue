@@ -351,7 +351,6 @@
 </template>
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import axios from 'axios'
 import { parseApiError } from '@/utils/error'
 import {
   fetchDepartmentAdminRequests,

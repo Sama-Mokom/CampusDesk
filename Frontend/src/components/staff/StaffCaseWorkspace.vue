@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, watch } from 'vue'
-import { isAxiosError } from 'axios'
 import { parseApiError } from '@/utils/error'
 import { useAuth } from '@/composables/useAuth'
 import { useRealtime } from '@/composables/useRealtime'

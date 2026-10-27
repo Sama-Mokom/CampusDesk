@@ -148,6 +148,13 @@ class ReopenTierUpgradeTest extends TestCase
         $response->assertJsonPath('data.status', 'pending');
         $response->assertJsonPath('data.is_reopened', true);
         $response->assertJsonPath('data.tier_name', 'Normal Mode');
+        $response->assertJsonCount(2, 'data.available_tiers');
+        $response->assertJsonPath('data.available_tiers.0.name', 'Normal Mode');
+        $response->assertJsonPath('data.available_tiers.1.name', 'Super Fast Mode');
+
+        $showRes = $this->actingAs($this->student, 'sanctum')->getJson("/api/requests/{$this->docRequest->id}");
+        $showRes->assertOk();
+        $showRes->assertJsonCount(2, 'data.available_tiers');
         $response->assertJsonPath('data.amount_paid', 1000);
         $response->assertJsonPath('data.amount_due', 0);
 

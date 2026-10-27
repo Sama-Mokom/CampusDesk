@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import axios from 'axios'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 import { login } from '../services/auth'

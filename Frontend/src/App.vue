@@ -165,30 +165,39 @@ async function onLogout() {
         class="flex h-20 items-center border-b border-slate-800"
         :class="isCollapsed ? 'justify-center px-2' : 'justify-between px-4'"
       >
-        <router-link
-          :to="home"
-          class="flex items-center gap-2.5 overflow-hidden"
-          :title="isCollapsed ? 'CampusDesk Home' : undefined"
-        >
-          <span
-            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-500/15 text-sky-300"
-            ><AppIcon name="building"
-          /></span>
-          <span
-            v-if="!isCollapsed"
-            class="truncate text-xl font-bold tracking-tight"
-            >CampusDesk<span class="text-sky-400">.</span></span
+        <template v-if="!isCollapsed">
+          <router-link
+            :to="home"
+            class="flex items-center gap-2.5 overflow-hidden"
           >
-        </router-link>
+            <span
+              class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-500/15 text-sky-300"
+              ><AppIcon name="building"
+            /></span>
+            <span
+              class="truncate text-xl font-bold tracking-tight"
+              >CampusDesk<span class="text-sky-400">.</span></span
+            >
+          </router-link>
+          <button
+            type="button"
+            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+            title="Collapse sidebar"
+            aria-label="Collapse sidebar"
+            @click="toggleSidebar"
+          >
+            <AppIcon name="chevron-left" />
+          </button>
+        </template>
         <button
-          v-if="!isCollapsed"
+          v-else
           type="button"
-          class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
-          title="Collapse sidebar"
-          aria-label="Collapse sidebar"
+          class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-300 transition-colors hover:bg-slate-800 hover:text-white"
+          title="Expand sidebar"
+          aria-label="Expand sidebar"
           @click="toggleSidebar"
         >
-          <AppIcon name="chevron-left" />
+          <AppIcon name="menu" />
         </button>
       </div>
       <div
@@ -262,16 +271,6 @@ async function onLogout() {
               @click="mobileOpen = !mobileOpen"
             >
               <AppIcon :name="mobileOpen ? 'close' : 'menu'" />
-            </button>
-            <button
-              v-if="!isAuthPage && isCollapsed"
-              class="icon-button hidden text-slate-600 hover:text-slate-900 lg:inline-flex"
-              type="button"
-              title="Expand sidebar"
-              aria-label="Expand sidebar"
-              @click="toggleSidebar"
-            >
-              <AppIcon name="menu" />
             </button>
             <router-link
               :to="isAuthPage ? '/login' : home"
