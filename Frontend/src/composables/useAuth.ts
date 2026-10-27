@@ -6,7 +6,7 @@ import api from '../services/api'
 const user = ref<User | null>(null)
 
 function normalizeUser(rawUser: User | null): User | null {
-  if (!rawUser) return null
+  if (!rawUser || typeof rawUser !== 'object') return null
   if (rawUser.staff_profile?.departments) {
     rawUser.staff_profile.departments = rawUser.staff_profile.departments.map((dept: DepartmentAssignment) => ({
       ...dept,
@@ -21,15 +21,23 @@ export function useAuth() {
   const storedUser = localStorage.getItem('user')
   if (storedUser && !user.value) {
     try {
-      user.value = normalizeUser(JSON.parse(storedUser))
+      const parsed = JSON.parse(storedUser)
+      if (parsed && typeof parsed === 'object' && parsed.id) {
+        user.value = normalizeUser(parsed)
+      } else {
+        localStorage.removeItem('user')
+      }
     } catch {
-      // Ignore JSON parse errors from corrupt localStorage
+      localStorage.removeItem('user')
     }
   }
 
-  const isAuthenticated = computed(() => !!user.value && !!localStorage.getItem('token'))
+  const isAuthenticated = computed(
+    () => !!user.value && typeof user.value === 'object' && !!user.value.id && !!localStorage.getItem('token')
+  )
 
   function setUser(newUser: User) {
+    if (!newUser || typeof newUser !== 'object' || !newUser.id) return
     const normalized = normalizeUser(newUser) ?? newUser
     user.value = normalized
     localStorage.setItem('user', JSON.stringify(normalized))
@@ -40,7 +48,7 @@ export function useAuth() {
     if (!token) return null
     try {
       const response = await api.get('/user')
-      if (response?.data) {
+      if (response?.data && typeof response.data === 'object' && response.data.id) {
         setUser(response.data)
         return response.data
       }

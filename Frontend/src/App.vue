@@ -60,7 +60,7 @@ const roleLabel = computed(() => {
 const initials = computed(
   () =>
     user.value?.name
-      .split(/\s+/)
+      ?.split(/\s+/)
       .slice(0, 2)
       .map((part) => part[0])
       .join('')
