@@ -4,6 +4,7 @@ import {
   fetchDepartmentAdminRequests,
   type DepartmentAdminOverview
 } from '@/services/deptAdmin'
+import { parseApiError } from '@/utils/error'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import SkeletonLoader from '@/components/ui/SkeletonLoader.vue'
 
@@ -42,8 +43,11 @@ async function load() {
   error.value = ''
   try {
     overview.value = await fetchDepartmentAdminRequests()
-  } catch {
-    error.value = 'Unable to load department overview. Please try again.'
+  } catch (cause) {
+    error.value = parseApiError(
+      cause,
+      'Unable to load department overview. Please try again.'
+    )
   } finally {
     loading.value = false
   }

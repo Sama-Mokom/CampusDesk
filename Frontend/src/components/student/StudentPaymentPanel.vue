@@ -309,6 +309,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import TierBadge, { formatXAF } from '@/components/TierBadge.vue'
+import { parseApiError } from '@/utils/error'
 import {
   initiatePayment,
   reopenRequest,
@@ -391,7 +392,7 @@ async function selectTier(tier: RequestTypeTier) {
     emit('request-updated', updated)
     emit('updated', updated)
   } catch (err: unknown) {
-    errorMessage.value = err instanceof Error ? err.message : 'Failed to switch tier.'
+    errorMessage.value = parseApiError(err, 'Failed to switch tier.')
   } finally {
     busy.value = false
   }
@@ -405,7 +406,7 @@ async function cancelUpgrade() {
     emit('request-updated', updated)
     emit('updated', updated)
   } catch (err: unknown) {
-    errorMessage.value = err instanceof Error ? err.message : 'Failed to cancel upgrade.'
+    errorMessage.value = parseApiError(err, 'Failed to cancel upgrade.')
   } finally {
     busy.value = false
   }
@@ -429,7 +430,7 @@ async function startHostedCheckout() {
       startPolling()
     }
   } catch (err: unknown) {
-    errorMessage.value = err instanceof Error ? err.message : 'Failed to start payment.'
+    errorMessage.value = parseApiError(err, 'Failed to start payment.')
   } finally {
     busy.value = false
   }
@@ -449,7 +450,7 @@ async function startDirectPush() {
     pushActive.value = true
     startPolling()
   } catch (err: unknown) {
-    errorMessage.value = err instanceof Error ? err.message : 'Failed to initiate push prompt.'
+    errorMessage.value = parseApiError(err, 'Failed to initiate push prompt.')
   } finally {
     busy.value = false
   }
@@ -471,7 +472,7 @@ async function checkStatus() {
       errorMessage.value = result.payment.failure_reason || 'Payment was declined or cancelled.'
     }
   } catch (err: unknown) {
-    errorMessage.value = err instanceof Error ? err.message : 'Verification failed.'
+    errorMessage.value = parseApiError(err, 'Verification failed.')
   } finally {
     busy.value = false
   }
@@ -497,7 +498,7 @@ async function simulateOutcome(outcome: 'successful' | 'failed') {
       errorMessage.value = result.payment.failure_reason || 'Simulated payment failed.'
     }
   } catch (err: unknown) {
-    errorMessage.value = err instanceof Error ? err.message : 'Simulation failed.'
+    errorMessage.value = parseApiError(err, 'Simulation failed.')
   } finally {
     busy.value = false
   }

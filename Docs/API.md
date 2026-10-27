@@ -39,6 +39,34 @@ Laravel API Resources wrap responses in a `data` key for collections and single 
 
 Frontend unwraps `response.data.data` for resource endpoints and `response.data` for plain endpoints.
 
+### Standard Error Shapes
+
+All error responses return standard JSON. Internal database queries, table names, hostnames, and stack traces are suppressed globally (see [ERROR_HANDLING.md](ERROR_HANDLING.md)):
+
+```json
+// Validation Error (HTTP 422)
+{
+  "message": "The given data was invalid.",
+  "errors": {
+    "field_name": ["Specific validation error message."]
+  }
+}
+
+// Domain / Business Rule Error (HTTP 400, 403, 404, 409)
+{
+  "message": "Clear, intentional explanation of why the action failed."
+}
+
+// Server or Database Error (HTTP 500)
+{
+  "message": "A database error occurred while processing your request. Please try again later."
+}
+// or
+{
+  "message": "An unexpected server error occurred. Please try again later."
+}
+```
+
 ---
 
 ## Authentication Endpoints

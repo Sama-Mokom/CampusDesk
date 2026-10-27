@@ -352,6 +352,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import axios from 'axios'
+import { parseApiError } from '@/utils/error'
 import {
   fetchDepartmentAdminRequests,
   reassignStage,
@@ -432,9 +433,7 @@ function clearFilters() {
   filter.value = 'all'
 }
 function message(err: unknown, fallback: string) {
-  return axios.isAxiosError(err)
-    ? (err.response?.data?.message ?? fallback)
-    : fallback
+  return parseApiError(err, fallback)
 }
 let loadVersion = 0
 async function load() {

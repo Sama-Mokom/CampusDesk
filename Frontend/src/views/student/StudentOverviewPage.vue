@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
 import { useStudentRequests } from '@/composables/useStudentRequests'
+import { parseApiError } from '@/utils/error'
 import { fetchDepartments, fetchFaculties } from '@/services/reference'
 import type { Department, Faculty, Request as DocumentRequest } from '@/types'
 import PageHeader from '@/components/ui/PageHeader.vue'
@@ -40,8 +41,14 @@ async function loadAcademicContext() {
   ] as const)
   if (results[0].status === 'fulfilled') faculties.value = results[0].value
   if (results[1].status === 'fulfilled') departments.value = results[1].value
-  if (results.some((result) => result.status === 'rejected'))
-    academicError.value = 'Academic profile details could not be loaded.'
+  const rejected = results.find(
+    (result) => result.status === 'rejected'
+  ) as PromiseRejectedResult | undefined
+  if (rejected)
+    academicError.value = parseApiError(
+      rejected.reason,
+      'Academic profile details could not be loaded.'
+    )
 }
 function viewRequest(request: DocumentRequest) {
   void router.push({
