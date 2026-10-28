@@ -235,3 +235,30 @@ PHPUnit tests in `SequentialRoutingPreservationTest` and `SequentialRoutingBugCo
 - Frontend integrated Laravel Echo and Pusher JS with connection lifecycle management and automatic fallback refetching on reconnection.
 
 **Status:** ✅ Implemented, optimized, verified (111 PHPUnit tests / 155 Vitest tests).
+
+---
+
+## ADR-13: Defense-in-Depth Error Handling, Sanitization, and Diagnostic Logging
+
+**Context:** During development, an unhandled database query exception (`QueryException`: missing `payments` table) returned a raw SQL error containing table names, SQL queries, host, and port directly in the HTTP 500 response. The frontend composable extracted `data.message` and displayed the raw SQL error string directly in the UI banner. Raw technical errors pose a security risk (information disclosure) and present a poor user experience.
+
+**Options considered:**
+- A. Rely solely on Laravel's `APP_DEBUG=false` in production.
+- B. Patch each frontend component individually to catch and format errors.
+- C. Defense-in-depth architecture: Global exception rendering boundary in backend (`bootstrap/app.php`) + unified frontend error parser (`src/utils/error.ts`) with diagnostic `console.error` logging.
+
+**Decision:** C — Full-stack defense-in-depth architecture.
+
+**Reasoning:**
+1. **Security & Information Leakage Prevention:** Even in local development or staging environments (`APP_DEBUG=true`), API routes must never leak database structure, SQL statements, credentials, or file paths over HTTP JSON responses.
+2. **User Experience:** End users must see courteous, human-friendly, and actionable feedback in alert banners (e.g. *"Your requests could not be loaded. Please try again."*), while preserving legitimate domain messages (401, 403, 404, 409, 422).
+3. **Developer Diagnostics:** Developers still need full visibility. Technical errors are logged to `laravel.log` on the backend and output to `console.error` on the frontend with HTTP status, URL, method, and raw payload.
+4. **Code Quality & Maintainability:** Replaced 5 duplicated message-extraction helpers across the codebase with a single centralized engine (`parseApiError`).
+
+**Consequences:**
+- Added custom exception renderers in `campusdesk/bootstrap/app.php` for `QueryException`, `PDOException`, and unhandled 500 `Throwable`s on API requests.
+- Created `Frontend/src/utils/error.ts` with `parseApiError()` and `isTechnicalMessage()` heuristic detector.
+- Re-routed composable helpers (`studentApiMessage`, `message`) and component catch blocks through `parseApiError`.
+- Created backend feature tests (`ApiExceptionHandlingTest.php`) and frontend unit tests (`error.spec.ts`).
+
+**Status:** ✅ Implemented and verified (138 PHPUnit tests / 179 Vitest tests).

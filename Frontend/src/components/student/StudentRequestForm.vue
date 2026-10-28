@@ -7,6 +7,7 @@ import type {
   RequestTypeTier
 } from '../../types'
 import SkeletonLoader from '../ui/SkeletonLoader.vue'
+import StudentPaymentPanel from './StudentPaymentPanel.vue'
 import { formatXAF } from '../TierBadge.vue'
 
 const props = defineProps<{
@@ -20,6 +21,7 @@ const emit = defineEmits<{
   submit: [payload: CreateRequestPayload]
   reset: []
   view: [request: DocumentRequest]
+  updated: [request: DocumentRequest]
 }>()
 const typeControl = ref<HTMLSelectElement | null>(null)
 const form = reactive({
@@ -44,6 +46,18 @@ const selectedTier = computed<RequestTypeTier | undefined>(() =>
   activeTiers.value.find(
     (tier) => String(tier.id) === String(form.request_type_tier_id)
   )
+)
+
+const confirmationType = computed(() =>
+  props.requestTypes.find(
+    (type) =>
+      type.id === props.confirmation?.request_type_id ||
+      type.name === props.confirmation?.request_type
+  )
+)
+
+const confirmationTiers = computed<RequestTypeTier[]>(() =>
+  (confirmationType.value?.tiers ?? []).filter((t) => t.is_active !== false)
 )
 
 watch(
@@ -154,6 +168,9 @@ function reset() {
   emit('reset')
   void focus()
 }
+function onConfirmationUpdated(updated: DocumentRequest) {
+  emit('updated', updated)
+}
 </script>
 
 <template>
@@ -162,64 +179,131 @@ function reset() {
     aria-labelledby="new-request-heading"
   >
     <template v-if="confirmation">
+      <!-- Awaiting Payment State: Directly render StudentPaymentPanel -->
       <div
-        class="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-50 text-green-700"
-        aria-hidden="true"
+        v-if="confirmation.status === 'awaiting_payment'"
+        class="space-y-5"
+        data-testid="confirmation-awaiting-payment"
       >
-        <svg
-          class="h-6 w-6"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-        >
-          <path d="m5 12 4 4L19 6" />
-        </svg>
+        <div class="flex items-center gap-3">
+          <div
+            class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700"
+            aria-hidden="true"
+          >
+            <svg
+              class="h-6 w-6"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <rect x="2" y="5" width="20" height="14" rx="2" />
+              <line x1="2" y1="10" x2="22" y2="10" />
+            </svg>
+          </div>
+          <div>
+            <h2
+              id="new-request-heading"
+              class="text-lg font-semibold text-slate-900"
+            >
+              Request submitted — Fee payment required
+            </h2>
+            <p class="text-xs text-slate-500">
+              Request #{{ confirmation.id }}
+              <span v-if="confirmation.request_type">· {{ confirmation.request_type }}</span>
+            </p>
+          </div>
+        </div>
+
+        <StudentPaymentPanel
+          :request="confirmation"
+          :available-tiers="confirmationTiers"
+          @updated="onConfirmationUpdated"
+        />
+
+        <div class="flex flex-col sm:flex-row gap-2 pt-1">
+          <button
+            type="button"
+            class="btn-secondary flex-1"
+            @click="emit('view', confirmation)"
+          >
+            View request details
+          </button>
+          <button
+            type="button"
+            class="btn-ghost"
+            @click="reset"
+          >
+            Submit another
+          </button>
+        </div>
       </div>
-      <h2
-        id="new-request-heading"
-        class="text-lg font-semibold text-slate-900"
+
+      <!-- Paid or Standard Completed Confirmation -->
+      <div
+        v-else
+        data-testid="confirmation-submitted-standard"
       >
-        Request submitted
-      </h2>
-      <p class="mt-2 text-sm leading-6 text-slate-600">
-        Request #{{ confirmation.id }}
-        <span v-if="confirmation.tier_name" class="font-medium text-slate-900">
-          ({{ confirmation.tier_name }}
-          <span v-if="confirmation.fee_amount">· {{ formatXAF(confirmation.fee_amount) }}</span>)
-        </span>
-        is in the queue. Track its progress as each department reviews it.
-      </p>
-      <ol
-        v-if="orderedDepartments.length"
-        class="my-5 space-y-3"
-        aria-label="Processing departments"
-      >
-        <li
-          v-for="(stage, index) in orderedDepartments"
-          :key="stage.id"
-          class="flex items-center gap-3 text-sm text-slate-700"
+        <div
+          class="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-50 text-green-700"
+          aria-hidden="true"
         >
-          <span
-            class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sky-50 text-xs font-semibold text-sky-700"
-            >{{ index + 1 }}</span
-          >{{ stage.department_name }}
-        </li>
-      </ol>
-      <div class="mt-5 flex flex-col gap-2">
-        <button
-          type="button"
-          class="btn-primary w-full"
-          @click="emit('view', confirmation)"
+          <svg
+            class="h-6 w-6"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="m5 12 4 4L19 6" />
+          </svg>
+        </div>
+        <h2
+          id="new-request-heading"
+          class="text-lg font-semibold text-slate-900"
         >
-          Track this request</button
-        ><button
-          type="button"
-          class="btn-secondary w-full"
-          @click="reset"
+          Request submitted
+        </h2>
+        <p class="mt-2 text-sm leading-6 text-slate-600">
+          Request #{{ confirmation.id }}
+          <span v-if="confirmation.tier_name" class="font-medium text-slate-900">
+            ({{ confirmation.tier_name }}
+            <span v-if="confirmation.fee_amount">· {{ formatXAF(confirmation.fee_amount) }}</span>)
+          </span>
+          is in the queue. Track its progress as each department reviews it.
+        </p>
+        <ol
+          v-if="orderedDepartments.length"
+          class="my-5 space-y-3"
+          aria-label="Processing departments"
         >
-          Submit another
-        </button>
+          <li
+            v-for="(stage, index) in orderedDepartments"
+            :key="stage.id"
+            class="flex items-center gap-3 text-sm text-slate-700"
+          >
+            <span
+              class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sky-50 text-xs font-semibold text-sky-700"
+              >{{ index + 1 }}</span
+            >{{ stage.department_name }}
+          </li>
+        </ol>
+        <div class="mt-5 flex flex-col gap-2">
+          <button
+            type="button"
+            class="btn-primary w-full"
+            @click="emit('view', confirmation)"
+          >
+            Track this request
+          </button>
+          <button
+            type="button"
+            class="btn-secondary w-full"
+            @click="reset"
+          >
+            Submit another
+          </button>
+        </div>
       </div>
     </template>
     <template v-else>

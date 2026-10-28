@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, watch } from 'vue'
-import { isAxiosError } from 'axios'
+import { parseApiError } from '@/utils/error'
 import { useAuth } from '@/composables/useAuth'
 import { useRealtime } from '@/composables/useRealtime'
 import {
@@ -98,15 +98,7 @@ const filteredStages = computed(() => {
 })
 
 function errorMessage(error: unknown, fallback: string) {
-  if (
-    isAxiosError<{ message?: string; errors?: Record<string, string[]> }>(error)
-  ) {
-    const validation = Object.values(error.response?.data?.errors ?? {})
-      .flat()
-      .join(' ')
-    return validation || error.response?.data?.message || fallback
-  }
-  return fallback
+  return parseApiError(error, fallback)
 }
 let listLoadVersion = 0
 async function loadQueue() {

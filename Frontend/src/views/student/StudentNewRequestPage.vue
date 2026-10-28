@@ -69,6 +69,9 @@ function viewRequest(request: DocumentRequest) {
     params: { id: request.id }
   })
 }
+function onConfirmationUpdated(updated: DocumentRequest) {
+  confirmation.value = updated
+}
 onMounted(loadTypes)
 </script>
 
@@ -102,8 +105,15 @@ onMounted(loadTypes)
         Try again
       </button>
     </div>
+    <div
+      v-if="confirmation && confirmation.status === 'awaiting_payment'"
+      role="status"
+      class="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900"
+    >
+      Request #{{ confirmation.id }} created. Complete payment below to start processing.
+    </div>
     <p
-      v-if="confirmation"
+      v-else-if="confirmation"
       role="status"
       class="feedback-success"
     >
@@ -122,10 +132,20 @@ onMounted(loadTypes)
         @submit="submitRequest"
         @reset="resetRequest"
         @view="viewRequest"
+        @updated="onConfirmationUpdated"
       />
       <aside class="rounded-xl border border-sky-100 bg-sky-50/60 p-5">
         <h2 class="text-base font-semibold text-sky-900">What happens next?</h2>
-        <p class="mt-3 text-sm leading-6 text-sky-800">
+        <p
+          v-if="confirmation?.status === 'awaiting_payment'"
+          class="mt-3 text-sm leading-6 text-sky-800"
+        >
+          Mobile Money payments are credited instantly in most cases. As soon as your payment is confirmed, university staff will be able to claim and review your application.
+        </p>
+        <p
+          v-else
+          class="mt-3 text-sm leading-6 text-sky-800"
+        >
           After submission, your request is routed to the relevant departments.
           You can check its status, review staff notes, and open your documents
           from the request details page.

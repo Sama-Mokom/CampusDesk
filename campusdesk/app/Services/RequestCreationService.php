@@ -69,24 +69,24 @@ class RequestCreationService
                 'paid_at'                  => null,
                 'target_ready_at'          => null,
                 'description'              => $description,
-                'status'                   => 'pending',
+                'status'                   => DocumentRequest::STATUS_AWAITING_PAYMENT,
                 'is_reopened'              => false,
             ]);
 
             foreach ($departmentSequence as $index => $departmentId) {
                 $request->requestStages()->create([
-                    'department_id' => $departmentId,
+                    'department_id'  => $departmentId,
                     'sequence_order' => $index + 1,
-                    'status' => 'pending',
+                    'status'         => 'pending',
                 ]);
             }
 
             $request->statusHistories()->create([
-                'old_status' => null,
-                'new_status' => 'pending',
-                'changed_by' => null,
+                'old_status'       => null,
+                'new_status'       => DocumentRequest::STATUS_AWAITING_PAYMENT,
+                'changed_by'       => null,
                 'request_stage_id' => null,
-                'note' => 'Request submitted by student.',
+                'note'             => 'Request submitted by student. Awaiting processing fee payment.',
             ]);
 
             $this->events->recordRequestCreated($request, $departmentSequence[0]);

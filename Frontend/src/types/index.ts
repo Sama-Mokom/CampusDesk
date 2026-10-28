@@ -14,6 +14,7 @@ export type StaffAdminLevel = 'dept_admin' | 'super_admin' | null
 
 export type RequestStatus =
   | 'draft'
+  | 'awaiting_payment'
   | 'pending'
   | 'in_review'
   | 'forwarded'
@@ -206,13 +207,38 @@ export interface StatusHistoryEntry {
   changed_at: string
 }
 
+export interface Payment {
+  id: number
+  request_id: number
+  request_type_tier_id?: number
+  external_id: string
+  provider: string
+  provider_transaction_id?: string | null
+  payment_type?: 'initial' | 'reopen_upgrade'
+  checkout_mode: 'hosted' | 'direct_push'
+  payment_method?: 'mtn_momo' | 'orange_money' | null
+  payer_phone?: string | null
+  amount: number
+  currency: string
+  status: 'pending' | 'processing' | 'successful' | 'failed' | 'expired' | 'cancelled'
+  checkout_url?: string | null
+  failure_reason?: string | null
+  initiated_at?: string
+  completed_at?: string | null
+  expires_at?: string | null
+  created_at?: string
+}
+
 export interface Request {
   id: number
   request_type: string
+  request_type_id?: number
   request_type_tier_id?: number | null
+  pending_upgrade_tier_id?: number | null
   tier_name?: string
   fee_amount?: number
   amount_paid?: number
+  amount_due?: number
   currency?: string
   turnaround_days?: number
   tier_priority?: number
@@ -225,6 +251,10 @@ export interface Request {
   attachments: Attachment[]
   stages: RequestStage[]
   status_history: StatusHistoryEntry[]
+  payments?: Payment[]
+  latest_payment?: Payment | null
+  pending_upgrade_tier?: RequestTypeTier | null
+  available_tiers?: RequestTypeTier[]
 }
 
 export interface RequestDetails {
@@ -262,6 +292,7 @@ export interface StageQueueItem {
 export function requestStatusLabel(status: RequestStatus): string {
   const map: Record<RequestStatus, string> = {
     draft: 'Draft',
+    awaiting_payment: 'Awaiting payment',
     pending: 'Pending',
     in_review: 'In review',
     forwarded: 'Forwarded',

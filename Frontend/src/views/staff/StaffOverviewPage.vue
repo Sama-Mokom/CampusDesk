@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useAuth } from '@/composables/useAuth'
 import { fetchStaffQueue, fetchMyCases } from '@/services/stages'
+import { parseApiError } from '@/utils/error'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import type { RequestStage } from '@/types'
 
@@ -37,9 +38,17 @@ async function load() {
     fetchMyCases()
   ])
   if (queueResult.status === 'fulfilled') queue.value = queueResult.value
-  else queueError.value = 'The department queue could not be loaded.'
+  else
+    queueError.value = parseApiError(
+      queueResult.reason,
+      'The department queue could not be loaded.'
+    )
   if (casesResult.status === 'fulfilled') cases.value = casesResult.value
-  else casesError.value = 'Your active cases could not be loaded.'
+  else
+    casesError.value = parseApiError(
+      casesResult.reason,
+      'Your active cases could not be loaded.'
+    )
   loading.value = false
 }
 onMounted(load)

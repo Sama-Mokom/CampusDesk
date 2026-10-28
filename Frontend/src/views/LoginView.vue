@@ -1,9 +1,9 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { ref } from 'vue'
-import axios from 'axios'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 import { login } from '../services/auth'
+import { parseApiError } from '@/utils/error'
 import AuthLayout from '../components/layout/AuthLayout.vue'
 import AppIcon from '../components/ui/AppIcon.vue'
 const router = useRouter()
@@ -38,11 +38,10 @@ async function onSubmit() {
         : homePath()
     )
   } catch (err) {
-    error.value =
-      axios.isAxiosError(err) &&
-      (err.response?.status === 422 || err.response?.status === 401)
-        ? err.response.data.message || 'Invalid email or password.'
-        : 'We could not sign you in. Check your connection and try again.'
+    error.value = parseApiError(
+      err,
+      'We could not sign you in. Check your connection and try again.'
+    )
   } finally {
     busy.value = false
   }

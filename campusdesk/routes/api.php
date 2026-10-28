@@ -7,6 +7,8 @@ use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AttachmentController;
 use App\Http\Controllers\DeptAdminController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\PaymentWebhookController;
 use App\Http\Controllers\ReferenceDataController;
 use App\Http\Controllers\RequestController;
 use App\Http\Controllers\RequestStageController;
@@ -27,13 +29,18 @@ Route::middleware(['auth:sanctum', 'active_account', 'throttle:60,1'])->group(fu
 });
 Route::middleware(['auth:sanctum', 'active_account', 'student', 'throttle:60,1'])->group(function () {
     Route::get('/requests', [RequestController::class, 'index']);
-    // Route::get('/requests/{request}', [RequestController::class, 'show']);
 });
 
-Route::middleware(['auth:sanctum', 'active_account', 'student', 'throttle:10,1'])->group(function () {
+Route::middleware(['auth:sanctum', 'active_account', 'student', 'throttle:30,1'])->group(function () {
     Route::post('/requests', [RequestController::class, 'store']);
     Route::patch('/requests/{request}/collect', [RequestController::class, 'collect']);
+    Route::patch('/requests/{docRequest}/tier', [PaymentController::class, 'switchTier']);
+    Route::post('/requests/{docRequest}/payments', [PaymentController::class, 'initiate']);
+    Route::post('/requests/{docRequest}/payments/{payment}/verify', [PaymentController::class, 'verify']);
 });
+
+Route::post('/webhooks/payments/{provider}', [PaymentWebhookController::class, 'handle'])
+    ->middleware('throttle:120,1');
 
 Route::middleware(['auth:sanctum', 'active_account', 'staff', 'throttle:60,1'])->group(function () {
     // staff-only routes go here

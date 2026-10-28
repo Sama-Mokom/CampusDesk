@@ -5,12 +5,13 @@ namespace Tests\Feature;
 use App\Models\Department;
 use App\Models\Faculty;
 use App\Models\Programme;
+use App\Models\Request as DocumentRequest;
 use App\Models\RequestType;
+use App\Models\RequestTypeTier;
 use App\Models\StaffProfile;
 use App\Models\StudentProfile;
 use App\Models\User;
 use App\Services\RequestCreationService;
-use Database\Seeders\RequestTypeSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -21,34 +22,60 @@ class StaffQueuePriorityOrderingTest extends TestCase
 
     public function test_staff_queue_orders_by_tier_priority_descending_then_fifo(): void
     {
-        $faculty = Faculty::create(['name' => 'Faculty of Science', 'code' => 'FS', 'matricule_prefix' => 'FS']);
-        $dept = Department::create(['faculty_id' => $faculty->id, 'code' => 'CS', 'name' => 'Computer Science', 'type' => 'academic']);
-        Department::create(['faculty_id' => $faculty->id, 'code' => 'FSRO', 'name' => 'FS Records', 'type' => 'records']);
-        $trd = Department::create(['faculty_id' => $faculty->id, 'code' => 'TRD', 'name' => 'Transcript Dept', 'type' => 'admin']);
-        Department::create(['faculty_id' => $faculty->id, 'code' => 'AOE', 'name' => 'Enrollment Dept', 'type' => 'admin']);
-        Department::create(['faculty_id' => $faculty->id, 'code' => 'AOC', 'name' => 'Certificate Dept', 'type' => 'admin']);
-        $prog = Programme::create(['department_id' => $dept->id, 'code' => 'BCS', 'name' => 'B.Sc CS', 'degree_type' => 'BACHELOR']);
+        $faculty = Faculty::create(['name' => 'Faculty of Engineering', 'code' => 'FE', 'matricule_prefix' => 'FE']);
+        $dept = Department::create(['faculty_id' => $faculty->id, 'name' => 'Computer Engineering', 'code' => 'CEN', 'type' => 'academic']);
+        $programme = Programme::create(['department_id' => $dept->id, 'name' => 'BEng', 'code' => 'BENG', 'degree_type' => 'BACHELOR']);
 
-        app(RequestTypeSeeder::class)->run();
+        $transcriptType = RequestType::create([
+            'name' => 'Transcript Request',
+            'description' => 'Official academic transcript',
+            'default_department_sequence' => [$dept->id],
+        ]);
 
-        // Staff user belonging to Computer Science dept (stage 1)
+        $normalTier = RequestTypeTier::create([
+            'request_type_id' => $transcriptType->id,
+            'code' => 'normal',
+            'name' => 'Normal Mode',
+            'fee_amount' => 1000,
+            'turnaround_days' => 14,
+            'priority' => 1,
+            'is_active' => true,
+            'sort_order' => 1,
+        ]);
+
+        $fastTier = RequestTypeTier::create([
+            'request_type_id' => $transcriptType->id,
+            'code' => 'fast',
+            'name' => 'Fast Mode',
+            'fee_amount' => 2500,
+            'turnaround_days' => 7,
+            'priority' => 2,
+            'is_active' => true,
+            'sort_order' => 2,
+        ]);
+
+        $superFastTier = RequestTypeTier::create([
+            'request_type_id' => $transcriptType->id,
+            'code' => 'super_fast',
+            'name' => 'Super Fast Mode',
+            'fee_amount' => 5000,
+            'turnaround_days' => 3,
+            'priority' => 3,
+            'is_active' => true,
+            'sort_order' => 3,
+        ]);
+
+        $studentA = User::factory()->create(['role' => 'student']);
+        $studentA->studentProfile->update(['faculty_id' => $faculty->id, 'department_id' => $dept->id, 'programme_id' => $programme->id, 'matricule' => 'FE24A001']);
+
+        $studentB = User::factory()->create(['role' => 'student']);
+        $studentB->studentProfile->update(['faculty_id' => $faculty->id, 'department_id' => $dept->id, 'programme_id' => $programme->id, 'matricule' => 'FE24A002']);
+
+        $studentC = User::factory()->create(['role' => 'student']);
+        $studentC->studentProfile->update(['faculty_id' => $faculty->id, 'department_id' => $dept->id, 'programme_id' => $programme->id, 'matricule' => 'FE24A003']);
+
         $staffUser = User::factory()->staff()->create();
         $staffUser->staffProfile->departments()->attach($dept->id, ['is_primary' => true]);
-
-        // Students
-        $studentA = User::create(['name' => 'Student A', 'email' => 'a@test.com', 'password' => bcrypt('password'), 'role' => 'student']);
-        StudentProfile::create(['user_id' => $studentA->id, 'faculty_id' => $faculty->id, 'department_id' => $dept->id, 'programme_id' => $prog->id, 'matricule' => 'FS22A001', 'level' => '200', 'status' => 'active']);
-
-        $studentB = User::create(['name' => 'Student B', 'email' => 'b@test.com', 'password' => bcrypt('password'), 'role' => 'student']);
-        StudentProfile::create(['user_id' => $studentB->id, 'faculty_id' => $faculty->id, 'department_id' => $dept->id, 'programme_id' => $prog->id, 'matricule' => 'FS22A002', 'level' => '200', 'status' => 'active']);
-
-        $studentC = User::create(['name' => 'Student C', 'email' => 'c@test.com', 'password' => bcrypt('password'), 'role' => 'student']);
-        StudentProfile::create(['user_id' => $studentC->id, 'faculty_id' => $faculty->id, 'department_id' => $dept->id, 'programme_id' => $prog->id, 'matricule' => 'FS22A003', 'level' => '200', 'status' => 'active']);
-
-        $transcriptType = RequestType::where('name', 'Transcript Request')->firstOrFail();
-        $normalTier = $transcriptType->tiers()->where('code', 'normal')->firstOrFail(); // Priority 1
-        $fastTier = $transcriptType->tiers()->where('code', 'fast')->firstOrFail(); // Priority 2
-        $superFastTier = $transcriptType->tiers()->where('code', 'super_fast')->firstOrFail(); // Priority 3
 
         $creator = app(RequestCreationService::class);
 
@@ -60,6 +87,10 @@ class StaffQueuePriorityOrderingTest extends TestCase
 
         // Request 3: Super Fast (Priority 3) submitted last
         $reqSuperFast = $creator->createForStudent($studentC->fresh(), $transcriptType, 'Super Fast request', $superFastTier->id);
+
+        // Mark requests as paid so they enter staff claimable queue
+        DocumentRequest::query()->whereIn('id', [$reqNormal->id, $reqFast->id, $reqSuperFast->id])
+            ->update(['status' => 'pending', 'paid_at' => now()]);
 
         Sanctum::actingAs($staffUser->fresh());
 

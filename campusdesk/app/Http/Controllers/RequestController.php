@@ -6,6 +6,7 @@ use App\Http\Requests\StoreRequestRequest;
 use App\Http\Resources\RequestResource;
 use App\Models\Request as UserRequest;
 use App\Models\RequestType;
+use App\Models\RequestTypeTier;
 use App\Services\RequestCreationService;
 use App\Services\RequestEventRecorder;
 use App\Services\RequestStatusNotificationService;
@@ -20,7 +21,17 @@ class RequestController extends Controller
     public function index()
     {
         return RequestResource::collection(
-            Auth::user()->requests()->with(['requestType', 'attachments', 'requestStages.department', 'statusHistories'])->latest()->get()
+            Auth::user()->requests()
+                ->with([
+                    'requestType',
+                    'attachments',
+                    'requestStages.department',
+                    'statusHistories',
+                    'payments',
+                    'pendingUpgradeTier',
+                ])
+                ->latest()
+                ->get()
         );
     }
 
@@ -57,16 +68,23 @@ class RequestController extends Controller
                         $storedPaths[] = $path;
 
                         $userRequest->attachments()->create([
-                            'file_path' => $path,
+                            'file_path'     => $path,
                             'original_name' => $file->getClientOriginalName(),
-                            'mime_type' => $file->getMimeType(),
-                            'file_size' => $file->getSize(),
+                            'mime_type'     => $file->getMimeType(),
+                            'file_size'     => $file->getSize(),
                         ]);
                     }
                 }
 
                 return new RequestResource(
-                    $userRequest->load(['requestType', 'requestStages.department', 'attachments', 'statusHistories'])
+                    $userRequest->load([
+                        'requestType',
+                        'requestStages.department',
+                        'attachments',
+                        'statusHistories',
+                        'payments',
+                        'pendingUpgradeTier',
+                    ])
                 );
             });
         } catch (\Throwable $exception) {
@@ -91,11 +109,19 @@ class RequestController extends Controller
         abort_unless($isOwner || $isStaff, 403);
 
         return new RequestResource(
-            $request->load(['requestStages', 'attachments', 'statusHistories'])
+            $request->load([
+                'requestType.activeTiers',
+                'requestStages',
+                'attachments',
+                'statusHistories',
+                'payments',
+                'pendingUpgradeTier',
+            ])
         );
     }
 
     public function reopen(
+        Request $httpRequest,
         UserRequest $request,
         RequestStatusNotificationService $notifications,
         RequestEventRecorder $events,
@@ -107,11 +133,49 @@ class RequestController extends Controller
 
         abort_unless($isOwner || $isSuperAdmin, 403);
 
-        return DB::transaction(function () use ($request, $user, $isSuperAdmin, $notifications, $events) {
+        return DB::transaction(function () use ($httpRequest, $request, $user, $isSuperAdmin, $notifications, $events) {
             $lockedRequest = UserRequest::query()
                 ->whereKey($request->id)
                 ->lockForUpdate()
                 ->firstOrFail();
+
+            $tierId = $httpRequest->input('request_type_tier_id');
+            $cancelUpgrade = $httpRequest->boolean('cancel_upgrade');
+
+            if ($cancelUpgrade && $lockedRequest->status === 'awaiting_payment' && $lockedRequest->is_reopened) {
+                // Cancel in-progress upgrade during reopen
+                $lockedRequest->pending_upgrade_tier_id = null;
+                $lockedRequest->payments()->whereIn('status', ['pending', 'processing'])->update(['status' => 'expired']);
+
+                if ($lockedRequest->amount_paid >= $lockedRequest->fee_amount) {
+                    $rejectedStages = $lockedRequest->requestStages()->where('status', 'rejected')->lockForUpdate()->get();
+                    if ($rejectedStages->isNotEmpty()) {
+                        $rejectedStages->first()->update(['status' => 'pending', 'handled_by' => null]);
+                    }
+                    $lockedRequest->update(['status' => 'pending']);
+                    $lockedRequest->statusHistories()->create([
+                        'old_status' => 'awaiting_payment',
+                        'new_status' => 'pending',
+                        'changed_by' => $user->id,
+                        'note'       => "Upgrade cancelled; reopened with {$lockedRequest->tier_name_snapshot} tier.",
+                    ]);
+                    $events->recordRequestStatusChanged($lockedRequest);
+                    $notifications->notifyStudent($lockedRequest, 'pending');
+                } else {
+                    $lockedRequest->save();
+                }
+
+                return new RequestResource(
+                    $lockedRequest->fresh()->load([
+                        'requestType.activeTiers',
+                        'requestStages.department',
+                        'attachments',
+                        'statusHistories',
+                        'payments',
+                        'pendingUpgradeTier',
+                    ])
+                );
+            }
 
             abort_unless(
                 $lockedRequest->status === 'rejected',
@@ -130,13 +194,42 @@ class RequestController extends Controller
                 );
             }
 
+            if ($tierId && (int) $tierId !== (int) $lockedRequest->request_type_tier_id) {
+                $newTier = RequestTypeTier::where('request_type_id', $lockedRequest->request_type_id)->findOrFail($tierId);
+
+                $lockedRequest->update([
+                    'status'                  => 'awaiting_payment',
+                    'pending_upgrade_tier_id' => $newTier->id,
+                    'is_reopened'             => true,
+                ]);
+
+                $lockedRequest->statusHistories()->create([
+                    'old_status' => 'rejected',
+                    'new_status' => 'awaiting_payment',
+                    'changed_by' => $user->id,
+                    'note'       => "Reopened with requested upgrade to {$newTier->name}. Awaiting fee top-up payment.",
+                ]);
+
+                return new RequestResource(
+                    $lockedRequest->fresh()->load([
+                        'requestType.activeTiers',
+                        'requestStages.department',
+                        'attachments',
+                        'statusHistories',
+                        'payments',
+                        'pendingUpgradeTier',
+                    ])
+                );
+            }
+
+            // Standard same-tier free reopen
             $rejectedStages->first()->update([
-                'status' => 'pending',
+                'status'     => 'pending',
                 'handled_by' => null,
             ]);
 
             $lockedRequest->update([
-                'status' => 'pending',
+                'status'      => 'pending',
                 'is_reopened' => true,
             ]);
 
@@ -144,7 +237,7 @@ class RequestController extends Controller
                 'old_status' => 'rejected',
                 'new_status' => 'pending',
                 'changed_by' => $user->id,
-                'note' => $isSuperAdmin
+                'note'       => $isSuperAdmin
                     ? 'Request reopened by administrator.'
                     : 'Request reopened by student.',
             ]);
@@ -154,10 +247,12 @@ class RequestController extends Controller
 
             return new RequestResource(
                 $lockedRequest->fresh()->load([
-                    'requestType',
+                    'requestType.activeTiers',
                     'requestStages.department',
                     'attachments',
                     'statusHistories',
+                    'payments',
+                    'pendingUpgradeTier',
                 ])
             );
         });
@@ -173,34 +268,27 @@ class RequestController extends Controller
             abort_unless($lockedRequest->status === 'ready', 422, 'Only ready requests can be marked as collected.');
 
             $lockedRequest->update(['status' => 'collected']);
+
             $lockedRequest->statusHistories()->create([
-                'old_status' => 'ready',
-                'new_status' => 'collected',
-                'changed_by' => $user->id,
+                'old_status'       => 'ready',
+                'new_status'       => 'collected',
+                'changed_by'       => $user->id,
                 'request_stage_id' => null,
-                'note' => 'Request marked as collected by student.',
+                'note'             => 'Document collected by student.',
             ]);
 
             $events->recordRequestStatusChanged($lockedRequest);
 
-            return new RequestResource($lockedRequest->fresh()->load([
-                'requestType', 'requestStages.department', 'attachments', 'statusHistories',
-            ]));
+            return new RequestResource(
+                $lockedRequest->fresh()->load([
+                    'requestType',
+                    'requestStages.department',
+                    'attachments',
+                    'statusHistories',
+                    'payments',
+                    'pendingUpgradeTier',
+                ])
+            );
         });
-    }
-
-    public function edit(string $id)
-    {
-        //
-    }
-
-    public function update(Request $request, string $id)
-    {
-        //
-    }
-
-    public function destroy(string $id)
-    {
-        //
     }
 }

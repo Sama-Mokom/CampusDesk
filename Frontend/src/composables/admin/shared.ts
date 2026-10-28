@@ -9,6 +9,7 @@ import type {
   RequestType
 } from '@/services/admin'
 import type { RequestStatus, RequestTypeTier } from '@/types'
+import { parseApiError } from '@/utils/error'
 
 export type ReferenceKind =
   | 'faculties'
@@ -64,17 +65,12 @@ export const date = (value: string) =>
         timeStyle: 'short'
       })
     : 'Not recorded'
-export function message(e: unknown) {
-  const response = (
-    e as {
-      response?: {
-        data?: { message?: string; errors?: Record<string, string[]> }
-      }
-    }
-  )?.response?.data
-  return response?.errors
-    ? Object.values(response.errors).flat().join(' ')
-    : (response?.message ?? 'The action failed. Please try again.')
+
+export function message(
+  e: unknown,
+  fallback = 'The action failed. Please try again.'
+) {
+  return parseApiError(e, fallback)
 }
 
 export function useAdminFeedback() {

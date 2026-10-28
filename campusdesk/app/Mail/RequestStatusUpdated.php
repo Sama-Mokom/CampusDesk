@@ -86,6 +86,8 @@ class RequestStatusUpdated extends Mailable
     private function statusDetails(string $status): array
     {
         return match ($status) {
+            'awaiting_payment' => ['label' => 'Payment required', 'message' => 'Your request is waiting for processing fee payment.', 'next_step' => 'Open CampusDesk to complete the mobile money payment so your request can enter the processing queue.', 'color' => '#d97706', 'background' => '#fef3c7'],
+            'pending' => ['label' => 'In queue', 'message' => 'Payment received. Your request has entered the processing queue.', 'next_step' => 'Staff in the reviewing department will claim your request shortly.', 'color' => '#047857', 'background' => '#d1fae5'],
             'in_review' => ['label' => 'In review', 'message' => 'A member of staff has started reviewing your request.', 'next_step' => 'No action is needed right now. We will email you when there is another update.', 'color' => '#2563eb', 'background' => '#dbeafe'],
             'approved' => ['label' => 'Stage approved', 'message' => 'A processing stage for your request has been approved.', 'next_step' => 'Your request will continue through the remaining review steps. We will let you know when it is ready for collection.', 'color' => '#047857', 'background' => '#d1fae5'],
             'rejected' => ['label' => 'Action needed', 'message' => 'Your request could not be approved at this stage.', 'next_step' => 'Review the note below, then open CampusDesk to check your request and reopen it if appropriate.', 'color' => '#b91c1c', 'background' => '#fee2e2'],
