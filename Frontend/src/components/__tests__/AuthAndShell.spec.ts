@@ -255,4 +255,43 @@ describe('Authentication and role-aware shell', () => {
       wrapper.get('button[type="submit"]').attributes('disabled')
     ).toBeUndefined()
   })
-})
+  it('supports toggling and persisting desktop sidebar collapse state', async () => {
+    localStorage.removeItem('campusdesk_sidebar_collapsed')
+    authenticate(user('student'))
+    await router.push('/student')
+    const wrapper = mount(App, {
+      global: { plugins: [router], stubs: { NotificationBell: true } }
+    })
+
+    const aside = wrapper.get('aside')
+    expect(aside.classes()).toContain('w-60')
+    expect(aside.classes()).not.toContain('w-16')
+
+    const collapseBtn = wrapper.get('button[aria-label="Collapse sidebar"]')
+    await collapseBtn.trigger('click')
+
+    expect(aside.classes()).toContain('w-16')
+    expect(aside.classes()).not.toContain('w-60')
+    expect(localStorage.getItem('campusdesk_sidebar_collapsed')).toBe('true')
+
+    const expandBtn = wrapper.get('button[aria-label="Expand sidebar"]')
+    await expandBtn.trigger('click')
+
+    expect(aside.classes()).toContain('w-60')
+    expect(aside.classes()).not.toContain('w-16')
+    expect(localStorage.getItem('campusdesk_sidebar_collapsed')).toBe('false')
+  })
+
+  it('restores collapsed sidebar from localStorage on mount', async () => {
+    localStorage.setItem('campusdesk_sidebar_collapsed', 'true')
+    authenticate(user('staff', 'super_admin'))
+    await router.push('/admin')
+    const wrapper = mount(App, {
+      global: { plugins: [router], stubs: { NotificationBell: true } }
+    })
+
+    const aside = wrapper.get('aside')
+    expect(aside.classes()).toContain('w-16')
+    expect(wrapper.find('button[aria-label="Expand sidebar"]').exists()).toBe(true)
+  })
+});

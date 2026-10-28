@@ -1,7 +1,8 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { onBeforeUnmount, ref, watch } from 'vue'
 import type { Attachment } from '../types'
 import api from '../services/api'
+import { parseApiError } from '@/utils/error'
 import EmptyState from './ui/EmptyState.vue'
 import SkeletonLoader from './ui/SkeletonLoader.vue'
 import AppIcon from './ui/AppIcon.vue'
@@ -40,10 +41,12 @@ async function load(file: Attachment) {
     blobUrl.value = URL.createObjectURL(
       new Blob([response.data], { type: mime })
     )
-  } catch {
+  } catch (cause) {
     if (version === requestVersion)
-      error.value =
+      error.value = parseApiError(
+        cause,
         'This document could not be loaded. Check your connection and try again.'
+      )
   } finally {
     if (version === requestVersion) loadingFile.value = false
   }

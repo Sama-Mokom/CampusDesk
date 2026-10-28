@@ -38,6 +38,10 @@ export async function reopenRequest(
   return response.data.data ?? response.data
 }
 
+/**
+ * POST /requests/{id}/collect
+ * Confirm physical collection of a completed document request.
+ */
 export async function markRequestCollected(id: number): Promise<DocumentRequest> {
   const response = await api.patch(`/requests/${id}/collect`)
   return response.data.data ?? response.data
@@ -96,10 +100,14 @@ export async function verifyPayment(
 export const createRequest = async (
   payload: CreateRequestPayload
 ): Promise<DocumentRequest> => {
+  // If the user included file attachments, use FormData
   if (payload.attachments && payload.attachments.length > 0) {
     const formData = new FormData()
     formData.append('request_type_id', payload.request_type_id.toString())
-    if (payload.request_type_tier_id) {
+    if (
+      payload.request_type_tier_id !== undefined &&
+      payload.request_type_tier_id !== null
+    ) {
       formData.append(
         'request_type_tier_id',
         payload.request_type_tier_id.toString()
@@ -117,13 +125,20 @@ export const createRequest = async (
     return response.data.data
   }
 
+  // Otherwise, send a clean JSON request
+  const body: Record<string, unknown> = {
+    request_type_id: payload.request_type_id,
+    description: payload.description
+  }
+  if (
+    payload.request_type_tier_id !== undefined &&
+    payload.request_type_tier_id !== null
+  ) {
+    body.request_type_tier_id = payload.request_type_tier_id
+  }
   const response: AxiosResponse<{ data: DocumentRequest }> = await api.post(
     '/requests',
-    {
-      request_type_id: payload.request_type_id,
-      request_type_tier_id: payload.request_type_tier_id,
-      description: payload.description
-    }
+    body
   )
   return response.data.data
 }

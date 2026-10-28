@@ -156,6 +156,20 @@ The 9 October 2026 staging execution retained three role personas with separate 
 - The managed recovery bucket is private, versioned, encrypted with the customer-managed KMS key, and rejects insecure transport. Recovery configuration on EC2 is root-owned mode `0600`.
 - Repository changes to Compose or the host script are not silently copied by the deployment workflow and require a separate reviewed host update.
 
+## Error Handling and Information Disclosure Prevention
+
+CampusDesk enforces a defense-in-depth model to prevent sensitive technical data from leaking across API responses:
+
+- **Backend Global Exception Barrier (`bootstrap/app.php`):**
+  - All `QueryException` and `PDOException` instances on API requests are caught globally. Raw SQL statements, table structures, column definitions, database credentials, hostnames, and ports are stripped and replaced with a generic 500 error (`"A database error occurred while processing your request. Please try again later."`).
+  - Unhandled 500 `Throwable`s return clean generic error responses, preventing stack traces, file paths, or line numbers from reaching clients even when `APP_DEBUG=true`.
+  - Detailed exception traces are recorded securely on the server via `laravel.log`.
+- **Frontend Heuristic Sanitizer (`Frontend/src/utils/error.ts`):**
+  - The client runs a heuristic detector (`isTechnicalMessage`) checking for SQL keywords, framework namespaces, and stack traces.
+  - If a technical message or 500 status is received, the UI renders only sanitized, human-friendly fallbacks while routing the full technical error object to `console.error` for developer inspection.
+  - Form validation errors (422) and safe domain status messages (401, 403, 404, 409) are preserved for legitimate user feedback.
+- See [ERROR_HANDLING.md](ERROR_HANDLING.md) for the full convention and code examples.
+
 ## Deferred Integration Security Requirements
 
 - **AI support:** External models must never receive passwords, bearer tokens, attachments, or unredacted personal data. AI tools must be read-only and allowlisted; all workflow changes remain human-authorized API actions. Human escalation transcripts require role-scoped access and retention rules.

@@ -24,6 +24,22 @@ class RequestResource extends JsonResource
             'id'                       => $this->id,
             'request_type_id'          => $this->request_type_id,
             'request_type'             => $this->whenLoaded('requestType', fn () => $this->requestType->name),
+            'available_tiers'          => $this->whenLoaded('requestType', function () {
+                return $this->requestType->relationLoaded('activeTiers')
+                    ? $this->requestType->activeTiers->map(fn ($tier) => [
+                        'id'              => $tier->id,
+                        'request_type_id' => $tier->request_type_id,
+                        'code'            => $tier->code,
+                        'name'            => $tier->name,
+                        'description'     => $tier->description,
+                        'fee_amount'      => $tier->fee_amount,
+                        'currency'        => $tier->currency,
+                        'turnaround_days' => $tier->turnaround_days,
+                        'priority'        => $tier->priority,
+                        'is_active'       => $tier->is_active,
+                    ])->values()->all()
+                    : null;
+            }),
             'request_type_tier_id'     => $this->request_type_tier_id,
             'pending_upgrade_tier_id' => $this->pending_upgrade_tier_id,
             'tier_name'                => $this->tier_name_snapshot,

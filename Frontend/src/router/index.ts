@@ -10,7 +10,7 @@ import SuperAdminView from '@/views/SuperAdminView.vue'
 function homePathForUser(): string {
   const { user } = useAuth()
   const u = user.value
-  if (!u) return '/login'
+  if (!u || typeof u !== 'object') return '/login'
   if (u.role === 'student') return '/student'
   if (u.role === 'staff') {
     const level = u.staff_profile?.admin_level
@@ -154,7 +154,11 @@ router.beforeEach((to, _from, next) => {
   const u = user.value
 
   if (to.meta.guest && authed) {
-    return next(homePathForUser())
+    const destination = homePathForUser()
+    if (destination === to.path || destination === '/login') {
+      return next()
+    }
+    return next(destination)
   }
 
   if (to.meta.requiresAuth && !authed) {
@@ -170,7 +174,7 @@ router.beforeEach((to, _from, next) => {
     if (!u || u.role !== 'staff') return next(homePathForUser())
     const need = to.meta.staffLevel as string
     const level = u.staff_profile?.admin_level
-    if (need === 'plain' && level !== null) return next(homePathForUser())
+    if (need === 'plain' && level != null) return next(homePathForUser())
     if (need === 'dept_admin' && level !== 'dept_admin')
       return next(homePathForUser())
     if (need === 'super_admin' && level !== 'super_admin')

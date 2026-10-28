@@ -12,6 +12,8 @@ defineProps<{
     | 'arrow'
     | 'shield'
     | 'check'
+    | 'chevron-left'
+    | 'chevron-right'
 }>()
 const paths = {
   home: 'm3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z',
@@ -26,7 +28,9 @@ const paths = {
     'M3 21h18M5 21V7l7-4 7 4v14M9 21v-4h6v4M9 8v2m6-2v2m-6 3h.01M15 13h.01',
   arrow: 'M5 12h14m-5-5 5 5-5 5',
   shield: 'm12 3 8 4v5c0 5-8 9-8 9s-8-4-8-9V7Zm-4 9 3 3 5-5',
-  check: 'm5 12 4 4L19 6'
+  check: 'm5 12 4 4L19 6',
+  'chevron-left': 'm15 19-7-7 7-7',
+  'chevron-right': 'm9 5 7 7-7 7'
 }
 </script>
 <template>

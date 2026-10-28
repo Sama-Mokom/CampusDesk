@@ -7,6 +7,7 @@ import {
 } from '@/services/notifications'
 import { useAuth } from '@/composables/useAuth'
 import { useRealtime } from '@/composables/useRealtime'
+import { parseApiError } from '@/utils/error'
 import { format } from 'date-fns'
 import SkeletonLoader from './ui/SkeletonLoader.vue'
 
@@ -40,8 +41,8 @@ async function load() {
   error.value = ''
   try {
     items.value = await fetchNotifications()
-  } catch {
-    error.value = 'Notifications could not be loaded.'
+  } catch (cause) {
+    error.value = parseApiError(cause, 'Notifications could not be loaded.')
   } finally {
     loading.value = false
   }

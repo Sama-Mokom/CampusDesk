@@ -1,10 +1,11 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { reactive, computed, ref, watch, onMounted } from 'vue'
 import axios from 'axios'
 import { useRouter } from 'vue-router'
 import type { StudentLevel, Faculty, Department, Programme } from '../types'
 import { register } from '../services/auth'
 import { useAuth } from '../composables/useAuth'
+import { parseApiError } from '@/utils/error'
 import {
   fetchDepartments,
   fetchFaculties,
@@ -97,13 +98,12 @@ async function onSubmit() {
     await router.replace('/student')
   } catch (err) {
     if (axios.isAxiosError(err) && err.response?.status === 422) {
-      error.value =
-        err.response.data.message || 'Please check the highlighted details.'
       fieldErrors.value = err.response.data.errors ?? {}
-    } else {
-      error.value =
-        'We could not create your account. Check your connection and try again.'
     }
+    error.value = parseApiError(
+      err,
+      'We could not create your account. Check your connection and try again.'
+    )
   } finally {
     busy.value = false
   }

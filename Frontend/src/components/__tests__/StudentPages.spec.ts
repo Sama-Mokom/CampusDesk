@@ -462,6 +462,76 @@ describe('Student pages and navigation', () => {
     )
   })
 
+  it('displays tier escalation options for rejected requests and submits an upgrade reopen', async () => {
+    const normalTier = {
+      id: 1,
+      code: 'normal',
+      name: 'Normal Mode',
+      fee_amount: 1000,
+      currency: 'XAF',
+      turnaround_days: 14,
+      priority: 1
+    }
+    const fastTier = {
+      id: 2,
+      code: 'fast',
+      name: 'Fast Mode',
+      fee_amount: 2500,
+      currency: 'XAF',
+      turnaround_days: 5,
+      priority: 2
+    }
+    const superFastTier = {
+      id: 3,
+      code: 'super_fast',
+      name: 'Super Fast Mode',
+      fee_amount: 5000,
+      currency: 'XAF',
+      turnaround_days: 1,
+      priority: 3
+    }
+
+    vi.mocked(fetchRequestById).mockResolvedValue({
+      ...request,
+      status: 'rejected',
+      request_type_tier_id: 1,
+      tier_name: 'Normal Mode',
+      tier_priority: 1,
+      fee_amount: 1000,
+      amount_paid: 1000,
+      available_tiers: [normalTier, fastTier, superFastTier]
+    })
+
+    vi.mocked(reopenRequest).mockResolvedValue({
+      ...request,
+      status: 'awaiting_payment',
+      is_reopened: true,
+      request_type_tier_id: 1,
+      pending_upgrade_tier_id: 3,
+      amount_paid: 1000,
+      fee_amount: 1000,
+      amount_due: 4000,
+      tier_name: 'Normal Mode',
+      pending_upgrade_tier: superFastTier,
+      available_tiers: [normalTier, fastTier, superFastTier]
+    })
+
+    const { wrapper } = await renderPage('/student/requests/42')
+
+    expect(wrapper.get('[data-testid="reopen-request"]').text()).toBe('Reopen request')
+    expect(wrapper.text()).toContain('Fast Mode')
+    expect(wrapper.text()).toContain('Super Fast Mode')
+    expect(wrapper.text()).toContain('+1,500 XAF')
+    expect(wrapper.text()).toContain('+4,000 XAF')
+
+    await wrapper.get('[data-testid="reopen-upgrade-3"]').trigger('click')
+    await flushPromises()
+
+    expect(reopenRequest).toHaveBeenCalledWith(42, { request_type_tier_id: 3 })
+    expect(wrapper.text()).toContain('Request reopened with upgrade to Super Fast Mode. Please complete payment below.')
+    expect(wrapper.findComponent({ name: 'StudentPaymentPanel' }).exists()).toBe(true)
+  })
+
   it('marks ready requests collected once and updates their server status', async () => {
     vi.mocked(fetchRequestById).mockResolvedValue({
       ...request,

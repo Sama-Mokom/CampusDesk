@@ -1,21 +1,11 @@
 import { computed, getCurrentScope, onScopeDispose, ref } from 'vue'
-import axios from 'axios'
 import { fetchRequests } from '@/services/requests'
+import { parseApiError } from '@/utils/error'
 import { useRealtime } from './useRealtime'
 import type { Request as DocumentRequest } from '@/types'
 
 export function studentApiMessage(cause: unknown, fallback: string): string {
-  if (
-    axios.isAxiosError<{ message?: string; errors?: Record<string, string[]> }>(
-      cause
-    )
-  ) {
-    const data = cause.response?.data
-    return data?.errors
-      ? Object.values(data.errors).flat().join(' ')
-      : (data?.message ?? fallback)
-  }
-  return fallback
+  return parseApiError(cause, fallback)
 }
 
 /** Each mounted page owns its records; no student data survives the page/session. */
