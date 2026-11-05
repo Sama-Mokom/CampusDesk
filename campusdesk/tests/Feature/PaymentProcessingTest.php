@@ -240,4 +240,39 @@ class PaymentProcessingTest extends TestCase
         $verifyRes->assertJsonPath('data.request.status', 'awaiting_payment');
         $verifyRes->assertJsonPath('data.request.amount_paid', 0);
     }
+
+    public function test_payment_previously_failed_can_recover_if_gateway_confirms_success(): void
+    {
+        $initRes = $this->actingAs($this->student, 'sanctum')->postJson("/api/requests/{$this->docRequest->id}/payments", [
+            'checkout_mode' => 'hosted',
+        ]);
+        $paymentId = $initRes->json('data.id');
+        $externalId = $initRes->json('data.external_id');
+
+        // First verification reports failure
+        FakePaymentGateway::setSimulatedOutcome($externalId, 'failed', 'Temporary network failure');
+        $failRes = $this->actingAs($this->student, 'sanctum')->postJson(
+            "/api/requests/{$this->docRequest->id}/payments/{$paymentId}/verify"
+        );
+        $failRes->assertOk();
+        $failRes->assertJsonPath('data.payment.status', 'failed');
+        $this->assertSame('awaiting_payment', $this->docRequest->fresh()->status);
+
+        // Student retries on portal and gateway confirms success
+        FakePaymentGateway::setSimulatedOutcome($externalId, 'successful');
+        $successRes = $this->actingAs($this->student, 'sanctum')->postJson(
+            "/api/requests/{$this->docRequest->id}/payments/{$paymentId}/verify"
+        );
+        $successRes->assertOk();
+        $successRes->assertJsonPath('data.payment.status', 'successful');
+        $this->assertSame('pending', $this->docRequest->fresh()->status);
+        $this->assertSame(2500, $this->docRequest->fresh()->amount_paid);
+
+        // Subsequent check remains idempotent and does not double-credit
+        $duplicateRes = $this->actingAs($this->student, 'sanctum')->postJson(
+            "/api/requests/{$this->docRequest->id}/payments/{$paymentId}/verify"
+        );
+        $duplicateRes->assertOk();
+        $this->assertSame(2500, $this->docRequest->fresh()->amount_paid);
+    }
 }

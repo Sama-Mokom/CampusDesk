@@ -192,56 +192,58 @@ class PaymentService
                     'raw_last_payload' => $res['raw'] ?? null,
                 ]);
 
-                if ($lockedPayment->payment_type === 'reopen_upgrade' && $lockedRequest->pending_upgrade_tier_id) {
-                    $newTier = RequestTypeTier::findOrFail($lockedRequest->pending_upgrade_tier_id);
+                if ($lockedRequest->status === DocumentRequest::STATUS_AWAITING_PAYMENT) {
+                    if ($lockedPayment->payment_type === 'reopen_upgrade' && $lockedRequest->pending_upgrade_tier_id) {
+                        $newTier = RequestTypeTier::findOrFail($lockedRequest->pending_upgrade_tier_id);
 
-                    $lockedRequest->requestStages()
-                        ->where('status', 'rejected')
-                        ->update(['status' => 'pending', 'handled_by' => null]);
+                        $lockedRequest->requestStages()
+                            ->where('status', 'rejected')
+                            ->update(['status' => 'pending', 'handled_by' => null]);
 
-                    $lockedRequest->update([
-                        'request_type_tier_id'     => $newTier->id,
-                        'pending_upgrade_tier_id' => null,
-                        'tier_name_snapshot'       => $newTier->name,
-                        'fee_amount'               => $newTier->fee_amount,
-                        'turnaround_days_snapshot' => $newTier->turnaround_days,
-                        'tier_priority'            => $newTier->priority,
-                        'amount_paid'              => $lockedRequest->amount_paid + $lockedPayment->amount,
-                        'paid_at'                  => now(),
-                        'target_ready_at'          => now()->addDays($newTier->turnaround_days),
-                        'status'                   => DocumentRequest::STATUS_PENDING,
-                        'is_reopened'              => true,
-                    ]);
+                        $lockedRequest->update([
+                            'request_type_tier_id'     => $newTier->id,
+                            'pending_upgrade_tier_id' => null,
+                            'tier_name_snapshot'       => $newTier->name,
+                            'fee_amount'               => $newTier->fee_amount,
+                            'turnaround_days_snapshot' => $newTier->turnaround_days,
+                            'tier_priority'            => $newTier->priority,
+                            'amount_paid'              => $lockedRequest->amount_paid + $lockedPayment->amount,
+                            'paid_at'                  => now(),
+                            'target_ready_at'          => now()->addDays($newTier->turnaround_days),
+                            'status'                   => DocumentRequest::STATUS_PENDING,
+                            'is_reopened'              => true,
+                        ]);
 
-                    $lockedRequest->statusHistories()->create([
-                        'old_status' => DocumentRequest::STATUS_AWAITING_PAYMENT,
-                        'new_status' => DocumentRequest::STATUS_PENDING,
-                        'changed_by' => $lockedRequest->student_id,
-                        'note'       => "Tier upgraded to {$newTier->name} and fee confirmed ({$lockedPayment->amount} XAF via {$lockedPayment->provider}). Request returned to queue.",
-                    ]);
+                        $lockedRequest->statusHistories()->create([
+                            'old_status' => DocumentRequest::STATUS_AWAITING_PAYMENT,
+                            'new_status' => DocumentRequest::STATUS_PENDING,
+                            'changed_by' => $lockedRequest->student_id,
+                            'note'       => "Tier upgraded to {$newTier->name} and fee confirmed ({$lockedPayment->amount} XAF via {$lockedPayment->provider}). Request returned to queue.",
+                        ]);
 
-                    $this->events->recordRequestStatusChanged($lockedRequest);
-                    $this->notifications->notifyStudent($lockedRequest, 'pending');
-                } else {
-                    $lockedRequest->update([
-                        'amount_paid'     => $lockedRequest->amount_paid + $lockedPayment->amount,
-                        'paid_at'         => now(),
-                        'target_ready_at' => now()->addDays($lockedRequest->turnaround_days_snapshot),
-                        'status'          => DocumentRequest::STATUS_PENDING,
-                    ]);
+                        $this->events->recordRequestStatusChanged($lockedRequest);
+                        $this->notifications->notifyStudent($lockedRequest, 'pending');
+                    } else {
+                        $lockedRequest->update([
+                            'amount_paid'     => $lockedRequest->amount_paid + $lockedPayment->amount,
+                            'paid_at'         => now(),
+                            'target_ready_at' => now()->addDays($lockedRequest->turnaround_days_snapshot),
+                            'status'          => DocumentRequest::STATUS_PENDING,
+                        ]);
 
-                    $lockedRequest->statusHistories()->create([
-                        'old_status' => DocumentRequest::STATUS_AWAITING_PAYMENT,
-                        'new_status' => DocumentRequest::STATUS_PENDING,
-                        'changed_by' => $lockedRequest->student_id,
-                        'note'       => "Processing fee paid ({$lockedPayment->amount} XAF via {$lockedPayment->provider}). Request entered queue.",
-                    ]);
+                        $lockedRequest->statusHistories()->create([
+                            'old_status' => DocumentRequest::STATUS_AWAITING_PAYMENT,
+                            'new_status' => DocumentRequest::STATUS_PENDING,
+                            'changed_by' => $lockedRequest->student_id,
+                            'note'       => "Processing fee paid ({$lockedPayment->amount} XAF via {$lockedPayment->provider}). Request entered queue.",
+                        ]);
 
-                    $firstDepartmentId = $lockedRequest->requestStages()->orderBy('sequence_order')->value('department_id');
-                    if ($firstDepartmentId) {
-                        $this->events->recordRequestCreated($lockedRequest, $firstDepartmentId);
+                        $firstDepartmentId = $lockedRequest->requestStages()->orderBy('sequence_order')->value('department_id');
+                        if ($firstDepartmentId) {
+                            $this->events->recordRequestCreated($lockedRequest, $firstDepartmentId);
+                        }
+                        $this->notifications->notifyStudent($lockedRequest, 'pending');
                     }
-                    $this->notifications->notifyStudent($lockedRequest, 'pending');
                 }
             } elseif (in_array($res['status'], [Payment::STATUS_FAILED, Payment::STATUS_EXPIRED, Payment::STATUS_CANCELLED], true)) {
                 $lockedPayment->update([
