@@ -1,17 +1,17 @@
 # CampusDesk — Database Documentation
 
-**Last reviewed:** 21 October 2026
+**Last reviewed:** 5 November 2026
 
 ## Super Admin data integrity
 
-The dashboard uses the existing faculty, department, programme, request type, user/profile, request, stage, and `status_history` tables. Programme `faculty_id` derives from its department. Staff memberships use `department_staff`, with one primary membership selected through the admin API. Referenced records are checked before deletion and return HTTP 409. `status_history` records request and stage transitions only. `administrative_actions` records high-privilege administrative mutations (user enable/disable, curriculum updates, staff assignment changes), while `request_events` serves as the transactional outbox table for reliable real-time push notification delivery and cache invalidation.
+The dashboard uses the existing faculty, department, programme, request type, request type tier, user/profile, request, stage, payment, and `status_history` tables. Programme `faculty_id` derives from its department. Staff memberships use `department_staff`, with one primary membership selected through the admin API. Referenced records are checked before deletion and return HTTP 409. `status_history` records request and stage transitions only. `administrative_actions` records high-privilege administrative mutations (user enable/disable, curriculum updates, staff assignment changes), while `request_events` serves as the transactional outbox table for reliable real-time push notification delivery and cache invalidation. Service tiers (`request_type_tiers`) and Mobile Money payments (`payments`) gate request queue admission through the `awaiting_payment` lifecycle state.
 
 ## Technology
 
 - **Database:** MySQL (via XAMPP locally; MySQL 8.4 in Docker / staging)
 - **ORM:** Laravel Eloquent
 - **Charset:** `utf8mb4` / `utf8mb4_unicode_ci`
-- **Migrations:** 33 migration files in `database/migrations/`
+- **Migrations:** 37 migration files in `database/migrations/`
 
 ## Entity Relationship Diagram
 
@@ -39,6 +39,7 @@ erDiagram
         string name
         string code
         enum degree_type
+        timestamps created_at
         unique code_department_id_degree_type
     }
     USERS {
@@ -55,6 +56,7 @@ erDiagram
         bigint user_id FK
         bigint faculty_id FK
         bigint department_id FK
+        bigint programme_id FK
         string matricule UK
         enum level
         enum status
@@ -72,6 +74,7 @@ erDiagram
         bigint staff_profile_id FK
         bigint department_id FK
         boolean is_primary
+        timestamps created_at
         unique staff_profile_id_department_id
     }
     REQUEST_TYPES {
@@ -81,14 +84,62 @@ erDiagram
         json default_department_sequence
         timestamps created_at
     }
+    REQUEST_TYPE_TIERS {
+        bigint id PK
+        bigint request_type_id FK
+        string code
+        string name
+        text description
+        unsignedBigInteger fee_amount
+        string currency
+        unsignedSmallInteger turnaround_days
+        unsignedTinyInteger priority
+        boolean is_active
+        unsignedTinyInteger sort_order
+        timestamps created_at
+        unique request_type_id_code
+    }
     REQUESTS {
         bigint id PK
         bigint student_id FK
         bigint request_type_id FK
+        bigint request_type_tier_id FK
+        bigint pending_upgrade_tier_id FK
+        string tier_name_snapshot
+        unsignedBigInteger fee_amount
+        unsignedBigInteger amount_paid
+        string currency
+        unsignedSmallInteger turnaround_days_snapshot
+        unsignedTinyInteger tier_priority
+        timestamp paid_at
+        timestamp target_ready_at
         text description
         enum status
         boolean is_reopened
         timestamps created_at
+    }
+    PAYMENTS {
+        bigint id PK
+        bigint request_id FK
+        bigint request_type_tier_id FK
+        string external_id UK
+        string provider
+        string provider_transaction_id
+        string payment_type
+        string checkout_mode
+        string payment_method
+        string payer_phone
+        unsignedBigInteger amount
+        string currency
+        string status
+        text checkout_url
+        string failure_reason
+        json raw_last_payload
+        timestamp initiated_at
+        timestamp completed_at
+        timestamp expires_at
+        timestamps created_at
+        unique provider_provider_transaction_id
     }
     REQUEST_STAGES {
         bigint id PK
@@ -108,6 +159,7 @@ erDiagram
         string new_status
         bigint changed_by FK
         text note
+        timestamp changed_at
         timestamps created_at
     }
     ATTACHMENTS {
@@ -166,6 +218,7 @@ erDiagram
 
     FACULTIES ||--o{ DEPARTMENTS : "has"
     FACULTIES ||--o{ PROGRAMMES : "offers"
+    DEPARTMENTS ||--o{ PROGRAMMES : "has"
     USERS ||--o| STUDENT_PROFILES : "has"
     USERS ||--o| STAFF_PROFILES : "has"
     STUDENT_PROFILES }o--|| FACULTIES : "belongs to"
@@ -173,9 +226,14 @@ erDiagram
     STUDENT_PROFILES }o--|| PROGRAMMES : "enrolled in"
     STAFF_PROFILES ||--o{ DEPARTMENT_STAFF : "assigned via"
     DEPARTMENTS ||--o{ DEPARTMENT_STAFF : "has staff via"
+    REQUEST_TYPES ||--o{ REQUEST_TYPE_TIERS : "offers"
     REQUEST_TYPES ||--o{ REQUESTS : "categorises"
+    REQUEST_TYPE_TIERS ||--o{ REQUESTS : "selected tier"
+    REQUEST_TYPE_TIERS ||--o{ REQUESTS : "upgrade tier"
     USERS ||--o{ REQUESTS : "submits"
     REQUESTS ||--|{ REQUEST_STAGES : "has stages"
+    REQUESTS ||--o{ PAYMENTS : "has payments"
+    REQUEST_TYPE_TIERS ||--o{ PAYMENTS : "priced at"
     DEPARTMENTS ||--o{ REQUEST_STAGES : "handles"
     USERS ||--o| REQUEST_STAGES : "handles_by"
     REQUESTS ||--o{ ATTACHMENTS : "has"
@@ -187,7 +245,6 @@ erDiagram
     USERS ||--o{ STAGE_REASSIGNMENTS : "previous handler"
     USERS ||--o{ STAGE_REASSIGNMENTS : "new handler"
     USERS ||--o{ STAGE_REASSIGNMENTS : "administrator actor"
-    DEPARTMENTS ||--o{ PROGRAMMES : "has"
     USERS ||--o{ ADMINISTRATIVE_ACTIONS : "actor"
     REQUESTS ||--o{ REQUEST_EVENTS : "outbox events"
 ```
@@ -226,6 +283,7 @@ erDiagram
 | name | string | e.g. "BEng Computer Engineering" |
 | code | string(20) | Unique per (code, department_id, degree_type) — see compound unique below |
 | degree_type | enum | `BACHELOR` \| `CERTIFICATE` \| `MASTER` \| `PHD` |
+| created_at / updated_at | timestamps | |
 
 **Unique constraint:** `(code, department_id, degree_type)` — compound key introduced in migration `2026_07_27_000004`. Earlier migrations used a single-column `code` unique, then `(code, department_id)` — both were too restrictive for UB's programme data.
 
@@ -240,7 +298,7 @@ erDiagram
 | name | string | |
 | email | string UK | |
 | password | string | hashed |
-| role | enum | `student` \| `staff` |
+| role | enum | `student` \| `staff` (default: `student`) |
 | email_verified_at | timestamp nullable | |
 | remember_token | string nullable | |
 | disabled_at | timestamp nullable | index; null = active, timestamp = disabled (added `2026_10_08_000001`) |
@@ -285,9 +343,10 @@ erDiagram
 | staff_profile_id | bigint FK | → staff_profiles.id, cascadeOnDelete |
 | department_id | bigint FK | → departments.id, cascadeOnDelete |
 | is_primary | boolean | default false — drives default queue view |
+| created_at / updated_at | timestamps | standard Laravel timestamps |
 | UNIQUE | (staff_profile_id, department_id) | prevents duplicate assignments |
 
-**Note:** This table has NO `created_at`/`updated_at` columns. Do NOT call `withTimestamps()` on the relationship — it will cause `attach()` to fail.
+**Relationship configuration:** `department_staff` includes `created_at` and `updated_at` columns generated by migration `2026_04_10_072013_create_department_staff_table`. The relationship in `Department.php` declares `->withTimestamps()` and `->withPivot('is_primary')`.
 
 **Seeder behaviour:** Every department is guaranteed exactly one primary staff member. Remaining staff pool members are assigned as secondary to random departments.
 
@@ -308,16 +367,77 @@ erDiagram
 
 **Symbolic token resolution:** Tokens are resolved per-student at request-creation time. `"STUDENT_DEPARTMENT"` → student's department. `"FACULTY_RECORDS"` → the `records`-type department in the student's faculty. See DECISIONS.md ADR-07 and `app/Services/StageGenerationService.php`.
 
+### `request_type_tiers`
+| Column | Type | Notes |
+|--------|------|-------|
+| id | bigint PK | auto-increment |
+| request_type_id | bigint FK | → request_types.id, cascadeOnDelete |
+| code | string(50) | e.g. `normal`, `fast`, `super_fast`, `standard` |
+| name | string(100) | e.g. `Normal Mode`, `Fast Mode`, `Super Fast Mode`, `Standard` |
+| description | text nullable | user-facing summary of speed and SLA guarantees |
+| fee_amount | unsignedBigInteger | processing fee in whole XAF (e.g. 1000, 2000, 5000) |
+| currency | string(3) | default `XAF` |
+| turnaround_days | unsignedSmallInteger | target turnaround period in calendar days |
+| priority | unsignedTinyInteger | queue priority (1 = standard, 2 = fast, 3 = super fast; default: 1) |
+| is_active | boolean | default true — enables/disables tier from student selection |
+| sort_order | unsignedTinyInteger | default 1 — display ordering in student selection cards |
+| created_at / updated_at | timestamps | |
+
+**Unique constraint:** `['request_type_id', 'code']` ensures tier codes are unique per request type. Introduced in migration `2026_10_23_000001_create_request_type_tiers_table`. Seeded across all request types in `RequestTypeSeeder`.
+
 ### `requests`
 | Column | Type | Notes |
 |--------|------|-------|
 | id | bigint PK | |
 | student_id | bigint FK | → users.id, cascadeOnDelete |
 | request_type_id | bigint FK | → request_types.id, cascadeOnDelete |
+| request_type_tier_id | bigint FK nullable | → request_type_tiers.id, nullOnDelete (active processing tier) |
+| pending_upgrade_tier_id | bigint FK nullable | → request_type_tiers.id, nullOnDelete (upgrade tier awaiting payment) |
+| tier_name_snapshot | string(100) | default `'Standard'` — immutable tier name captured at creation |
+| fee_amount | unsignedBigInteger | default `0` — snapshot tier processing fee in whole XAF |
+| amount_paid | unsignedBigInteger | default `0` — cumulative fee amount successfully settled |
+| currency | string(3) | default `'XAF'` |
+| turnaround_days_snapshot | unsignedSmallInteger | default `3` — snapshot turnaround duration in days |
+| tier_priority | unsignedTinyInteger | default `2` — priority rank driving queue ordering |
+| paid_at | timestamp nullable | timestamp when initial processing fee was verified |
+| target_ready_at | timestamp nullable | estimated completion timestamp (`paid_at + turnaround_days`) |
 | description | text nullable | |
-| status | enum | `draft` \| `pending` \| `in_review` \| `forwarded` \| `ready` \| `collected` \| `rejected` (default: pending) |
+| status | enum | `draft` \| `awaiting_payment` \| `pending` \| `in_review` \| `forwarded` \| `ready` \| `collected` \| `rejected` (default: `awaiting_payment`) |
 | is_reopened | boolean | default false — set true when student reopens rejected request |
 | created_at / updated_at | timestamps | |
+
+**Composite index:** `requests_queue_priority_idx` on `['status', 'tier_priority', 'created_at']` introduced in migration `2026_10_23_000002` to optimize staff queue ordering.
+**Lifecycle modifications:** `pending_upgrade_tier_id` and the `awaiting_payment` enum value and default were introduced in migration `2026_10_23_000003`. Unpaid requests (`awaiting_payment`) are withheld from staff claim queues until payment verification completes.
+
+### `payments`
+| Column | Type | Notes |
+|--------|------|-------|
+| id | bigint PK | auto-increment |
+| request_id | bigint FK | → requests.id, cascadeOnDelete |
+| request_type_tier_id | bigint FK | → request_type_tiers.id, cascadeOnDelete |
+| external_id | string(36) UK | unique ULID token exposed to clients and payment gateways |
+| provider | string(30) | payment gateway key (e.g. `fake`, `fapshi`, `notchpay`; default: `fake`) |
+| provider_transaction_id | string(100) nullable | gateway-assigned transaction or reference identifier |
+| payment_type | string(30) | `initial` \| `reopen_upgrade` (default: `initial`) |
+| checkout_mode | string(30) | `hosted` \| `direct_push` (default: `hosted`) |
+| payment_method | string(30) nullable | `mtn_momo` \| `orange_money` (for direct push mode) |
+| payer_phone | string(20) nullable | mobile money phone number used for payment push |
+| amount | unsignedBigInteger | fee amount in whole XAF |
+| currency | string(3) | default `XAF` |
+| status | string(30) | `pending` \| `processing` \| `successful` \| `failed` \| `expired` \| `cancelled` (default: `pending`) |
+| checkout_url | text nullable | hosted checkout redirect URL returned by gateway |
+| failure_reason | string(255) nullable | failure or cancellation explanation provided by provider |
+| raw_last_payload | json nullable | raw gateway response or webhook payload for debugging |
+| initiated_at | timestamp | defaults to `useCurrent()` |
+| completed_at | timestamp nullable | timestamp of terminal status resolution |
+| expires_at | timestamp nullable | session expiration deadline (typically 30 minutes) |
+| created_at / updated_at | timestamps | |
+
+**Constraints & Indexes:**
+- Unique: `['provider', 'provider_transaction_id']` prevents duplicate transaction recordings per provider.
+- Composite index: `['request_id', 'status']` for efficient payment lookup and reconciliation per request.
+- Composite index: `['status', 'initiated_at']` for background reconciliation commands (`ReconcilePendingPaymentsCommand`).
+- Created in migration `2026_10_23_000004_create_payments_table`.
 
 ### `request_stages`
 | Column | Type | Notes |
@@ -357,6 +477,7 @@ Each successful reassignment writes exactly one row in the same transaction as t
 | new_status | string | |
 | changed_by | bigint FK nullable | → **users.id**, nullOnDelete |
 | note | text nullable | |
+| changed_at | timestamp | defaults to `useCurrent()` — exact timestamp of the status transition |
 | created_at / updated_at | timestamps | |
 
 **Audit actor convention:** `changed_by` references `users.id`. Stage transitions are written by `RequestStageObserver`, using the authenticated user when available; parent-request transitions are written by the request-stage controller. Initial submission remains system-authored (`changed_by: null`).
@@ -442,13 +563,15 @@ protected $table = 'department_staff';  // NOT 'department_staffs'
 
 ```mermaid
 stateDiagram-v2
-    [*] --> pending : student submits
+    [*] --> awaiting_payment : student submits request
+    awaiting_payment --> pending : fee paid & confirmed via webhook/verification
     pending --> in_review : staff claims first stage
     in_review --> forwarded : stage approved,\nmore stages remain
     forwarded --> in_review : next staff claims
     in_review --> ready : final stage approved
     in_review --> rejected : stage rejected
-    rejected --> pending : student or super admin reopens\n(is_reopened=true,\nrejected stage reset and requeued)
+    rejected --> awaiting_payment : student reopens with tier upgrade\n(awaits upgrade top-up fee)
+    rejected --> pending : student or super admin reopens\nwithout tier upgrade\n(is_reopened=true,\nrejected stage reset and requeued)
     ready --> collected : student marks collected
     collected --> [*]
 ```
@@ -479,7 +602,7 @@ stateDiagram-v2
     resolved --> [*]
 ```
 
-## Migration History (33 migrations)
+## Migration History (37 migrations)
 
 | File | Purpose |
 |------|---------|
@@ -516,6 +639,10 @@ stateDiagram-v2
 | `2026_10_14_000001_create_request_events_table` | creates transactional outbox table for domain events |
 | `2026_10_14_000002_add_delivery_tracking_to_request_events_table` | adds attempt_count, last_attempt_at, published_at, last_error |
 | `2026_10_16_000001_add_failed_at_to_request_events_table` | adds `failed_at` timestamp to `request_events` |
+| `2026_10_23_000001_create_request_type_tiers_table` | creates request_type_tiers table for service tiers and fees |
+| `2026_10_23_000002_add_tier_snapshot_columns_to_requests_table` | adds tier snapshot columns, fee/payment fields, SLA dates, and queue priority index to requests |
+| `2026_10_23_000003_add_awaiting_payment_and_upgrade_tier_to_requests_table` | adds pending_upgrade_tier_id to requests and updates status enum with awaiting_payment as default |
+| `2026_10_23_000004_create_payments_table` | creates payments table for Mobile Money (MTN/Orange) payment transactions |
 
 ## Seeder Data
 
@@ -527,8 +654,8 @@ The `DatabaseSeeder` calls in dependency order:
 4. `StaffSeeder(80)` — 80 staff users with auto-generated profiles
 5. `StudentSeeder(10/dept)` — 10 students per academic department
 6. `DepartmentStaffSeeder` — assigns staff to departments; primary → `dept_admin`
-7. `RequestTypeSeeder` — 4 request types with symbolic sequences
-8. `RequestSeeder(24)` — creates request graphs and advances fixtures across all six lifecycle states
+7. `RequestTypeSeeder` — 4 request types with symbolic sequences and configured tiers (`request_type_tiers`)
+8. `RequestSeeder(24)` — creates base request graphs and advances fixtures across all lifecycle states via `SeedRequestProgressionService` (including simulated payment settlement)
 9. `AttachmentSeeder` — creates private-storage attachment fixtures
 10. `NotificationSeeder` — creates in-app demonstration notifications
 
