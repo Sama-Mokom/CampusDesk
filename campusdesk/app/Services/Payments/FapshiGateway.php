@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class FapshiGateway implements PaymentGatewayInterface
 {
@@ -31,12 +32,13 @@ class FapshiGateway implements PaymentGatewayInterface
     public function initiateHosted(Payment $payment, User $student): array
     {
         $url = "{$this->baseUrl}/initiate-pay";
+        $frontendUrl = rtrim((string) config('app.frontend_url', 'http://localhost:5173'), '/');
         $payload = [
             'amount'      => (int) $payment->amount,
             'email'       => $student->email,
             'userId'      => (string) $student->id,
             'externalId'  => $payment->external_id,
-            'redirectUrl' => url("/student/requests/{$payment->request_id}"),
+            'redirectUrl' => "{$frontendUrl}/student/requests/{$payment->request_id}",
             'message'     => "Processing fee for Request #{$payment->request_id}",
         ];
 
@@ -60,7 +62,7 @@ class FapshiGateway implements PaymentGatewayInterface
 
         if (! $response->successful() || empty($json['link'])) {
             $msg = $json['message'] ?? 'Failed to initiate Fapshi payment.';
-            throw new RuntimeException("Fapshi initiateHosted error: {$msg}");
+            throw new HttpException(422, "Fapshi error: {$msg}");
         }
 
         return [
@@ -79,10 +81,16 @@ class FapshiGateway implements PaymentGatewayInterface
         $url = "{$this->baseUrl}/direct-pay";
         $cleanPhone = preg_replace('/\D/', '', $phone) ?? '';
 
+        $medium = match ($method) {
+            'orange_money' => 'orange money',
+            default        => 'mobile money',
+        };
+
         $payload = [
             'amount'     => (int) $payment->amount,
             'phone'      => $cleanPhone,
-            'medium'     => 'mobile_money',
+            'medium'     => $medium,
+            'email'      => $student->email,
             'userId'     => (string) $student->id,
             'externalId' => $payment->external_id,
             'message'    => "Processing fee for Request #{$payment->request_id}",
@@ -93,6 +101,7 @@ class FapshiGateway implements PaymentGatewayInterface
             'external_id' => $payment->external_id,
             'endpoint'    => $url,
             'phone'       => substr($cleanPhone, 0, 4) . '***',
+            'medium'      => $medium,
         ]);
 
         $response = Http::withHeaders($this->authHeaders())
@@ -108,7 +117,7 @@ class FapshiGateway implements PaymentGatewayInterface
 
         if (! $response->successful()) {
             $msg = $json['message'] ?? 'Failed to initiate Fapshi direct push.';
-            throw new RuntimeException("Fapshi initiateDirectPush error: {$msg}");
+            throw new HttpException(422, "Fapshi error: {$msg}");
         }
 
         return [

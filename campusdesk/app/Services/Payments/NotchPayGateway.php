@@ -31,12 +31,13 @@ class NotchPayGateway implements PaymentGatewayInterface
     public function initiateHosted(Payment $payment, User $student): array
     {
         $url = "{$this->baseUrl}/payments/initialize";
+        $frontendUrl = rtrim((string) config('app.frontend_url', 'http://localhost:5173'), '/');
         $payload = [
             'amount'      => (int) $payment->amount,
             'currency'    => 'XAF',
             'email'       => $student->email,
             'reference'   => $payment->external_id,
-            'callback'    => url("/student/requests/{$payment->request_id}"),
+            'callback'    => "{$frontendUrl}/student/requests/{$payment->request_id}",
             'description' => "Processing fee for Request #{$payment->request_id}",
         ];
 

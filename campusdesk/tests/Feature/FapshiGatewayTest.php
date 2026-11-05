@@ -180,6 +180,7 @@ class FapshiGatewayTest extends TestCase
             return $request->url() === 'https://sandbox.fapshi.com/direct-pay'
                 && $request['amount'] === 1000
                 && $request['phone'] === '237670000001'
+                && $request['medium'] === 'mobile money'
                 && $request['externalId'] === 'PAY_FAPSHI_PUSH_01';
         });
 
