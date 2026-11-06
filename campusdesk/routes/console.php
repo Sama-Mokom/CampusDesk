@@ -12,3 +12,8 @@ Schedule::command('realtime:reconcile')
     ->everyMinute()
     ->withoutOverlapping();
 
+Schedule::command('payments:reconcile-pending')
+    ->everyFiveMinutes()
+    ->withoutOverlapping();
+
+

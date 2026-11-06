@@ -142,9 +142,9 @@
           You will be redirected to the secure payment portal to complete payment with your MTN Mobile Money or Orange Money account.
         </p>
 
-        <!-- Ready Link Banner if initiated -->
+        <!-- Ready Link Banner if initiated and active -->
         <div
-          v-if="currentPayment?.checkout_url"
+          v-if="currentPayment?.checkout_url && isPaymentActive"
           class="rounded-xl border border-sky-200 bg-sky-50 p-3.5 space-y-2 text-xs text-sky-900"
         >
           <div class="flex items-center gap-2 font-bold">
@@ -181,9 +181,18 @@
             :disabled="busy"
             @click="startHostedCheckout"
           >
-            {{ busy ? 'Redirecting…' : `Proceed to checkout (${formatXAF(amountDue)}) →` }}
+            {{ busy ? 'Redirecting…' : (currentPayment?.status === 'failed' ? `Retry payment (${formatXAF(amountDue)}) →` : `Proceed to checkout (${formatXAF(amountDue)}) →`) }}
           </button>
-          <span class="text-xs text-slate-500">Instant verification upon return</span>
+          <button
+            v-if="currentPayment?.status === 'failed'"
+            type="button"
+            class="text-xs text-slate-500 underline hover:text-slate-800"
+            :disabled="busy"
+            @click="checkStatus"
+          >
+            I already paid on the portal — Check status
+          </button>
+          <span v-else class="text-xs text-slate-500">Instant verification upon return</span>
         </div>
       </div>
 
@@ -237,7 +246,7 @@
 
         <!-- Waiting Indicator when Direct Push Prompt is Sent -->
         <div
-          v-if="pushActive"
+          v-if="pushActive && isPaymentActive"
           class="rounded-xl border border-sky-200 bg-sky-50 p-3.5 space-y-2 text-xs text-sky-900"
         >
           <div class="flex items-center gap-2 font-bold">
@@ -267,7 +276,7 @@
           :disabled="busy || !phoneNumber.trim()"
           @click="startDirectPush"
         >
-          {{ busy ? 'Sending prompt…' : `Send USSD push to phone (${formatXAF(amountDue)})` }}
+          {{ busy ? 'Sending prompt…' : (currentPayment?.status === 'failed' ? `Retry USSD push to phone (${formatXAF(amountDue)})` : `Send USSD push to phone (${formatXAF(amountDue)})`) }}
         </button>
       </div>
     </div>
@@ -307,7 +316,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import TierBadge, { formatXAF } from '@/components/TierBadge.vue'
 import { parseApiError } from '@/utils/error'
 import {
@@ -344,6 +353,20 @@ const errorMessage = ref('')
 const showTierSwitcher = ref(false)
 const pushActive = ref(false)
 const currentPayment = ref<Payment | null>(props.request.latest_payment ?? null)
+
+const isPaymentActive = computed(() => {
+  return (
+    currentPayment.value !== null &&
+    (currentPayment.value.status === 'pending' || currentPayment.value.status === 'processing')
+  )
+})
+
+watch(
+  () => props.request.latest_payment,
+  (latest) => {
+    currentPayment.value = latest ?? null
+  }
+)
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
 
@@ -469,6 +492,7 @@ async function checkStatus() {
       emit('updated', result.request)
     } else if (result.payment.status === 'failed') {
       stopPolling()
+      pushActive.value = false
       errorMessage.value = result.payment.failure_reason || 'Payment was declined or cancelled.'
     }
   } catch (err: unknown) {
@@ -517,6 +541,7 @@ function startPolling() {
           emit('updated', result.request)
         } else if (result.payment.status === 'failed') {
           stopPolling()
+          pushActive.value = false
           errorMessage.value = result.payment.failure_reason || 'Payment was declined.'
         }
       } catch {
@@ -534,7 +559,11 @@ function stopPolling() {
 }
 
 onMounted(() => {
-  if (props.request.latest_payment && (props.request.latest_payment.status === 'pending' || props.request.latest_payment.status === 'processing')) {
+  if (
+    props.request.latest_payment &&
+    (props.request.latest_payment.status === 'pending' || props.request.latest_payment.status === 'processing')
+  ) {
+    checkStatus()
     startPolling()
   }
 })

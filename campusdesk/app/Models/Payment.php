@@ -61,12 +61,7 @@ class Payment extends Model
 
     public function isTerminal(): bool
     {
-        return in_array($this->status, [
-            self::STATUS_SUCCESSFUL,
-            self::STATUS_FAILED,
-            self::STATUS_EXPIRED,
-            self::STATUS_CANCELLED,
-        ], true);
+        return $this->status === self::STATUS_SUCCESSFUL;
     }
 
     public function isSuccessful(): bool

@@ -80,6 +80,16 @@ services:
       REVERB_SERVER_PORT: "8085"
       REVERB_ALLOWED_ORIGINS: http://localhost:8080,http://127.0.0.1:8080
 
+      PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-fake}
+      FAKE_PAYMENT_AUTO_SUCCEED: ${FAKE_PAYMENT_AUTO_SUCCEED:-false}
+      FAPSHI_API_USER: ${FAPSHI_API_USER:-}
+      FAPSHI_API_KEY: ${FAPSHI_API_KEY:-}
+      FAPSHI_BASE_URL: ${FAPSHI_BASE_URL:-https://sandbox.fapshi.com}
+      FAPSHI_WEBHOOK_SECRET: ${FAPSHI_WEBHOOK_SECRET:-}
+      NOTCH_PUBLIC_KEY: ${NOTCH_PUBLIC_KEY:-}
+      NOTCH_PRIVATE_KEY: ${NOTCH_PRIVATE_KEY:-}
+      NOTCH_BASE_URL: ${NOTCH_BASE_URL:-https://api.notchpay.co}
+      NOTCH_WEBHOOK_SECRET: ${NOTCH_WEBHOOK_SECRET:-}
     volumes:
       - ./docker-data/attachments:/var/www/html/storage/app/private/attachments
 
