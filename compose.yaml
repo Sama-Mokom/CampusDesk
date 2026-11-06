@@ -164,6 +164,7 @@ services:
       context: ./Frontend
       args:
         VITE_API_URL: /api
+        VITE_REVERB_APP_KEY: ${REVERB_APP_KEY:-campusdesk-key}
 
     image: campusdesk-frontend:local
 

@@ -129,7 +129,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Build frontend image
-        run: docker build --build-arg VITE_API_URL=/api --tag campusdesk-frontend:ci ./Frontend
+        run: docker build --build-arg VITE_API_URL=/api --build-arg VITE_REVERB_APP_KEY=campusdesk-key --tag campusdesk-frontend:ci ./Frontend
 
   backend-publish:
     name: Publish backend image
@@ -273,6 +273,7 @@ jobs:
           IMAGE_URI="$REGISTRY/$REPOSITORY:$IMAGE_TAG"
           docker build \
             --build-arg VITE_API_URL=/api \
+            --build-arg VITE_REVERB_APP_KEY=campusdesk-key \
             --tag "$IMAGE_URI" \
             ./Frontend
           docker push "$IMAGE_URI"

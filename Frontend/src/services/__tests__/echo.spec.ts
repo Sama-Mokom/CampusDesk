@@ -23,6 +23,21 @@ describe('Echo Configuration and Sanctum Authorizer', () => {
     expect(typeof config.authorizer).toBe('function')
   })
 
+  it('falls back to "campusdesk-key" when appKey override is absent and env variable is missing or empty', () => {
+    const originalEnvKey = import.meta.env.VITE_REVERB_APP_KEY
+    try {
+      ;(import.meta.env as any).VITE_REVERB_APP_KEY = ''
+      const configEmpty = getEchoConfig()
+      expect(configEmpty.key).toBe('campusdesk-key')
+
+      delete (import.meta.env as any).VITE_REVERB_APP_KEY
+      const configUndefined = getEchoConfig()
+      expect(configUndefined.key).toBe('campusdesk-key')
+    } finally {
+      ;(import.meta.env as any).VITE_REVERB_APP_KEY = originalEnvKey
+    }
+  })
+
   it('bypasses window.location.port when running on Vite dev port 5173 and defaults to Reverb port 8085', () => {
     const originalLocation = window.location
     delete (window as any).location

@@ -86,9 +86,9 @@ export function getEchoConfig(overrides?: EchoOptionsOverride) {
       : fallbackPort)
 
   const appKey =
-    overrides?.appKey ??
-    import.meta.env.VITE_REVERB_APP_KEY ??
-    ''
+    overrides?.appKey?.trim() ||
+    import.meta.env.VITE_REVERB_APP_KEY?.trim() ||
+    'campusdesk-key'
 
   return {
     broadcaster: 'reverb' as const,
