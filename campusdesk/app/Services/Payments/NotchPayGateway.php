@@ -5,6 +5,7 @@ namespace App\Services\Payments;
 use App\Contracts\PaymentGatewayInterface;
 use App\Models\Payment;
 use App\Models\User;
+use App\Services\Payments\Concerns\ResolvesFrontendUrl;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -12,6 +13,8 @@ use RuntimeException;
 
 class NotchPayGateway implements PaymentGatewayInterface
 {
+    use ResolvesFrontendUrl;
+
     protected string $publicKey;
     protected string $privateKey;
     protected string $baseUrl;
@@ -31,7 +34,7 @@ class NotchPayGateway implements PaymentGatewayInterface
     public function initiateHosted(Payment $payment, User $student): array
     {
         $url = "{$this->baseUrl}/payments/initialize";
-        $frontendUrl = rtrim((string) config('app.frontend_url', 'http://localhost:5173'), '/');
+        $frontendUrl = $this->resolveFrontendUrl();
         $payload = [
             'amount'      => (int) $payment->amount,
             'currency'    => 'XAF',

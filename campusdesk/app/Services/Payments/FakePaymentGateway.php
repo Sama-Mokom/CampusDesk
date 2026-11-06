@@ -5,11 +5,14 @@ namespace App\Services\Payments;
 use App\Contracts\PaymentGatewayInterface;
 use App\Models\Payment;
 use App\Models\User;
+use App\Services\Payments\Concerns\ResolvesFrontendUrl;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
 class FakePaymentGateway implements PaymentGatewayInterface
 {
+    use ResolvesFrontendUrl;
+
     /**
      * @var array<string, array{status: string, failure_reason?: string}>
      */
@@ -30,7 +33,7 @@ class FakePaymentGateway implements PaymentGatewayInterface
 
     public function initiateHosted(Payment $payment, User $student): array
     {
-        $frontendUrl = rtrim((string) config('app.frontend_url', 'http://localhost:5173'), '/');
+        $frontendUrl = $this->resolveFrontendUrl();
         $transId = 'fake_' . Str::random(16);
 
         return [

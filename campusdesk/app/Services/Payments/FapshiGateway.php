@@ -5,6 +5,7 @@ namespace App\Services\Payments;
 use App\Contracts\PaymentGatewayInterface;
 use App\Models\Payment;
 use App\Models\User;
+use App\Services\Payments\Concerns\ResolvesFrontendUrl;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -13,6 +14,8 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class FapshiGateway implements PaymentGatewayInterface
 {
+    use ResolvesFrontendUrl;
+
     protected string $apiUser;
     protected string $apiKey;
     protected string $baseUrl;
@@ -32,7 +35,7 @@ class FapshiGateway implements PaymentGatewayInterface
     public function initiateHosted(Payment $payment, User $student): array
     {
         $url = "{$this->baseUrl}/initiate-pay";
-        $frontendUrl = rtrim((string) config('app.frontend_url', 'http://localhost:5173'), '/');
+        $frontendUrl = $this->resolveFrontendUrl();
         $payload = [
             'amount'      => (int) $payment->amount,
             'email'       => $student->email,
