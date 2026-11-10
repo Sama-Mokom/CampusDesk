@@ -59,8 +59,10 @@ Resources:
                   Ref: AWS::AccountId
               ArnLike:
                 aws:SourceArn:
-                  Fn::Sub: >-
-                    arn:${AWS::Partition}:cloudwatch:${AWS::Region}:${AWS::AccountId}:alarm:campusdesk-staging-backup-heartbeat-missing
+                  - Fn::Sub: >-
+                      arn:${AWS::Partition}:cloudwatch:${AWS::Region}:${AWS::AccountId}:alarm:campusdesk-staging-backup-heartbeat-missing
+                  - Fn::Sub: >-
+                      arn:${AWS::Partition}:cloudwatch:${AWS::Region}:${AWS::AccountId}:alarm:campusdesk-staging-backup-capture-failed
       Tags:
         - Key: Application
           Value: CampusDesk
@@ -266,6 +268,30 @@ Resources:
       Threshold: 1
       ComparisonOperator: LessThanThreshold
       TreatMissingData: breaching
+      Unit: Count
+      AlarmActions:
+        - Ref: BackupAlertTopic
+      OKActions:
+        - Ref: BackupAlertTopic
+
+  BackupCaptureFailedAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: campusdesk-staging-backup-capture-failed
+      AlarmDescription: >-
+        A scheduled or manual CampusDesk staging backup capture exited nonzero.
+      Namespace: CampusDesk/Backup
+      MetricName: BackupCaptureFailed
+      Dimensions:
+        - Name: Environment
+          Value: staging
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
       Unit: Count
       AlarmActions:
         - Ref: BackupAlertTopic

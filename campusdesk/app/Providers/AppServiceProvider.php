@@ -11,6 +11,7 @@ use App\Services\BroadcastingRequestEventTransport;
 use App\Services\Payments\PaymentGatewayManager;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -40,6 +41,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Model::preventSilentlyDiscardingAttributes();
+        DB::prohibitDestructiveCommands($this->app->environment('production', 'staging'));
 
         Gate::define('is_student', fn (User $user) => $user->role === 'student');
         Gate::define('is_staff', fn (User $user) => $user->role === 'staff');

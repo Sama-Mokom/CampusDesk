@@ -58,10 +58,16 @@ if ((backup_is_stale == 0)); then
   exit 0
 fi
 
+aws --region "$CAMPUSDESK_AWS_REGION" cloudwatch put-metric-data \
+  --namespace CampusDesk/Backup \
+  --metric-data 'MetricName=OffsiteBackupFresh,Dimensions=[{Name=Environment,Value=staging}],Value=0,Unit=Count' \
+  >/dev/null ||
+  printf 'ERROR: Stale backup metric could not be published.\n' >&2
+
 if [[ ! -e "$ALERT_FILE" ]]; then
   aws --region "$CAMPUSDESK_AWS_REGION" sns publish \
     --topic-arn "$CAMPUSDESK_BACKUP_ALERT_TOPIC_ARN" \
-    --subject "CampusDesk staging backup is stale" \
+    --subject "[STALE] CampusDesk staging backup is stale" \
     --message "CampusDesk staging has no download-verified off-host backup newer than 12.5 hours on $(hostname)." \
     >/dev/null || fail "The stale-backup notification could not be published."
 

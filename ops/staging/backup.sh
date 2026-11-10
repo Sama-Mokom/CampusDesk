@@ -31,17 +31,26 @@ recovery_artifacts=(
 notify_failure() {
   local exit_status="$1"
 
-  if [[ -z "${CAMPUSDESK_BACKUP_ALERT_TOPIC_ARN:-}" ]] ||
-     [[ -z "${CAMPUSDESK_AWS_REGION:-}" ]] ||
+  if [[ -z "${CAMPUSDESK_AWS_REGION:-}" ]] ||
      ! command -v aws >/dev/null 2>&1
   then
     return 0
   fi
 
+  aws --region "$CAMPUSDESK_AWS_REGION" cloudwatch put-metric-data \
+    --namespace CampusDesk/Backup \
+    --metric-data 'MetricName=BackupCaptureFailed,Dimensions=[{Name=Environment,Value=staging}],Value=1,Unit=Count' \
+    >/dev/null ||
+    printf 'ERROR: Backup failure metric could not be published.\n' >&2
+
+  if [[ -z "${CAMPUSDESK_BACKUP_ALERT_TOPIC_ARN:-}" ]]; then
+    return 0
+  fi
+
   aws --region "$CAMPUSDESK_AWS_REGION" sns publish \
     --topic-arn "$CAMPUSDESK_BACKUP_ALERT_TOPIC_ARN" \
-    --subject "CampusDesk staging backup failed" \
-    --message "CampusDesk staging backup failed on $(hostname) with exit status ${exit_status}. Inspect campusdesk-backup.service." \
+    --subject "[CAPTURE FAILED] CampusDesk staging backup capture failed" \
+    --message "CampusDesk staging backup capture failed on $(hostname) with exit status ${exit_status}. Inspect campusdesk-backup.service." \
     >/dev/null ||
     printf 'ERROR: Backup failure notification could not be published.\n' >&2
 }
@@ -344,3 +353,9 @@ printf 'offsite_upload=OK\n'
 printf 'offsite_download_validation=OK\n'
 printf 'offsite_backup_id=%s\n' "$backup_id"
 printf 'offsite_verified_at_utc=%s\n' "$verification_time"
+
+aws --region "$CAMPUSDESK_AWS_REGION" cloudwatch put-metric-data \
+  --namespace CampusDesk/Backup \
+  --metric-data 'MetricName=BackupCaptureFailed,Dimensions=[{Name=Environment,Value=staging}],Value=0,Unit=Count' \
+  >/dev/null ||
+  printf 'ERROR: Backup capture clear metric could not be published.\n' >&2

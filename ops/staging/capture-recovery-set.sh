@@ -621,10 +621,38 @@ physical_attachment_files="$(
 [[ "$physical_attachment_files" =~ ^[0-9]+$ ]] ||
   fail "The physical attachment-file count is invalid."
 
-cmp --silent \
+if ! cmp --silent \
   "$temporary_dir/attachment-db-paths.txt" \
-  "$temporary_dir/attachment-archive-paths.txt" ||
+  "$temporary_dir/attachment-archive-paths.txt"
+then
+  awk \
+    -v db_file="$temporary_dir/attachment-db-paths.txt" \
+    '
+      FILENAME == db_file {
+        db[$0] = 1
+        db_order[++db_count] = $0
+        next
+      }
+      {
+        vol[$0] = 1
+        if (!($0 in db)) {
+          printf "ERROR: orphaned_in_volume=%s\n", $0
+        }
+      }
+      END {
+        for (i = 1; i <= db_count; i++) {
+          path = db_order[i]
+          if (!(path in vol)) {
+            printf "ERROR: missing_from_volume=%s\n", path
+          }
+        }
+      }
+    ' \
+    "$temporary_dir/attachment-db-paths.txt" \
+    "$temporary_dir/attachment-archive-paths.txt" >&2
+
   fail "Attachment database and archive paths do not match exactly."
+fi
 
 printf 'attachment_metadata_comparison=OK\n'
 
