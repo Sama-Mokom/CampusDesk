@@ -5,35 +5,164 @@
 @layer base {
   :root {
     color-scheme: light;
-    --color-background: #f8fafc;
-    --color-foreground: #0f172a;
-    --color-brand: #0284c7;
-    --color-brand-strong: #0369a1;
-    --color-border: #e2e8f0;
-    --color-muted: #64748b;
+    --surface-page: #f8fafc;
+    --surface-card: #ffffff;
+    --surface-raised: #ffffff;
+    --surface-input: #ffffff;
+    --border-subtle: #e2e8f0;
+    --border-strong: #cbd5e1;
+    --text-heading: #0f172a;
+    --text-body: #1e293b;
+    --text-muted: #64748b;
+    --text-placeholder: #94a3b8;
+    --accent: #0369a1;
+    --accent-hover: #0284c7;
+    --accent-text: #0369a1;
+    --overlay: rgba(15, 23, 42, 0.40);
+
+    /* Tinted Status Pairs - Light Mode */
+    --status-success-bg: rgba(16, 185, 129, 0.12);
+    --status-success-border: rgba(16, 185, 129, 0.30);
+    --status-success-text: #047857;
+
+    --status-warning-bg: rgba(245, 158, 11, 0.12);
+    --status-warning-border: rgba(245, 158, 11, 0.30);
+    --status-warning-text: #b45309;
+
+    --status-info-bg: rgba(2, 132, 199, 0.12);
+    --status-info-border: rgba(2, 132, 199, 0.30);
+    --status-info-text: #0369a1;
+
+    --status-purple-bg: rgba(168, 85, 247, 0.12);
+    --status-purple-border: rgba(168, 85, 247, 0.30);
+    --status-purple-text: #6b21a8;
+
+    --status-danger-bg: rgba(239, 68, 68, 0.12);
+    --status-danger-border: rgba(239, 68, 68, 0.30);
+    --status-danger-text: #b91c1c;
+
+    --status-neutral-bg: rgba(148, 163, 184, 0.14);
+    --status-neutral-border: rgba(148, 163, 184, 0.30);
+    --status-neutral-text: #475569;
+
+    --status-orange-bg: rgba(249, 115, 22, 0.12);
+    --status-orange-border: rgba(249, 115, 22, 0.30);
+    --status-orange-text: #c2410c;
+
+    --scrollbar-track: #f1f5f9;
+    --scrollbar-thumb: #cbd5e1;
+
+    /* Legacy Token Aliases for backward compatibility */
+    --color-background: var(--surface-page);
+    --color-foreground: var(--text-heading);
+    --color-card: var(--surface-card);
+    --color-brand: var(--accent);
+    --color-brand-strong: var(--accent-hover);
+    --color-border: var(--border-subtle);
+    --color-muted: var(--text-muted);
+
     --font-family-sans:
       Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
   }
+
+  .dark {
+    color-scheme: dark;
+    --surface-page: #020617;
+    --surface-card: #0f172a;
+    --surface-raised: #162036;
+    --surface-input: #1e293b;
+    --border-subtle: rgba(255, 255, 255, 0.10);
+    --border-strong: rgba(255, 255, 255, 0.20);
+    --text-heading: #f8fafc;
+    --text-body: #e2e8f0;
+    --text-muted: #94a3b8;
+    --text-placeholder: #94a3b8;
+    --accent: #0284c7;
+    --accent-hover: #38bdf8;
+    --accent-text: #38bdf8;
+    --overlay: rgba(2, 6, 23, 0.70);
+
+    /* Tinted Status Pairs - Dark Mode */
+    --status-success-bg: rgba(16, 185, 129, 0.12);
+    --status-success-border: rgba(16, 185, 129, 0.30);
+    --status-success-text: #6ee7b7;
+
+    --status-warning-bg: rgba(245, 158, 11, 0.12);
+    --status-warning-border: rgba(245, 158, 11, 0.30);
+    --status-warning-text: #fcd34d;
+
+    --status-info-bg: rgba(2, 132, 199, 0.12);
+    --status-info-border: rgba(2, 132, 199, 0.30);
+    --status-info-text: #7dd3fc;
+
+    --status-purple-bg: rgba(168, 85, 247, 0.12);
+    --status-purple-border: rgba(168, 85, 247, 0.30);
+    --status-purple-text: #d8b4fe;
+
+    --status-danger-bg: rgba(239, 68, 68, 0.12);
+    --status-danger-border: rgba(239, 68, 68, 0.30);
+    --status-danger-text: #fca5a5;
+
+    --status-neutral-bg: rgba(148, 163, 184, 0.12);
+    --status-neutral-border: rgba(148, 163, 184, 0.30);
+    --status-neutral-text: #cbd5e1;
+
+    --status-orange-bg: rgba(249, 115, 22, 0.12);
+    --status-orange-border: rgba(249, 115, 22, 0.30);
+    --status-orange-text: #fdba74;
+
+    --scrollbar-track: #0b1120;
+    --scrollbar-thumb: #334155;
+
+    /* Legacy Token Aliases for backward compatibility */
+    --color-background: var(--surface-page);
+    --color-foreground: var(--text-heading);
+    --color-card: var(--surface-card);
+    --color-brand: var(--accent);
+    --color-brand-strong: var(--accent-hover);
+    --color-border: var(--border-subtle);
+    --color-muted: var(--text-muted);
+  }
+
   * {
     box-sizing: border-box;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+    scrollbar-width: thin;
   }
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 4px;
+  }
+
   html {
     scroll-behavior: smooth;
     scroll-padding-top: 6rem;
   }
   body {
-    @apply m-0 bg-background text-foreground text-sm antialiased;
+    background-color: var(--surface-page);
+    color: var(--text-body);
     font-family: var(--font-family-sans);
     line-height: 1.5;
+    @apply m-0 text-sm antialiased;
   }
   h1 {
+    color: var(--text-heading);
     @apply text-2xl font-bold tracking-tight;
     line-height: 1.2;
   }
   h2 {
+    color: var(--text-heading);
     @apply text-lg font-semibold tracking-tight;
   }
   h3 {
+    color: var(--text-heading);
     @apply text-base font-semibold;
   }
   button,
@@ -57,8 +186,18 @@
     @apply cursor-not-allowed opacity-50;
   }
   :focus-visible {
-    outline: 3px solid #0284c7;
-    outline-offset: 3px;
+    outline: 2px solid var(--accent-text);
+    outline-offset: 2px;
+  }
+  input[type="checkbox"],
+  input[type="radio"] {
+    accent-color: var(--accent);
+  }
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+  }
+  .dark input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.85);
   }
   input,
   select,
@@ -74,7 +213,8 @@
     overflow-wrap: anywhere;
   }
   ::selection {
-    @apply bg-sky-100 text-slate-900;
+    background-color: var(--status-info-bg);
+    color: var(--text-heading);
   }
 }
 
@@ -86,80 +226,184 @@
     @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors duration-150;
   }
   .btn-primary {
-    @apply border border-primary bg-primary text-white shadow-sm hover:bg-sky-800;
+    background-color: var(--accent);
+    border: 1px solid var(--accent);
+    color: #ffffff;
+    @apply shadow-sm;
+  }
+  .btn-primary:hover {
+    background-color: var(--accent-hover);
+    border-color: var(--accent-hover);
   }
   .btn-secondary {
-    @apply border border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50 hover:border-slate-300;
+    background-color: var(--surface-card);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-body);
+    @apply shadow-sm;
+  }
+  .btn-secondary:hover:not(:disabled) {
+    background-color: var(--surface-raised);
+    border-color: var(--border-strong);
   }
   .btn-danger {
-    @apply border border-red-700 bg-red-700 text-white hover:bg-red-800;
+    background-color: var(--status-danger-text);
+    border: 1px solid var(--status-danger-text);
+    color: #ffffff;
+  }
+  .btn-danger:hover {
+    filter: brightness(0.9);
   }
   .btn-ghost {
-    @apply text-slate-600 hover:bg-slate-100 hover:text-slate-900;
+    color: var(--text-muted);
+  }
+  .btn-ghost:hover {
+    background-color: var(--status-neutral-bg);
+    color: var(--text-heading);
   }
   .icon-button {
-    @apply inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900;
+    @apply inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg transition-colors;
+    color: var(--text-muted);
+  }
+  .icon-button:hover {
+    background-color: var(--status-neutral-bg);
+    color: var(--text-heading);
   }
   .card {
-    @apply min-w-0 rounded-xl border border-slate-200 bg-white p-5 shadow-sm;
-  }
-  .input-field {
-    @apply w-full min-h-11 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm placeholder:text-slate-500 focus:border-sky-600 disabled:bg-slate-100 disabled:text-slate-500;
-  }
-  .field-label {
-    @apply mb-1.5 block text-sm font-medium text-slate-700;
-  }
-  .eyebrow {
-    @apply text-xs font-semibold uppercase tracking-widest text-slate-500;
-  }
-  .feedback-error {
-    @apply rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800;
-  }
-  .feedback-success {
-    @apply rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800;
+    background-color: var(--surface-card);
+    border: 1px solid var(--border-subtle);
+    @apply min-w-0 rounded-xl p-5 shadow-sm;
   }
   .metric-card {
-    @apply min-w-0 rounded-xl border border-slate-200 bg-white p-4 sm:p-5;
+    background-color: var(--surface-card);
+    border: 1px solid var(--border-subtle);
+    @apply min-w-0 rounded-xl p-4 sm:p-5;
+  }
+  .input-field {
+    background-color: var(--surface-input);
+    border: 1px solid var(--border-strong);
+    color: var(--text-heading);
+    @apply w-full min-h-11 rounded-lg px-3 py-2.5 text-sm shadow-sm transition-colors;
+  }
+  .input-field::placeholder {
+    color: var(--text-placeholder);
+    opacity: 1;
+  }
+  .input-field:focus {
+    border-color: var(--accent);
+    outline: none;
+  }
+  .input-field:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  .field-label {
+    color: var(--text-muted);
+    @apply mb-1.5 block text-sm font-medium;
+  }
+  .eyebrow {
+    color: var(--text-muted);
+    @apply text-xs font-semibold uppercase tracking-widest;
+  }
+  .feedback-error {
+    background-color: var(--status-danger-bg);
+    border: 1px solid var(--status-danger-border);
+    color: var(--status-danger-text);
+    @apply rounded-lg px-4 py-3 text-sm;
+  }
+  .feedback-success {
+    background-color: var(--status-success-bg);
+    border: 1px solid var(--status-success-border);
+    color: var(--status-success-text);
+    @apply rounded-lg px-4 py-3 text-sm;
+  }
+  .callout-info {
+    background-color: var(--status-info-bg);
+    border: 1px solid var(--status-info-border);
+    color: var(--status-info-text);
+    @apply rounded-xl p-5;
   }
   .badge {
     @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-medium;
   }
+  .badge-neutral {
+    background-color: var(--status-neutral-bg);
+    border-color: var(--status-neutral-border);
+    color: var(--status-neutral-text);
+  }
+  .badge-success {
+    background-color: var(--status-success-bg);
+    border-color: var(--status-success-border);
+    color: var(--status-success-text);
+  }
+  .badge-warning {
+    background-color: var(--status-warning-bg);
+    border-color: var(--status-warning-border);
+    color: var(--status-warning-text);
+  }
+  .badge-info {
+    background-color: var(--status-info-bg);
+    border-color: var(--status-info-border);
+    color: var(--status-info-text);
+  }
+  .badge-purple {
+    background-color: var(--status-purple-bg);
+    border-color: var(--status-purple-border);
+    color: var(--status-purple-text);
+  }
+  .badge-danger {
+    background-color: var(--status-danger-bg);
+    border-color: var(--status-danger-border);
+    color: var(--status-danger-text);
+  }
+  .badge-orange {
+    background-color: var(--status-orange-bg);
+    border-color: var(--status-orange-border);
+    color: var(--status-orange-text);
+  }
+
+  /* Semantic mappings for domain status badges */
   .badge-draft {
-    @apply border-slate-200 bg-slate-100 text-slate-600;
+    @apply badge-neutral;
   }
   .badge-awaiting-payment {
-    @apply border-amber-300 bg-amber-50 text-amber-800 font-medium;
+    @apply badge-warning font-medium;
   }
   .badge-pending {
-    @apply border-amber-200 bg-amber-100 text-amber-800;
+    @apply badge-warning;
   }
   .badge-in-review {
-    @apply border-sky-200 bg-sky-100 text-sky-800;
+    @apply badge-info;
   }
   .badge-forwarded {
-    @apply border-purple-200 bg-purple-100 text-purple-800;
+    @apply badge-purple;
   }
   .badge-ready,
   .badge-stage-approved {
-    @apply border-green-200 bg-green-100 text-green-800;
+    @apply badge-success;
   }
   .badge-collected {
-    @apply border-emerald-200 bg-emerald-100 text-emerald-800;
+    @apply badge-success;
   }
   .badge-rejected {
-    @apply border-red-200 bg-red-100 text-red-800;
+    @apply badge-danger;
+  }
+  .badge-reopened {
+    @apply badge-orange;
   }
   .badge-tier-super-fast {
-    @apply border-purple-200 bg-purple-50 text-purple-700 font-semibold;
+    @apply badge-purple font-semibold;
   }
   .badge-tier-fast {
-    @apply border-sky-200 bg-sky-50 text-sky-700 font-semibold;
+    @apply badge-info font-semibold;
   }
   .badge-tier-normal {
-    @apply border-slate-200 bg-slate-50 text-slate-700;
+    @apply badge-neutral;
   }
+
   .skip-link {
-    @apply fixed left-4 top-4 z-[100] -translate-y-24 rounded-lg bg-white px-4 py-3 font-semibold text-primary shadow-xl focus:translate-y-0;
+    background-color: var(--surface-card);
+    color: var(--accent);
+    @apply fixed left-4 top-4 z-[100] -translate-y-24 rounded-lg px-4 py-3 font-semibold shadow-xl focus:translate-y-0;
   }
 }
 
