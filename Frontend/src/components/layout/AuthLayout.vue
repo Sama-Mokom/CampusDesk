@@ -4,7 +4,7 @@ defineProps<{ title: string; description: string }>()
 </script>
 <template>
   <div
-    class="mx-auto grid max-w-5xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:grid-cols-[0.85fr_1.15fr]"
+    class="mx-auto grid max-w-5xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:grid-cols-[0.85fr_1.15fr]"
   >
     <aside
       class="relative hidden flex-col overflow-hidden bg-slate-900 p-10 text-white lg:flex"
@@ -61,7 +61,7 @@ defineProps<{ title: string; description: string }>()
     <section class="px-5 py-8 sm:p-10 lg:p-12">
       <p class="eyebrow mb-3">Welcome to CampusDesk</p>
       <h1 class="text-3xl">{{ title }}</h1>
-      <p class="mb-8 mt-3 text-slate-500">{{ description }}</p>
+      <p class="mb-8 mt-3 text-slate-500 dark:text-slate-400">{{ description }}</p>
       <slot />
     </section>
   </div>

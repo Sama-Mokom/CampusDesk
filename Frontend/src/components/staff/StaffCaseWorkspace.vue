@@ -329,7 +329,7 @@ onMounted(() => {
           {{ staffUser?.name?.charAt(0) ?? 'S' }}
         </div>
         <div class="min-w-0">
-          <h2 class="break-words text-base font-semibold text-slate-900">
+          <h2 class="break-words text-base font-semibold text-slate-900 dark:text-slate-100">
             {{ staffUser?.name }}
           </h2>
           <p class="mt-1 text-xs text-slate-500">
@@ -362,7 +362,7 @@ onMounted(() => {
         </select>
         <p
           v-else
-          class="text-sm font-medium text-slate-700"
+          class="text-sm font-medium text-slate-700 dark:text-slate-300"
         >
           {{ selectedDeptName || 'No department assigned' }}
         </p>
@@ -377,7 +377,7 @@ onMounted(() => {
     </div>
     <section
       id="staff-workspace"
-      class="overflow-hidden rounded-2xl border border-slate-200 bg-white"
+      class="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
       aria-label="Request workspace"
     >
       <div
@@ -576,7 +576,7 @@ onMounted(() => {
               :status="detailsModal.stage.status"
             />
           </div>
-          <p class="mt-3 font-semibold text-slate-900">
+          <p class="mt-3 font-semibold text-slate-900 dark:text-slate-100">
             {{ detailsModal.stage.request?.student_name }}
           </p>
           <p class="mt-1 text-xs text-slate-500">
@@ -585,7 +585,7 @@ onMounted(() => {
             {{ detailsModal.stage.sequence_order }}
           </p>
           <p
-            class="mt-4 whitespace-pre-wrap break-words text-sm text-slate-700"
+            class="mt-4 whitespace-pre-wrap break-words text-sm text-slate-700 dark:text-slate-300"
           >
             {{
               detailsModal.request?.description ??
@@ -672,7 +672,7 @@ onMounted(() => {
               </p>
               <p
                 v-if="entry.note"
-                class="mt-2 whitespace-pre-wrap break-words text-sm text-slate-700"
+                class="mt-2 whitespace-pre-wrap break-words text-sm text-slate-700 dark:text-slate-300"
               >
                 {{ entry.note }}
               </p>
@@ -718,7 +718,7 @@ onMounted(() => {
         <div>
           <label
             for="staff-resolution"
-            class="mb-2 block text-sm font-medium text-slate-700"
+            class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300 dark:text-slate-300"
             >Resolution</label
           ><select
             id="staff-resolution"
@@ -740,7 +740,7 @@ onMounted(() => {
         <div>
           <label
             for="staff-note"
-            class="mb-2 block text-sm font-medium text-slate-700"
+            class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300 dark:text-slate-300"
             >Staff note
             <span class="font-normal text-slate-500"
               >({{
@@ -799,21 +799,21 @@ onMounted(() => {
 
 <style scoped>
 .staff-identity {
-  @apply flex flex-col justify-between gap-5 rounded-2xl border border-slate-200 bg-white p-5 sm:flex-row sm:items-center sm:p-6;
+  @apply flex flex-col justify-between gap-5 rounded-2xl border border-slate-200 bg-white p-5 sm:flex-row sm:items-center sm:p-6 dark:border-slate-800 dark:bg-slate-900;
 }
 .staff-avatar {
-  @apply flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-xl font-semibold text-sky-700;
+  @apply flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-xl font-semibold text-sky-700 dark:bg-sky-950/60 dark:text-sky-300;
 }
 .staff-success {
-  @apply rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800;
+  @apply rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300;
 }
 .staff-error {
-  @apply rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800;
+  @apply rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300;
 }
 .staff-detail-tab {
-  @apply min-h-11 rounded-lg px-3 py-2 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-50;
+  @apply min-h-11 rounded-lg px-3 py-2 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800;
 }
 .staff-detail-tab.selected {
-  @apply bg-sky-50 text-sky-700;
+  @apply bg-sky-50 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300;
 }
 </style>

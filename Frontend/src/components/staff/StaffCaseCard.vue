@@ -37,7 +37,7 @@ function formatDate(iso: string) {
       </div>
       <div class="min-w-0 flex-1">
         <div class="flex flex-wrap items-center gap-2">
-          <span class="text-xs font-medium text-slate-500"
+          <span class="text-xs font-medium text-slate-500 dark:text-slate-400"
             >#{{ stage.request_id }}</span
           ><StatusBadge
             kind="stage"
@@ -51,13 +51,13 @@ function formatDate(iso: string) {
             :fee-amount="stage.request.fee_amount"
           />
         </div>
-        <h3 class="mt-2 break-words text-[15px] font-semibold text-slate-900">
+        <h3 class="mt-2 break-words text-[15px] font-semibold text-slate-900 dark:text-slate-100">
           {{ stage.request?.request_type || 'Student request' }}
         </h3>
         <div
-          class="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500"
+          class="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500 dark:text-slate-400"
         >
-          <span class="font-medium text-slate-700">{{
+          <span class="font-medium text-slate-700 dark:text-slate-300">{{
             stage.request?.student_name || 'Student'
           }}</span
           ><span v-if="stage.request?.student_matricule">{{
@@ -70,17 +70,17 @@ function formatDate(iso: string) {
         </div>
         <p
           v-if="stage.request?.description"
-          class="mt-3 line-clamp-2 break-words text-sm leading-relaxed text-slate-600"
+          class="mt-3 line-clamp-2 break-words text-sm leading-relaxed text-slate-600 dark:text-slate-300"
         >
           {{ stage.request.description }}
         </p>
-        <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+        <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
           <span
             >{{ stage.department_name }} · Stage
             {{ stage.sequence_order }}</span
           ><span v-if="stage.request?.created_at"
             >Submitted {{ formatDate(stage.request.created_at) }}</span
-          ><span v-if="stage.request?.target_ready_at" class="font-medium text-sky-800"
+          ><span v-if="stage.request?.target_ready_at" class="font-medium text-sky-800 dark:text-sky-300"
             >Due {{ formatDate(stage.request.target_ready_at) }}</span
           ><span v-else-if="stage.request?.turnaround_days"
             >Target: ~{{ stage.request.turnaround_days }}d</span
@@ -121,13 +121,13 @@ function formatDate(iso: string) {
 
 <style scoped>
 .case-card {
-  @apply flex min-w-0 flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 transition-colors hover:border-sky-200 sm:p-5 xl:flex-row xl:items-center;
+  @apply flex min-w-0 flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 transition-colors hover:border-sky-200 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-sky-800/60 sm:p-5 xl:flex-row xl:items-center;
 }
 .case-icon {
-  @apply hidden h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-50 text-slate-500 sm:flex;
+  @apply hidden h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-50 text-slate-500 dark:bg-slate-800 dark:text-slate-400 sm:flex;
 }
 .case-actions {
-  @apply grid shrink-0 grid-cols-2 gap-2 border-t border-slate-100 pt-4 sm:flex sm:justify-end xl:border-0 xl:pt-0;
+  @apply grid shrink-0 grid-cols-2 gap-2 border-t border-slate-100 dark:border-slate-800 pt-4 sm:flex sm:justify-end xl:border-0 xl:pt-0;
 }
 .case-actions button {
   @apply text-xs;

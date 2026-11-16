@@ -2,6 +2,7 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import NotificationBell from './components/NotificationBell.vue'
+import ThemeSwitcher from './components/ThemeSwitcher.vue'
 import AppIcon from './components/ui/AppIcon.vue'
 import { useAuth } from './composables/useAuth'
 import { useRealtime } from './composables/useRealtime'
@@ -150,7 +151,7 @@ async function onLogout() {
 </script>
 
 <template>
-  <div class="min-h-screen bg-background">
+  <div class="min-h-screen bg-background text-foreground dark:bg-slate-950 dark:text-slate-100">
     <a
       href="#main-content"
       class="skip-link"
@@ -255,7 +256,7 @@ async function onLogout() {
       ]"
     >
       <header
-        class="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur"
+        class="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-900/95"
       >
         <div
           class="mx-auto flex h-20 max-w-[1440px] items-center justify-between gap-3 px-4 sm:px-6 lg:px-8"
@@ -274,9 +275,9 @@ async function onLogout() {
             </button>
             <router-link
               :to="isAuthPage ? '/login' : home"
-              class="flex items-center gap-2 font-bold text-slate-900"
+              class="flex items-center gap-2 font-bold text-slate-900 dark:text-slate-100"
               :class="isAuthPage ? 'text-xl' : 'text-lg lg:hidden'"
-              ><AppIcon name="building" />CampusDesk<span class="text-sky-600"
+              ><AppIcon name="building" />CampusDesk<span class="text-sky-600 dark:text-sky-400"
                 >.</span
               ></router-link
             >
@@ -284,26 +285,27 @@ async function onLogout() {
               v-if="!isAuthPage"
               class="hidden lg:block"
             >
-              <p class="text-sm font-semibold text-slate-900">
+              <p class="text-sm font-semibold text-slate-900 dark:text-slate-100">
                 {{ roleLabel }}
               </p>
-              <p class="mt-0.5 text-xs text-slate-500">
+              <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                 University request management
               </p>
             </div>
           </div>
           <div
             v-if="isAuthenticated && !isAuthPage"
-            class="flex shrink-0 items-center gap-2 sm:gap-4"
+            class="flex shrink-0 items-center gap-2 sm:gap-3"
           >
+            <ThemeSwitcher />
             <NotificationBell />
             <div
-              class="hidden items-center gap-3 border-l border-slate-200 pl-4 sm:flex"
+              class="hidden items-center gap-3 border-l border-slate-200 pl-3 dark:border-slate-800 sm:flex"
             >
               <span
-                class="flex h-9 w-9 items-center justify-center rounded-full bg-sky-100 text-xs font-bold text-sky-800"
+                class="flex h-9 w-9 items-center justify-center rounded-full bg-sky-100 text-xs font-bold text-sky-800 dark:bg-sky-950/80 dark:text-sky-300"
                 >{{ initials }}</span
-              ><span class="max-w-44 truncate text-sm font-semibold">{{
+              ><span class="max-w-44 truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{{
                 user?.name
               }}</span>
             </div>
@@ -318,29 +320,37 @@ async function onLogout() {
               <AppIcon name="logout" />
             </button>
           </div>
-          <span
+          <div
             v-else
-            class="hidden text-xs text-slate-500 sm:block"
-            >University services, connected.</span
+            class="flex shrink-0 items-center gap-3"
           >
+            <span
+              class="hidden text-xs text-slate-500 dark:text-slate-400 sm:block"
+              >University services, connected.</span
+            >
+            <ThemeSwitcher />
+          </div>
         </div>
         <nav
           v-if="mobileOpen && !isAuthPage"
           id="mobile-navigation"
           aria-label="Mobile navigation"
-          class="max-h-[calc(100dvh-5rem)] space-y-1 overflow-y-auto border-t border-slate-100 bg-white p-4 lg:hidden"
+          class="max-h-[calc(100dvh-5rem)] space-y-1 overflow-y-auto border-t border-slate-100 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 lg:hidden"
           @keydown.esc="mobileOpen = false"
         >
-          <p class="mb-3 px-3 text-xs text-slate-500">
-            {{ user?.name }} · {{ roleLabel }}
-          </p>
+          <div class="mb-3 flex items-center justify-between px-3">
+            <p class="text-xs text-slate-500 dark:text-slate-400">
+              {{ user?.name }} · {{ roleLabel }}
+            </p>
+            <ThemeSwitcher />
+          </div>
           <router-link
             v-for="item in navigation"
             :key="item.href"
             :to="item.href"
-            class="flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-700 hover:bg-slate-50"
+            class="flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
             :aria-current="activeHref === item.href ? 'page' : undefined"
-            :class="{ 'bg-sky-50 text-sky-800': activeHref === item.href }"
+            :class="{ 'bg-sky-50 text-sky-800 dark:bg-sky-950/60 dark:text-sky-300': activeHref === item.href }"
             @click="mobileOpen = false"
             ><AppIcon :name="item.icon" />{{ item.label }}</router-link
           >
@@ -362,9 +372,9 @@ async function onLogout() {
             ><component :is="Component" /></transition
         ></router-view>
       </main>
-      <footer class="mx-auto max-w-[1440px] px-6 py-6 text-xs text-slate-500">
+      <footer class="mx-auto max-w-[1440px] px-6 py-6 text-xs text-slate-500 dark:text-slate-400">
         <div
-          class="flex flex-wrap justify-between gap-2 border-t border-slate-200 pt-5"
+          class="flex flex-wrap justify-between gap-2 border-t border-slate-200 pt-5 dark:border-slate-800"
         >
           <span>CampusDesk · University request management</span
           ><span>Designed around your next step.</span>

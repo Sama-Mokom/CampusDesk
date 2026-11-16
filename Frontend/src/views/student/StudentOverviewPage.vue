@@ -82,7 +82,7 @@ onMounted(() => {
       aria-label="Academic profile"
     >
       <div
-        class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-slate-900 text-sm font-semibold text-white"
+        class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[color:var(--surface-raised)] text-sm font-semibold text-[color:var(--text-heading)] ring-1 ring-[color:var(--border-strong)]"
         aria-hidden="true"
       >
         {{
@@ -94,13 +94,13 @@ onMounted(() => {
         }}
       </div>
       <div class="min-w-0 flex-1">
-        <p class="font-semibold text-slate-900">
+        <p class="font-semibold text-[color:var(--text-heading)]">
           {{ user?.name ?? 'Student' }}
         </p>
-        <p class="mt-1 break-words text-xs leading-5 text-slate-500">
+        <p class="mt-1 break-words text-xs leading-5 text-[color:var(--text-muted)]">
           <span
             v-if="sp"
-            class="font-medium text-slate-700"
+            class="font-medium text-[color:var(--text-body)]"
             >{{ sp.matricule }}</span
           ><span v-if="facultyName"> · {{ facultyName }}</span
           ><span v-if="departmentName"> · {{ departmentName }}</span>
@@ -150,31 +150,31 @@ onMounted(() => {
     >
       <div class="card">
         <dt
-          class="min-h-10 text-xs font-medium text-slate-500 sm:min-h-0 sm:text-sm"
+          class="min-h-10 text-xs font-medium text-slate-500 dark:text-slate-400 sm:min-h-0 sm:text-sm"
         >
           Total requests
         </dt>
-        <dd class="mt-3 text-3xl font-bold text-slate-900">
+        <dd class="mt-3 text-3xl font-bold text-slate-900 dark:text-slate-100">
           {{ loaded ? stats.total : '—' }}
         </dd>
       </div>
       <div class="card">
         <dt
-          class="min-h-10 text-xs font-medium text-slate-500 sm:min-h-0 sm:text-sm"
+          class="min-h-10 text-xs font-medium text-slate-500 dark:text-slate-400 sm:min-h-0 sm:text-sm"
         >
           In progress
         </dt>
-        <dd class="mt-3 text-3xl font-bold text-sky-700">
+        <dd class="mt-3 text-3xl font-bold text-sky-700 dark:text-sky-400">
           {{ loaded ? stats.active : '—' }}
         </dd>
       </div>
       <div class="card">
         <dt
-          class="min-h-10 text-xs font-medium text-slate-500 sm:min-h-0 sm:text-sm"
+          class="min-h-10 text-xs font-medium text-slate-500 dark:text-slate-400 sm:min-h-0 sm:text-sm"
         >
           Ready to collect
         </dt>
-        <dd class="mt-3 text-3xl font-bold text-green-700">
+        <dd class="mt-3 text-3xl font-bold text-green-700 dark:text-green-400">
           {{ loaded ? stats.ready : '—' }}
         </dd>
       </div>
@@ -186,7 +186,7 @@ onMounted(() => {
       <div class="flex flex-wrap items-center justify-between gap-3">
         <h2
           id="recent-requests-title"
-          class="text-lg font-semibold text-slate-900"
+          class="text-lg font-semibold text-slate-900 dark:text-slate-100"
         >
           Recent requests
         </h2>

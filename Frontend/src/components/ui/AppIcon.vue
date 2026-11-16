@@ -14,6 +14,9 @@ defineProps<{
     | 'check'
     | 'chevron-left'
     | 'chevron-right'
+    | 'sun'
+    | 'moon'
+    | 'monitor'
 }>()
 const paths = {
   home: 'm3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z',
@@ -30,7 +33,11 @@ const paths = {
   shield: 'm12 3 8 4v5c0 5-8 9-8 9s-8-4-8-9V7Zm-4 9 3 3 5-5',
   check: 'm5 12 4 4L19 6',
   'chevron-left': 'm15 19-7-7 7-7',
-  'chevron-right': 'm9 5 7 7-7 7'
+  'chevron-right': 'm9 5 7 7-7 7',
+  sun: 'M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364-.707-.707M6.343 6.343l-.707-.707m12.728 0-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z',
+  moon: 'M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z',
+  monitor:
+    'M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6Zm4 14h8m-4-3v3'
 }
 </script>
 <template>

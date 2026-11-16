@@ -2,7 +2,7 @@
   <div class="space-y-5">
     <label
       v-if="!userForm.id"
-      class="block text-sm font-medium text-slate-700"
+      class="block text-sm font-medium text-slate-700 dark:text-slate-300"
       >Role<select
         v-model="userForm.role"
         class="input-field mt-1"
@@ -12,14 +12,14 @@
       </select></label
     >
     <div class="grid gap-4 sm:grid-cols-2">
-      <label class="block text-sm font-medium text-slate-700"
+      <label class="block text-sm font-medium text-slate-700 dark:text-slate-300"
         >Name<input
           v-model="userForm.name"
           required
           class="input-field mt-1"
           placeholder="Full name"
       /></label>
-      <label class="block text-sm font-medium text-slate-700"
+      <label class="block text-sm font-medium text-slate-700 dark:text-slate-300"
         >Email<input
           v-model="userForm.email"
           type="email"
@@ -27,7 +27,7 @@
           class="input-field mt-1"
           placeholder="name@example.com"
       /></label>
-      <label class="block text-sm font-medium text-slate-700"
+      <label class="block text-sm font-medium text-slate-700 dark:text-slate-300"
         >Password<input
           v-model="userForm.password"
           type="password"
@@ -43,7 +43,7 @@
       /></label>
       <label
         v-if="userForm.role === 'staff'"
-        class="block text-sm font-medium text-slate-700"
+        class="block text-sm font-medium text-slate-700 dark:text-slate-300"
         >Staff ID<input
           v-model="userForm.staff_id"
           required
@@ -56,14 +56,14 @@
       v-if="userForm.role === 'student'"
       class="grid gap-4 sm:grid-cols-2"
     >
-      <label class="block text-sm font-medium text-slate-700"
+      <label class="block text-sm font-medium text-slate-700 dark:text-slate-300"
         >Matricule<input
           v-model="userForm.matricule"
           required
           class="input-field mt-1"
           placeholder="Matricule"
       /></label>
-      <label class="block text-sm font-medium text-slate-700"
+      <label class="block text-sm font-medium text-slate-700 dark:text-slate-300"
         >Faculty<select
           v-model.number="userForm.faculty_id"
           required
@@ -84,7 +84,7 @@
           </option>
         </select></label
       >
-      <label class="block text-sm font-medium text-slate-700"
+      <label class="block text-sm font-medium text-slate-700 dark:text-slate-300"
         >Department<select
           v-model.number="userForm.department_id"
           required
@@ -108,7 +108,7 @@
           </option>
         </select></label
       >
-      <label class="block text-sm font-medium text-slate-700"
+      <label class="block text-sm font-medium text-slate-700 dark:text-slate-300"
         >Programme<select
           v-model.number="userForm.programme_id"
           required
@@ -132,7 +132,7 @@
           </option>
         </select></label
       >
-      <label class="block text-sm font-medium text-slate-700"
+      <label class="block text-sm font-medium text-slate-700 dark:text-slate-300"
         >Level<select
           v-model="userForm.level"
           class="input-field mt-1"
@@ -164,12 +164,12 @@
           department.
         </p>
       </div>
-      <div class="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-3">
+      <div class="rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900/60 p-4 space-y-3">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <h4 class="text-sm font-semibold text-primary">
             Selected departments
           </h4>
-          <span class="badge bg-white text-slate-700"
+          <span class="badge bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
             >{{ userForm.department_ids.length }} selected</span
           >
         </div>
@@ -187,7 +187,7 @@
             v-for="d in selectedStaffDepartments"
             :key="d.id"
             type="button"
-            class="inline-flex max-w-full items-center gap-2 rounded-full border border-primary/20 bg-white px-3 py-2 min-h-11 text-left text-xs font-medium text-primary hover:bg-slate-100"
+            class="inline-flex max-w-full items-center gap-2 rounded-full border border-primary/20 bg-white px-3 py-2 min-h-11 text-left text-xs font-medium text-primary hover:bg-slate-100 dark:border-primary/40 dark:bg-slate-800 dark:text-sky-300 dark:hover:bg-slate-700"
             :aria-label="`Remove ${d.name} from memberships`"
             @click="toggleStaffDepartment(d.id, false)"
           >
@@ -197,10 +197,10 @@
             ><span aria-hidden="true">×</span>
           </button>
         </div>
-        <label class="block text-sm font-medium text-slate-700"
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300"
           >Primary department<select
             v-model.number="userForm.primary_department_id"
-            class="input-field mt-1 bg-white"
+            class="input-field mt-1"
             :disabled="!selectedStaffDepartments.length"
           >
             <option
@@ -223,13 +223,13 @@
         </p>
       </div>
       <div class="grid gap-3 sm:grid-cols-2">
-        <label class="block text-sm font-medium text-slate-700"
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300"
           >Search departments<input
             v-model="departmentSearch"
             type="search"
             class="input-field mt-1"
             placeholder="Search name, code or faculty" /></label
-        ><label class="block text-sm font-medium text-slate-700"
+        ><label class="block text-sm font-medium text-slate-700 dark:text-slate-300"
           >Faculty<select
             v-model.number="departmentFacultyFilter"
             class="input-field mt-1"

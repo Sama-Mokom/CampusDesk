@@ -19,14 +19,14 @@
     <div
       v-if="error || choicesError"
       role="alert"
-      class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"
+      class="feedback-error"
     >
       {{ error || choicesError }}
     </div>
     <p
       v-if="success"
       role="status"
-      class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800"
+      class="feedback-success"
     >
       {{ success }}
     </p>
@@ -40,11 +40,11 @@
         <div>
           <h2
             id="users-heading"
-            class="text-lg font-semibold text-slate-900"
+            class="text-lg font-semibold text-[color:var(--text-heading)]"
           >
             People & access
           </h2>
-          <p class="mt-1 text-sm text-slate-500">
+          <p class="mt-1 text-sm text-[color:var(--text-muted)]">
             Manage accounts, department memberships and admin access.
           </p>
         </div>
@@ -57,13 +57,13 @@
         </button>
       </div>
       <div class="grid gap-3 sm:grid-cols-[1fr_220px_220px]">
-        <label class="text-xs font-medium text-slate-600"
+        <label class="text-xs font-medium text-[color:var(--text-muted)]"
           >Search users<input
             v-model="userSearch"
             type="search"
             class="input-field mt-1"
             placeholder="Search users" /></label
-        ><label class="text-xs font-medium text-slate-600"
+        ><label class="text-xs font-medium text-[color:var(--text-muted)]"
           >Role<select
             v-model="userRole"
             class="input-field mt-1"
@@ -72,7 +72,7 @@
             <option value="student">Student</option>
             <option value="staff">Staff</option>
           </select></label
-        ><label class="text-xs font-medium text-slate-600"
+        ><label class="text-xs font-medium text-[color:var(--text-muted)]"
           >Account status<select
             v-model="userStatus"
             class="input-field mt-1"
@@ -90,7 +90,7 @@
       <div
         v-else-if="collectionErrors.users"
         role="alert"
-        class="rounded-lg bg-red-50 p-4 text-sm text-red-800"
+        class="feedback-error"
       >
         {{ collectionErrors.users }}
         <button
@@ -107,7 +107,7 @@
       />
       <div
         v-else
-        class="divide-y divide-slate-100"
+        class="divide-y divide-[color:var(--border-subtle)]"
       >
         <article
           v-for="user in users.data"
@@ -116,23 +116,22 @@
         >
           <div class="min-w-0">
             <div class="flex flex-wrap items-center gap-2">
-              <h3 class="font-semibold text-slate-900 break-words">
+              <h3 class="font-semibold text-[color:var(--text-heading)] break-words">
                 {{ user.name }}
               </h3>
-              <span class="badge bg-slate-100 text-slate-600 capitalize">{{
+              <span class="badge badge-neutral capitalize">{{
                 user.role
               }}</span>
               <span
-                class="badge"
-                :class="user.is_disabled ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'"
+                :class="['badge', user.is_disabled ? 'badge-danger' : 'badge-success']"
               >{{ user.is_disabled ? 'Disabled' : 'Enabled' }}</span>
             </div>
-            <p class="mt-1 break-all text-sm text-slate-500">
+            <p class="mt-1 break-all text-sm text-[color:var(--text-muted)]">
               {{ user.email }}
             </p>
             <p
               v-if="user.staff_profile"
-              class="mt-1 text-xs text-slate-500 break-words"
+              class="mt-1 text-xs text-[color:var(--text-muted)] break-words"
             >
               {{
                 user.staff_profile.departments
@@ -144,7 +143,7 @@
           <div class="flex flex-wrap items-end gap-2">
             <label
               v-if="user.role === 'staff'"
-              class="min-w-0 flex-1 text-xs font-medium text-slate-500 sm:flex-none"
+              class="min-w-0 flex-1 text-xs font-medium text-[color:var(--text-muted)] sm:flex-none"
               >Admin access<select
                 :value="user.staff_profile?.admin_level ?? ''"
                 class="input-field mt-1"
@@ -224,7 +223,7 @@
         <p
           v-if="formError"
           role="alert"
-          class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-800"
+          class="mt-4 feedback-error"
         >
           {{ formError }}
         </p>
@@ -253,10 +252,10 @@
       :busy="pending"
       @close="closeDisable"
     >
-      <p class="text-sm text-slate-700">
+      <p class="text-sm text-[color:var(--text-body)]">
         Disable <strong>{{ disableTarget?.name }}</strong>? Their active sessions and password-reset links will be revoked immediately.
       </p>
-      <label class="mt-4 block text-sm font-medium text-slate-700">
+      <label class="mt-4 block field-label">
         Reason (optional)
         <textarea
           v-model="disableReason"
@@ -269,7 +268,7 @@
       <p
         v-if="disableError"
         role="alert"
-        class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-800"
+        class="mt-4 feedback-error"
       >
         {{ disableError }}
       </p>

@@ -8,7 +8,7 @@
   >
     <p class="text-sm text-slate-600">
       Delete
-      <strong class="break-words text-slate-900">{{ target?.name }}</strong
+      <strong class="break-words text-slate-900 dark:text-slate-100">{{ target?.name }}</strong
       >? This cannot be undone. Records used by other parts of CampusDesk cannot
       be deleted.
     </p>

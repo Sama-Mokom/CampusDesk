@@ -25,41 +25,41 @@
       <div>
         <h2
           id="history-heading"
-          class="text-lg font-semibold text-slate-900"
+          class="text-lg font-semibold text-[color:var(--text-heading)]"
         >
           Request and stage status history
         </h2>
-        <p class="mt-1 text-sm text-slate-500">
+        <p class="mt-1 text-sm text-[color:var(--text-muted)]">
           Status transitions across the institution. Administrative edits are
           outside this log.
         </p>
       </div>
       <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <label class="text-xs font-medium text-slate-600"
+        <label class="text-xs font-medium text-[color:var(--text-muted)]"
           >Request ID<input
             v-model="auditFilters.request_id"
             type="number"
             min="1"
             class="input-field mt-1"
             placeholder="All requests" /></label
-        ><label class="text-xs font-medium text-slate-600"
+        ><label class="text-xs font-medium text-[color:var(--text-muted)]"
           >Actor ID<input
             v-model="auditFilters.actor_id"
             type="number"
             min="1"
             class="input-field mt-1"
             placeholder="All people" /></label
-        ><label class="text-xs font-medium text-slate-600"
+        ><label class="text-xs font-medium text-[color:var(--text-muted)]"
           >New status<input
             v-model="auditFilters.new_status"
             class="input-field mt-1"
             placeholder="Any status" /></label
-        ><label class="text-xs font-medium text-slate-600"
+        ><label class="text-xs font-medium text-[color:var(--text-muted)]"
           >From<input
             v-model="auditFilters.date_from"
             type="date"
             class="input-field mt-1" /></label
-        ><label class="text-xs font-medium text-slate-600"
+        ><label class="text-xs font-medium text-[color:var(--text-muted)]"
           >To<input
             v-model="auditFilters.date_to"
             type="date"
@@ -81,7 +81,7 @@
       <div
         v-else-if="collectionErrors.audit"
         role="alert"
-        class="rounded-lg bg-red-50 p-4 text-sm text-red-800"
+        class="feedback-error"
       >
         {{ collectionErrors.audit }}
         <button

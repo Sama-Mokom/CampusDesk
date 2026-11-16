@@ -13,7 +13,7 @@ defineProps<{ eyebrow?: string; title: string; description?: string }>()
       <h1>{{ title }}</h1>
       <p
         v-if="description"
-        class="mt-2 max-w-2xl text-sm text-slate-500"
+        class="mt-2 max-w-2xl text-sm text-slate-500 dark:text-slate-400"
       >
         {{ description }}
       </p>

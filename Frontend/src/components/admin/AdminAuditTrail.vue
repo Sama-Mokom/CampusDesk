@@ -1,15 +1,14 @@
 <template>
-  <ol class="divide-y divide-slate-100">
+  <ol class="divide-y divide-[color:var(--border-subtle)]">
     <li
       v-for="row in rows"
       :key="row.id"
       class="py-3 text-sm"
     >
       <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-        <p class="font-medium text-slate-800 break-words">
+        <p class="font-medium text-[color:var(--text-heading)] break-words">
           {{ row.changed_by?.name ?? 'System' }}
-          <span class="font-normal text-slate-500"
-            >· Request #{{ row.request_id
+          <span class="font-normal text-[color:var(--text-muted)]">· Request #{{ row.request_id
             }}<span v-if="row.request_stage_id">
               · Stage #{{ row.request_stage_id }}</span
             ></span
@@ -17,19 +16,18 @@
         </p>
         <time
           :datetime="row.changed_at"
-          class="text-xs text-slate-500"
-          >{{ formatDate(row.changed_at) }}</time
+          class="text-xs text-[color:var(--text-muted)]">{{ formatDate(row.changed_at) }}</time
         >
       </div>
-      <p class="mt-1 text-slate-600">
+      <p class="mt-1 text-[color:var(--text-body)]">
         {{ label(row.old_status) }} <span aria-label="changed to">→</span>
-        <span class="font-medium text-slate-800">{{
+        <span class="font-medium text-[color:var(--text-heading)]">{{
           label(row.new_status)
         }}</span>
       </p>
       <p
         v-if="row.note"
-        class="mt-2 whitespace-pre-wrap break-words text-slate-500"
+        class="mt-2 whitespace-pre-wrap break-words text-[color:var(--text-muted)]"
       >
         {{ row.note }}
       </p>

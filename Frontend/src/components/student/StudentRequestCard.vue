@@ -28,11 +28,11 @@ const date = computed(() =>
 
 <template>
   <article
-    class="rounded-xl border border-slate-200 bg-white p-4 transition-colors hover:border-sky-200 sm:p-5"
+    class="rounded-xl border border-slate-200 bg-white p-4 transition-colors hover:border-sky-200 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-sky-800/60 sm:p-5"
   >
     <div class="flex items-start gap-3">
       <span
-        class="hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-50 text-slate-500 sm:flex"
+        class="hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-50 text-slate-500 dark:bg-slate-800 dark:text-slate-400 sm:flex"
         aria-hidden="true"
         ><svg
           class="h-5 w-5"
@@ -46,12 +46,12 @@ const date = computed(() =>
       <div class="min-w-0 flex-1">
         <div class="flex flex-wrap items-start justify-between gap-2">
           <div class="min-w-0">
-            <p class="text-xs font-medium text-slate-500">
+            <p class="text-xs font-medium text-slate-500 dark:text-slate-400">
               Request #{{ request.id }}
             </p>
             <div class="mt-1 flex flex-wrap items-center gap-2">
               <h3
-                class="break-words text-[15px] font-semibold text-slate-900"
+                class="break-words text-[15px] font-semibold text-slate-900 dark:text-slate-100"
               >
                 {{ request.request_type }}
               </h3>
@@ -70,7 +70,7 @@ const date = computed(() =>
           />
         </div>
         <p
-          class="mt-2 line-clamp-2 break-words text-sm leading-6 text-slate-500"
+          class="mt-2 line-clamp-2 break-words text-sm leading-6 text-slate-500 dark:text-slate-400"
         >
           {{ request.description }}
         </p>
@@ -79,7 +79,7 @@ const date = computed(() =>
           class="mt-4"
         >
           <div
-            class="mb-2 flex flex-wrap justify-between gap-1 text-xs text-slate-500"
+            class="mb-2 flex flex-wrap justify-between gap-1 text-xs text-slate-500 dark:text-slate-400"
           >
             <span class="break-words">{{
               current ? current.department_name : 'All departments completed'
@@ -102,21 +102,21 @@ const date = computed(() =>
                     ? 'bg-sky-500'
                     : stage.status === 'rejected'
                       ? 'bg-red-400'
-                      : 'bg-slate-100'
+                      : 'bg-slate-100 dark:bg-slate-800'
               "
             />
           </div>
         </div>
         <div
-          class="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3"
+          class="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3 dark:border-slate-800"
         >
           <time
             :datetime="request.created_at"
-            class="text-xs text-slate-500"
+            class="text-xs text-slate-500 dark:text-slate-400"
             >{{ date }}</time
           ><button
             type="button"
-            class="inline-flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm font-semibold text-sky-700 transition-colors hover:bg-sky-50"
+            class="inline-flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm font-semibold text-sky-700 transition-colors hover:bg-sky-50 dark:text-sky-400 dark:hover:bg-sky-950/50"
             :aria-label="`View ${request.request_type}, request ${request.id}`"
             @click="emit('view', request)"
           >
