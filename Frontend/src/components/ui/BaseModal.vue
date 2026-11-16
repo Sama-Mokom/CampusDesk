@@ -104,11 +104,11 @@ onBeforeUnmount(restore)
     >
       <div class="modal-surface">
         <header
-          class="flex shrink-0 items-center justify-between gap-4 border-b border-slate-200 px-5 py-4 sm:px-6"
+          class="flex shrink-0 items-center justify-between gap-4 border-b border-slate-200 px-5 py-4 dark:border-slate-800 sm:px-6"
         >
           <h2
             :id="titleId"
-            class="min-w-0 break-words"
+            class="min-w-0 break-words text-heading"
           >
             {{ title }}
           </h2>
@@ -132,12 +132,12 @@ onBeforeUnmount(restore)
             </svg>
           </button>
         </header>
-        <div class="min-h-0 overflow-y-auto overscroll-contain p-5 sm:p-6">
+        <div class="min-h-0 overflow-y-auto overscroll-contain p-5 sm:p-6 text-body">
           <slot />
         </div>
         <footer
           v-if="$slots.footer"
-          class="flex shrink-0 flex-wrap justify-end gap-3 border-t border-slate-200 bg-slate-50 px-5 py-4 sm:px-6"
+          class="flex shrink-0 flex-wrap justify-end gap-3 border-t border-subtle bg-surface-raised px-5 py-4 sm:px-6"
         >
           <slot name="footer" />
         </footer>
@@ -153,15 +153,15 @@ onBeforeUnmount(restore)
   margin: auto;
   padding: 0;
   overflow: hidden;
-  color: #0f172a;
-  background: white;
-  border: 1px solid #e2e8f0;
+  color: var(--text-heading);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
   border-radius: 1rem;
-  box-shadow: 0 24px 80px #0f172a33;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
 }
 .base-modal::backdrop {
-  background: #0f172a99;
-  backdrop-filter: blur(3px);
+  background: var(--overlay);
+  backdrop-filter: blur(4px);
 }
 .modal-surface {
   display: flex;
