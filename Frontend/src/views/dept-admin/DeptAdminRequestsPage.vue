@@ -53,28 +53,26 @@
           <div>
             <h2
               id="department-stages-title"
-              class="text-lg font-semibold text-[color:var(--text-heading)]"
+              class="text-lg font-semibold text-heading"
             >
               Department work
             </h2>
-            <p class="mt-1 text-sm text-[color:var(--text-muted)]">
+            <p class="mt-1 text-sm text-muted">
               Monitor every stage and keep active cases moving.
             </p>
           </div>
-          <span class="badge badge-neutral"
-            >{{ overview.staff.length }} staff members</span
-          >
+          <AppBadge tone="neutral">{{ overview.staff.length }} staff members</AppBadge>
         </div>
         <div
-          class="grid gap-3 rounded-xl bg-[color:var(--surface-input)] border border-[color:var(--border-subtle)] p-4 sm:grid-cols-[1fr_220px]"
+          class="grid gap-3 rounded-xl bg-surface-input border border-subtle p-4 sm:grid-cols-[1fr_220px]"
         >
-          <label class="text-xs font-medium text-[color:var(--text-muted)]">Search department work<input
+          <label class="text-xs font-medium text-muted">Search department work<input
               v-model="search"
               type="search"
               class="input-field mt-1"
               placeholder="Student, matricule or request number"
           /></label>
-          <label class="text-xs font-medium text-[color:var(--text-muted)]">Availability<select
+          <label class="text-xs font-medium text-muted">Availability<select
               v-model="filter"
               class="input-field mt-1"
             >
@@ -104,26 +102,26 @@
         >
         <template v-else>
           <div
-            class="hidden grid-cols-[minmax(0,2fr)_1fr_1fr_140px] gap-4 border-b border-[color:var(--border-subtle)] pb-3 text-xs font-semibold uppercase tracking-wide text-slate-500 lg:grid"
+            class="hidden grid-cols-[minmax(0,2fr)_1fr_1fr_140px] gap-4 border-b border-subtle pb-3 text-xs font-semibold uppercase tracking-wide text-muted lg:grid"
           >
             <span>Student / request</span><span>Status / availability</span
             ><span>Assigned to</span><span class="text-right">Actions</span>
           </div>
-          <div class="divide-y divide-[color:var(--border-subtle)]">
+          <div class="divide-y divide-subtle">
             <article
               v-for="stage in visibleStages"
               :key="stage.id"
               class="grid gap-4 py-5 first:pt-0 lg:grid-cols-[minmax(0,2fr)_1fr_1fr_140px] lg:items-center lg:first:pt-2"
             >
               <div class="min-w-0">
-                <p class="font-semibold text-[color:var(--text-heading)] break-words">
+                <p class="font-semibold text-heading break-words">
                   {{ stage.request.student_name }}
                 </p>
-                <p class="mt-1 text-sm text-[color:var(--text-body)] break-words">
+                <p class="mt-1 text-sm text-body break-words">
                   {{ stage.request.request_type }}
-                  <span class="text-[color:var(--text-muted)]">· #{{ stage.request_id }}</span>
+                  <span class="text-muted">· #{{ stage.request_id }}</span>
                 </p>
-                <p class="mt-1 text-xs text-[color:var(--text-muted)]">
+                <p class="mt-1 text-xs text-muted">
                   {{ stage.request.student_matricule }} · Stage
                   {{ stage.sequence_order }} ·
                   {{ formatDate(stage.updated_at) }}
@@ -136,19 +134,19 @@
                 />
                 <p
                   v-if="stage.is_claimable"
-                  class="mt-2 text-xs font-medium text-emerald-700"
+                  class="mt-2 text-xs font-medium text-status-success-text"
                 >
                   Ready to pick up
                 </p>
                 <p
                   v-else-if="stage.blocked_reason"
-                  class="mt-2 text-xs text-amber-800"
+                  class="mt-2 text-xs text-status-warning-text"
                 >
                   {{ stage.blocked_reason }}
                 </p>
               </div>
-              <p class="text-sm text-[color:var(--text-body)]">
-                <span class="mr-1 text-[color:var(--text-muted)] lg:hidden">Assigned to:</span>
+              <p class="text-sm text-body">
+                <span class="mr-1 text-muted lg:hidden">Assigned to:</span>
                 {{ stage.handler?.name ?? 'Unclaimed' }}
               </p>
               <div class="flex flex-wrap gap-2 lg:justify-end">
@@ -200,20 +198,20 @@
         class="space-y-5"
         @submit.prevent="submitReassign"
       >
-        <div class="rounded-xl bg-[color:var(--surface-input)] border border-[color:var(--border-subtle)] p-4">
-          <p class="font-semibold text-slate-900 dark:text-slate-100">
+        <div class="rounded-xl bg-surface-input border border-subtle p-4">
+          <p class="font-semibold text-heading">
             {{ modal.stage?.request.request_type }}
           </p>
-          <p class="mt-1 text-sm text-[color:var(--text-body)]">
+          <p class="mt-1 text-sm text-body">
             {{ modal.stage?.request.student_name }} · Request #{{
               modal.stage?.request_id
             }}
           </p>
-          <p class="mt-2 text-xs text-[color:var(--text-muted)]">
+          <p class="mt-2 text-xs text-muted">
             Currently assigned to {{ modal.stage?.handler?.name }}
           </p>
         </div>
-        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300"
+        <label class="block text-sm font-medium text-body"
           >Assign to<select
             v-model.number="modal.recipientId"
             class="input-field mt-2"
@@ -238,7 +236,7 @@
         >
         <p
           id="reassign-help"
-          class="text-sm text-[color:var(--text-muted)]"
+          class="text-sm text-muted"
         >
           {{
             eligibleStaff.length
@@ -286,7 +284,7 @@
             <p class="font-semibold">
               {{ selectedStage.request.request_type }}
             </p>
-            <p class="text-sm text-[color:var(--text-muted)]">
+            <p class="text-sm text-muted">
               {{ selectedStage.request.student_name }} · #{{
                 selectedStage.request_id
               }}
@@ -300,7 +298,7 @@
         <section>
           <h3 class="text-sm font-semibold">Request description</h3>
           <p
-            class="mt-2 whitespace-pre-wrap break-words text-sm text-[color:var(--text-body)]"
+            class="mt-2 whitespace-pre-wrap break-words text-sm text-body"
           >
             {{
               selectedStage.request.description || 'No description provided.'
@@ -310,7 +308,7 @@
         <section>
           <h3 class="text-sm font-semibold">Staff note</h3>
           <p
-            class="mt-2 whitespace-pre-wrap break-words text-sm text-[color:var(--text-body)]"
+            class="mt-2 whitespace-pre-wrap break-words text-sm text-body"
           >
             {{ selectedStage.staff_note || 'No staff note recorded.' }}
           </p>
@@ -319,7 +317,7 @@
           <h3 class="text-sm font-semibold">Assignment history</h3>
           <p
             v-if="!selectedStage.reassignments.length"
-            class="mt-2 text-sm text-[color:var(--text-muted)]"
+            class="mt-2 text-sm text-muted"
           >
             No reassignments recorded.
           </p>
@@ -330,13 +328,13 @@
             <li
               v-for="entry in selectedStage.reassignments"
               :key="entry.id"
-              class="rounded-lg border border-[color:var(--border-subtle)] bg-[color:var(--surface-raised)] p-3 text-sm text-[color:var(--text-body)]"
+              class="rounded-lg border border-subtle bg-surface-raised p-3 text-sm text-body"
             >
               <p>
                 {{ entry.from_user ?? 'Unclaimed' }} →
                 <span class="font-medium">{{ entry.to_user }}</span>
               </p>
-              <p class="mt-1 text-xs text-[color:var(--text-muted)]">
+              <p class="mt-1 text-xs text-muted">
                 {{ entry.reassigned_by ?? 'Administrator' }} ·
                 {{ formatDate(entry.created_at) }}
               </p>
@@ -364,6 +362,7 @@ import EmptyState from '@/components/ui/EmptyState.vue'
 import SkeletonLoader from '@/components/ui/SkeletonLoader.vue'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import AdminPagination from '@/components/admin/AdminPagination.vue'
+import AppBadge from '@/components/ui/AppBadge.vue'
 const loading = ref(true),
   loaded = ref(false),
   error = ref(''),

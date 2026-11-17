@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
-import ThemeSwitcher from '../ThemeSwitcher.vue'
+import ThemeToggle from '../ThemeToggle.vue'
 import { useTheme } from '../../composables/useTheme'
 
-describe('ThemeSwitcher component', () => {
+describe('ThemeToggle component', () => {
   beforeEach(() => {
     localStorage.clear()
     document.documentElement.className = ''
@@ -30,7 +30,7 @@ describe('ThemeSwitcher component', () => {
   })
 
   it('renders the theme toggle button with accessibility attributes', () => {
-    const wrapper = mount(ThemeSwitcher)
+    const wrapper = mount(ThemeToggle)
     const button = wrapper.find('button.icon-button')
 
     expect(button.exists()).toBe(true)
@@ -40,7 +40,7 @@ describe('ThemeSwitcher component', () => {
   })
 
   it('opens menu on click and lists Light, Dark, and System options', async () => {
-    const wrapper = mount(ThemeSwitcher)
+    const wrapper = mount(ThemeToggle)
     const button = wrapper.find('button.icon-button')
 
     await button.trigger('click')
@@ -58,7 +58,7 @@ describe('ThemeSwitcher component', () => {
   })
 
   it('selects Dark theme on click, updates theme state, and closes menu', async () => {
-    const wrapper = mount(ThemeSwitcher)
+    const wrapper = mount(ThemeToggle)
     await wrapper.find('button.icon-button').trigger('click')
     await nextTick()
 
@@ -74,7 +74,7 @@ describe('ThemeSwitcher component', () => {
   })
 
   it('closes menu when Escape is pressed', async () => {
-    const wrapper = mount(ThemeSwitcher)
+    const wrapper = mount(ThemeToggle)
     await wrapper.find('button.icon-button').trigger('click')
     await nextTick()
 

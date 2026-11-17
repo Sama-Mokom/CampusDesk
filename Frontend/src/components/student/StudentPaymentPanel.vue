@@ -1,24 +1,24 @@
 <template>
-  <div class="rounded-2xl border border-amber-200 bg-amber-50/60 p-5 shadow-sm sm:p-6 dark:border-amber-900/60 dark:bg-amber-950/40">
+  <div class="rounded-2xl border border-status-warning-border bg-status-warning-bg p-5 shadow-sm sm:p-6">
     <!-- Header: Fee & Status Callout -->
-    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-amber-200/70 dark:border-amber-900/40 pb-4">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-status-warning-border pb-4">
       <div>
         <div class="flex items-center gap-2">
-          <span class="inline-flex h-2.5 w-2.5 rounded-full bg-amber-500 animate-pulse" />
-          <h2 class="text-base font-bold text-slate-900 dark:text-slate-100">
+          <span class="inline-flex h-2.5 w-2.5 rounded-full bg-status-warning-text animate-pulse" />
+          <h2 class="text-base font-bold text-heading">
             Processing Fee Payment Required
           </h2>
         </div>
-        <p class="mt-1 text-xs text-slate-600 dark:text-slate-300">
+        <p class="mt-1 text-xs text-body">
           Your request will enter the departmental review queue once payment is confirmed.
         </p>
       </div>
 
       <div class="text-left sm:text-right">
-        <span class="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">
+        <span class="text-xs font-medium uppercase tracking-wider text-muted">
           Amount Due
         </span>
-        <div class="text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100">
+        <div class="text-2xl font-black tracking-tight text-heading">
           {{ formatXAF(amountDue) }}
         </div>
         <div class="mt-0.5 flex items-center gap-1.5 sm:justify-end">
@@ -35,7 +35,7 @@
     <!-- Upgrade Top-Up Notice (if reopening with tier upgrade) -->
     <div
       v-if="request.is_reopened && request.pending_upgrade_tier_id"
-      class="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-sky-200 bg-sky-50 dark:border-sky-900/60 dark:bg-sky-950/40 p-3 text-xs text-sky-800 dark:text-sky-300"
+      class="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-accent-soft-border bg-accent-soft p-3 text-xs text-accent-soft-text"
     >
       <div>
         <span class="font-semibold">Tier Upgrade Top-Up:</span>
@@ -44,7 +44,7 @@
       </div>
       <button
         type="button"
-        class="font-semibold underline hover:text-sky-950"
+        class="font-semibold underline hover:text-heading"
         :disabled="busy"
         @click="cancelUpgrade"
       >
@@ -59,7 +59,7 @@
     >
       <button
         type="button"
-        class="text-xs font-semibold text-sky-700 hover:text-sky-800 dark:text-sky-400 dark:hover:text-sky-300 underline"
+        class="text-xs font-semibold text-accent-text hover:text-heading underline"
         @click="showTierSwitcher = !showTierSwitcher"
       >
         {{ showTierSwitcher ? 'Close tier options' : 'Change processing speed / tier' }}
@@ -75,24 +75,24 @@
           type="button"
           class="rounded-xl border p-3 text-left transition"
           :class="tier.id === request.request_type_tier_id
-            ? 'border-sky-600 bg-sky-50/60 ring-2 ring-sky-500/20 dark:border-sky-500 dark:bg-sky-950/40 dark:ring-sky-500/30'
-            : 'border-slate-200 bg-white hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700'"
+            ? 'border-accent-text bg-accent-soft ring-2 ring-accent-soft-border'
+            : 'border-subtle bg-surface-card hover:border-strong'"
           :disabled="busy || tier.id === request.request_type_tier_id"
           @click="selectTier(tier)"
         >
           <div class="flex items-center justify-between">
-            <span class="text-xs font-bold text-slate-900 dark:text-slate-100">{{ tier.name }}</span>
+            <span class="text-xs font-bold text-heading">{{ tier.name }}</span>
             <span
               v-if="tier.id === request.request_type_tier_id"
-              class="text-[10px] font-semibold text-brand-700 bg-brand-100 rounded px-1.5 py-0.5"
+              class="text-[10px] font-semibold text-status-success-text bg-status-success-bg rounded px-1.5 py-0.5"
             >
               Current
             </span>
           </div>
-          <div class="mt-1 text-sm font-black text-slate-800 dark:text-slate-200">
+          <div class="mt-1 text-sm font-black text-heading">
             {{ formatXAF(tier.fee_amount) }}
           </div>
-          <div class="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+          <div class="mt-0.5 text-[11px] text-muted">
             ~{{ tier.turnaround_days }} days turnaround
           </div>
         </button>
@@ -103,20 +103,20 @@
     <div
       v-if="errorMessage"
       role="alert"
-      class="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-800 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300"
+      class="mt-4 rounded-xl border border-status-danger-border bg-status-danger-bg p-3 text-xs text-status-danger-text"
     >
       {{ errorMessage }}
     </div>
 
     <!-- Payment Mode Tabs -->
     <div class="mt-5">
-      <div class="flex border-b border-slate-200 dark:border-slate-800 gap-6 text-xs font-semibold">
+      <div class="flex border-b border-subtle gap-6 text-xs font-semibold">
         <button
           type="button"
           class="pb-2.5 transition border-b-2"
           :class="activeTab === 'hosted'
-            ? 'border-sky-600 text-sky-700 dark:border-sky-400 dark:text-sky-300'
-            : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'"
+            ? 'border-accent-text text-accent-text'
+            : 'border-transparent text-muted hover:text-heading'"
           @click="activeTab = 'hosted'"
         >
           Online Gateway (MTN & Orange)
@@ -125,8 +125,8 @@
           type="button"
           class="pb-2.5 transition border-b-2"
           :class="activeTab === 'direct_push'
-            ? 'border-sky-600 text-sky-700 dark:border-sky-400 dark:text-sky-300'
-            : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'"
+            ? 'border-accent-text text-accent-text'
+            : 'border-transparent text-muted hover:text-heading'"
           @click="activeTab = 'direct_push'"
         >
           Direct Mobile Money Push
@@ -138,17 +138,17 @@
         v-if="activeTab === 'hosted'"
         class="mt-4 space-y-3"
       >
-        <p class="text-xs text-slate-600 dark:text-slate-300">
+        <p class="text-xs text-body">
           You will be redirected to the secure payment portal to complete payment with your MTN Mobile Money or Orange Money account.
         </p>
 
         <!-- Ready Link Banner if initiated and active -->
         <div
           v-if="currentPayment?.checkout_url && isPaymentActive"
-          class="rounded-xl border border-sky-200 bg-sky-50 dark:border-sky-900/60 dark:bg-sky-950/40 p-3.5 space-y-2 text-xs text-sky-900 dark:text-sky-200"
+          class="rounded-xl border border-accent-soft-border bg-accent-soft p-3.5 space-y-2 text-xs text-accent-soft-text"
         >
           <div class="flex items-center gap-2 font-bold">
-            <span class="inline-flex h-2 w-2 rounded-full bg-sky-600 animate-ping" />
+            <span class="inline-flex h-2 w-2 rounded-full bg-accent-text animate-ping" />
             Payment checkout link is ready
           </div>
           <div class="flex flex-wrap items-center gap-2 pt-1">
@@ -186,13 +186,13 @@
           <button
             v-if="currentPayment?.status === 'failed'"
             type="button"
-            class="text-xs text-slate-500 underline hover:text-slate-800"
+            class="text-xs text-muted underline hover:text-heading"
             :disabled="busy"
             @click="checkStatus"
           >
             I already paid on the portal — Check status
           </button>
-          <span v-else class="text-xs text-slate-500">Instant verification upon return</span>
+          <span v-else class="text-xs text-muted">Instant verification upon return</span>
         </div>
       </div>
 
@@ -203,7 +203,7 @@
       >
         <div class="grid gap-4 sm:grid-cols-2">
           <div>
-            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            <label class="block text-xs font-semibold text-body mb-1">
               Select Operator
             </label>
             <div class="grid grid-cols-2 gap-2">
@@ -211,8 +211,8 @@
                 type="button"
                 class="rounded-lg border p-2 text-xs font-bold text-center transition"
                 :class="operator === 'mtn_momo'
-                  ? 'border-amber-400 bg-amber-100 text-amber-900 dark:border-amber-600 dark:bg-amber-950/60 dark:text-amber-200 ring-2 ring-amber-400/30'
-                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'"
+                  ? 'border-status-warning-text bg-status-warning-bg text-status-warning-text ring-2 ring-status-warning-border'
+                  : 'border-subtle bg-surface-card text-body hover:bg-surface-muted'"
                 @click="operator = 'mtn_momo'"
               >
                 MTN MoMo
@@ -221,8 +221,8 @@
                 type="button"
                 class="rounded-lg border p-2 text-xs font-bold text-center transition"
                 :class="operator === 'orange_money'
-                  ? 'border-orange-400 bg-orange-100 text-orange-900 dark:border-orange-600 dark:bg-orange-950/60 dark:text-orange-200 ring-2 ring-orange-400/30'
-                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'"
+                  ? 'border-status-orange-text bg-status-orange-bg text-status-orange-text ring-2 ring-status-orange-border'
+                  : 'border-subtle bg-surface-card text-body hover:bg-surface-muted'"
                 @click="operator = 'orange_money'"
               >
                 Orange Money
@@ -231,7 +231,7 @@
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            <label class="block text-xs font-semibold text-body mb-1">
               Phone Number (Cameroon)
             </label>
             <input
@@ -247,10 +247,10 @@
         <!-- Waiting Indicator when Direct Push Prompt is Sent -->
         <div
           v-if="pushActive && isPaymentActive"
-          class="rounded-xl border border-sky-200 bg-sky-50 dark:border-sky-900/60 dark:bg-sky-950/40 p-3.5 space-y-2 text-xs text-sky-900 dark:text-sky-200"
+          class="rounded-xl border border-accent-soft-border bg-accent-soft p-3.5 space-y-2 text-xs text-accent-soft-text"
         >
           <div class="flex items-center gap-2 font-bold">
-            <span class="inline-flex h-2 w-2 rounded-full bg-sky-600 animate-ping" />
+            <span class="inline-flex h-2 w-2 rounded-full bg-accent-text animate-ping" />
             USSD Prompt Sent to {{ phoneNumber }}!
           </div>
           <p>
@@ -265,7 +265,7 @@
             >
               {{ busy ? 'Checking…' : 'I have approved — Check status' }}
             </button>
-            <span class="text-[11px] text-slate-500">Auto-checking every few seconds</span>
+            <span class="text-[11px] text-muted">Auto-checking every few seconds</span>
           </div>
         </div>
 
@@ -284,19 +284,19 @@
     <!-- Developer / Tester Simulator Card (Available in Fake mode or demo environments) -->
     <div
       v-if="isFakeDriver"
-      class="mt-6 rounded-xl border border-dashed border-slate-300 bg-white/80 p-4 text-xs dark:border-slate-700 dark:bg-slate-900/80"
+      class="mt-6 rounded-xl border border-dashed border-strong bg-surface-card p-4 text-xs"
     >
       <div class="flex items-center justify-between">
-        <span class="font-bold text-slate-800 dark:text-slate-200">🛠 Test Mode Gateway Simulator</span>
-        <span class="text-[10px] uppercase font-semibold text-slate-400">Driver: fake</span>
+        <span class="font-bold text-heading">🛠 Test Mode Gateway Simulator</span>
+        <span class="text-[10px] uppercase font-semibold text-muted">Driver: fake</span>
       </div>
-      <p class="mt-1 text-slate-500 dark:text-slate-400">
+      <p class="mt-1 text-muted">
         You can simulate immediate payment outcomes without entering real MoMo credentials or receiving SMS.
       </p>
       <div class="mt-3 flex flex-wrap gap-2">
         <button
           type="button"
-          class="btn-secondary text-xs text-emerald-700 border-emerald-300 hover:bg-emerald-50"
+          class="btn-secondary text-xs text-status-success-text border-status-success-border hover:bg-status-success-bg"
           :disabled="busy"
           @click="simulateOutcome('successful')"
         >
@@ -304,7 +304,7 @@
         </button>
         <button
           type="button"
-          class="btn-secondary text-xs text-red-700 border-red-300 hover:bg-red-50"
+          class="btn-secondary text-xs text-status-danger-text border-status-danger-border hover:bg-status-danger-bg"
           :disabled="busy"
           @click="simulateOutcome('failed')"
         >

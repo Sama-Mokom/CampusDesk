@@ -97,20 +97,20 @@ onBeforeUnmount(close)
         :aria-pressed="activeFile?.id === file.id"
         :class="
           activeFile?.id === file.id
-            ? 'border-sky-600 bg-sky-50 dark:border-sky-500 dark:bg-sky-950/40'
-            : 'border-slate-200 bg-white hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800/60'
+            ? 'border-accent-text bg-accent-soft'
+            : 'border-subtle bg-surface-card hover:bg-surface-muted'
         "
         @click="select(file)"
       >
         <span class="flex min-w-0 items-center gap-3"
           ><span
-            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-surface-muted text-muted"
             ><AppIcon name="requests" /></span
           ><span class="min-w-0"
-            ><span class="block break-all text-sm font-medium text-slate-900 dark:text-slate-100">{{
+            ><span class="block break-all text-sm font-medium text-heading">{{
               file.original_name
             }}</span
-            ><span class="mt-1 block text-xs text-slate-500 dark:text-slate-400">{{
+            ><span class="mt-1 block text-xs text-muted">{{
               isPdf(file)
                 ? 'PDF document'
                 : isImage(file)
@@ -119,21 +119,21 @@ onBeforeUnmount(close)
             }}</span></span
           ></span
         >
-        <span class="shrink-0 text-xs font-semibold text-sky-800 dark:text-sky-300">{{
+        <span class="shrink-0 text-xs font-semibold text-accent-soft-text">{{
           activeFile?.id === file.id ? 'Viewing' : 'View'
         }}</span>
       </button>
     </div>
     <section
       v-if="activeFile"
-      class="overflow-hidden rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950"
+      class="overflow-hidden rounded-xl border border-subtle bg-surface-page"
       aria-label="Document preview"
       :aria-busy="loadingFile"
     >
       <div
-        class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900"
+        class="flex flex-wrap items-center justify-between gap-2 border-b border-subtle bg-surface-card p-3"
       >
-        <p class="min-w-0 flex-1 break-all text-sm font-semibold text-slate-900 dark:text-slate-100">
+        <p class="min-w-0 flex-1 break-all text-sm font-semibold text-heading">
           {{ activeFile.original_name }}
         </p>
         <div class="flex flex-wrap items-center gap-1">

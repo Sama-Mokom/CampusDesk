@@ -25,41 +25,41 @@
       <div>
         <h2
           id="history-heading"
-          class="text-lg font-semibold text-[color:var(--text-heading)]"
+          class="text-lg font-semibold text-heading"
         >
           Request and stage status history
         </h2>
-        <p class="mt-1 text-sm text-[color:var(--text-muted)]">
+        <p class="mt-1 text-sm text-muted">
           Status transitions across the institution. Administrative edits are
           outside this log.
         </p>
       </div>
       <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <label class="text-xs font-medium text-[color:var(--text-muted)]"
+        <label class="text-xs font-medium text-muted"
           >Request ID<input
             v-model="auditFilters.request_id"
             type="number"
             min="1"
             class="input-field mt-1"
             placeholder="All requests" /></label
-        ><label class="text-xs font-medium text-[color:var(--text-muted)]"
+        ><label class="text-xs font-medium text-muted"
           >Actor ID<input
             v-model="auditFilters.actor_id"
             type="number"
             min="1"
             class="input-field mt-1"
             placeholder="All people" /></label
-        ><label class="text-xs font-medium text-[color:var(--text-muted)]"
+        ><label class="text-xs font-medium text-muted"
           >New status<input
             v-model="auditFilters.new_status"
             class="input-field mt-1"
             placeholder="Any status" /></label
-        ><label class="text-xs font-medium text-[color:var(--text-muted)]"
+        ><label class="text-xs font-medium text-muted"
           >From<input
             v-model="auditFilters.date_from"
             type="date"
             class="input-field mt-1" /></label
-        ><label class="text-xs font-medium text-[color:var(--text-muted)]"
+        ><label class="text-xs font-medium text-muted"
           >To<input
             v-model="auditFilters.date_to"
             type="date"
@@ -69,7 +69,7 @@
       </div>
       <button
         v-if="hasAuditFilters"
-        class="min-h-11 text-sm font-semibold text-sky-700"
+        class="min-h-11 text-sm font-semibold text-accent-text"
         @click="clearAuditFilters"
       >
         Clear history filters

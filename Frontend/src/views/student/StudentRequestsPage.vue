@@ -111,7 +111,7 @@ onMounted(loadRequests)
       <div class="card grid gap-3 sm:grid-cols-[minmax(0,1fr)_220px]">
         <label
           for="student-request-search"
-          class="text-sm font-medium text-[color:var(--text-muted)]"
+          class="text-sm font-medium text-muted"
           >Search requests<input
             id="student-request-search"
             v-model="query"
@@ -121,7 +121,7 @@ onMounted(loadRequests)
         /></label>
         <label
           for="student-status-filter"
-          class="text-sm font-medium text-slate-700 dark:text-slate-300"
+          class="text-sm font-medium text-body"
           >Status<select
             id="student-status-filter"
             v-model="statusFilter"
@@ -140,7 +140,7 @@ onMounted(loadRequests)
       </div>
       <p
         v-if="loaded && !loading"
-        class="text-sm text-slate-500 dark:text-slate-400"
+        class="text-sm text-muted"
         role="status"
       >
         {{ filteredRequests.length }} of {{ requests.length }} requests
@@ -192,7 +192,7 @@ onMounted(loadRequests)
         class="flex flex-wrap items-center justify-between gap-3"
         aria-label="Request pages"
       >
-        <span class="text-sm text-slate-500 dark:text-slate-400"
+        <span class="text-sm text-muted"
           >Page {{ page }} of {{ pageCount }}</span
         >
         <div class="flex gap-2">

@@ -105,22 +105,22 @@ onMounted(load)
         :key="metric.label"
         class="card min-w-0"
       >
-        <p class="text-xs font-medium text-slate-500">{{ metric.label }}</p>
+        <p class="text-xs font-medium text-muted">{{ metric.label }}</p>
         <p class="mt-3 text-3xl font-bold tracking-tight">
           {{ loading || error ? '—' : metric.value }}
         </p>
-        <p class="mt-1 text-xs text-slate-500">{{ metric.hint }}</p>
+        <p class="mt-1 text-xs text-muted">{{ metric.hint }}</p>
       </div>
     </section>
     <section class="card">
       <h2 class="text-lg font-semibold">Manage department work</h2>
-      <p class="mt-2 text-sm text-slate-500">
+      <p class="mt-2 text-sm text-muted">
         Review claimable and blocked stages, inspect assignments, and reassign
         active work to your team.
       </p>
       <p
         v-if="overview"
-        class="mt-2 text-xs text-slate-500"
+        class="mt-2 text-xs text-muted"
       >
         {{ overview.staff.length }} staff members in this department
       </p>

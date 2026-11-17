@@ -18,33 +18,33 @@
         >
           <span
             v-if="stage.status === 'approved'"
-            class="text-green-700 dark:text-green-400"
+            class="text-status-success-text"
             >✓</span
           >
           <span
             v-else-if="stage.status === 'rejected'"
-            class="text-red-700 dark:text-red-400"
+            class="text-status-danger-text"
             >✕</span
           >
           <span
             v-else-if="isActive(stage)"
-            class="text-primary dark:text-sky-400"
+            class="text-accent-text"
             >{{ stage.sequence_order }}</span
           >
           <span
             v-else
-            class="text-neutral-500 dark:text-slate-400"
+            class="text-muted"
             >{{ stage.sequence_order }}</span
           >
         </div>
         <div
           v-if="index < ordered.length - 1"
-          class="w-0.5 flex-1 min-h-6 bg-neutral-300 dark:bg-slate-700 my-1"
+          class="w-0.5 flex-1 min-h-6 bg-subtle my-1"
         />
       </div>
       <div class="min-w-0 flex-1 pb-6 pt-0.5">
         <div class="flex flex-wrap items-center gap-2">
-          <p class="font-semibold text-sm text-foreground">
+          <p class="font-semibold text-sm text-heading">
             {{ stage.department_name }}
           </p>
           <StatusBadge
@@ -53,25 +53,25 @@
           />
           <span
             v-if="isActive(stage)"
-            class="text-xs font-medium text-primary dark:text-sky-400"
+            class="text-xs font-medium text-accent-text"
             >Current stage</span
           >
         </div>
         <p
           v-if="stage.staff_note"
-          class="text-sm text-neutral-700 dark:text-slate-300 mt-1"
+          class="text-sm text-body mt-1"
         >
           {{ stage.staff_note }}
         </p>
         <p
           v-if="stage.handled_by"
-          class="text-xs text-neutral-600 dark:text-slate-400 mt-1"
+          class="text-xs text-muted mt-1"
         >
           Handled by {{ stage.handled_by }}
         </p>
         <p
           v-if="stage.updated_at"
-          class="text-xs text-neutral-500 dark:text-slate-500 mt-1"
+          class="text-xs text-muted mt-1"
         >
           {{ formatTime(stage.updated_at) }}
         </p>
@@ -79,7 +79,7 @@
     </li>
     <li
       v-if="!ordered.length"
-      class="py-4 text-sm text-slate-500 dark:text-slate-400"
+      class="py-4 text-sm text-muted"
     >
       No workflow stages are available yet.
     </li>
@@ -111,10 +111,13 @@ function isActive(stage: RequestStage): boolean {
 }
 
 function nodeClass(stage: RequestStage) {
-  if (stage.status === 'approved') return 'bg-green-50 border-green-500 dark:bg-green-950/40 dark:border-green-600'
-  if (stage.status === 'rejected') return 'bg-red-50 border-red-500 dark:bg-red-950/40 dark:border-red-600'
-  if (isActive(stage)) return 'bg-white border-primary ring-2 ring-primary/30 dark:bg-slate-900 dark:border-sky-500 dark:ring-sky-500/30'
-  return 'bg-neutral-50 border-neutral-300 dark:bg-slate-800 dark:border-slate-700'
+  if (stage.status === 'approved')
+    return 'bg-status-success-bg border-status-success-text'
+  if (stage.status === 'rejected')
+    return 'bg-status-danger-bg border-status-danger-text'
+  if (isActive(stage))
+    return 'bg-surface-card border-accent-text ring-2 ring-accent-soft-border'
+  return 'bg-surface-muted border-subtle'
 }
 
 function formatTime(iso: string) {

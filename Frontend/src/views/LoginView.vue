@@ -90,7 +90,7 @@ async function onSubmit() {
             :disabled="busy"
           /><button
             type="button"
-            class="absolute inset-y-0 right-0 min-w-16 px-3 text-xs font-semibold text-primary"
+            class="absolute inset-y-0 right-0 min-w-16 px-3 text-xs font-semibold text-accent-text"
             :aria-pressed="showPassword"
             :aria-label="showPassword ? 'Hide password' : 'Show password'"
             @click="showPassword = !showPassword"
@@ -115,16 +115,16 @@ async function onSubmit() {
       </button>
     </form>
     <p
-      class="mt-8 border-t border-slate-200 pt-6 text-center text-sm text-slate-500"
+      class="mt-8 border-t border-subtle pt-6 text-center text-sm text-muted"
     >
       New student?
       <router-link
         to="/register"
-        class="inline-flex min-h-11 items-center font-semibold text-primary hover:underline"
+        class="inline-flex min-h-11 items-center font-semibold text-accent-text hover:underline"
         >Create an account</router-link
       >
     </p>
-    <p class="mt-4 text-center text-xs leading-relaxed text-slate-500">
+    <p class="mt-4 text-center text-xs leading-relaxed text-muted">
       Staff accounts are provided by your university administrator.
     </p>
   </AuthLayout>

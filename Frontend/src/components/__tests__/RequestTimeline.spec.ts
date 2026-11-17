@@ -62,9 +62,9 @@ describe('RequestTimeline', () => {
       props: { stages: [stage] }
     })
 
-    const node = wrapper.find('.rounded-full')
-    expect(node.classes()).toContain('bg-green-50')
-    expect(node.classes()).toContain('border-green-500')
+    const node = wrapper.find('div.rounded-full')
+    expect(node.classes()).toContain('bg-status-success-bg')
+    expect(node.classes()).toContain('border-status-success-text')
     expect(node.text()).toContain('✓')
   })
 
@@ -78,9 +78,9 @@ describe('RequestTimeline', () => {
       props: { stages: [stage] }
     })
 
-    const node = wrapper.find('.rounded-full')
-    expect(node.classes()).toContain('bg-red-50')
-    expect(node.classes()).toContain('border-red-500')
+    const node = wrapper.find('div.rounded-full')
+    expect(node.classes()).toContain('bg-status-danger-bg')
+    expect(node.classes()).toContain('border-status-danger-text')
     expect(node.text()).toContain('✕')
   })
 
@@ -98,14 +98,14 @@ describe('RequestTimeline', () => {
       props: { stages: [stage1, stage2] }
     })
 
-    const nodes = wrapper.findAll('.rounded-full')
+    const nodes = wrapper.findAll('div.rounded-full')
     expect(nodes.length).toBe(2)
 
     // stage1 — approved → green border
-    expect(nodes[0]!.classes()).toContain('border-green-500')
+    expect(nodes[0]!.classes()).toContain('border-status-success-text')
 
-    // stage2 — active → primary border
-    expect(nodes[1]!.classes()).toContain('border-primary')
+    // stage2 — active → accent border
+    expect(nodes[1]!.classes()).toContain('border-accent-text')
   })
 
   /**

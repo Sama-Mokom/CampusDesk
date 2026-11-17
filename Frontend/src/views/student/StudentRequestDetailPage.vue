@@ -283,23 +283,23 @@ watch(() => route.params.id, loadRequest, { immediate: true })
             </h2>
             <p
               v-if="request.is_reopened"
-              class="text-sm font-medium text-amber-800"
+              class="text-sm font-medium text-status-warning-text"
             >
               This request has been reopened.
             </p>
-            <dl class="grid gap-4 rounded-xl bg-[color:var(--surface-input)] border border-[color:var(--border-subtle)] p-4 sm:grid-cols-2">
+            <dl class="grid gap-4 rounded-xl bg-surface-input border border-subtle p-4 sm:grid-cols-2">
               <div>
-                <dt class="text-xs text-[color:var(--text-muted)]">Request ID</dt>
+                <dt class="text-xs text-muted">Request ID</dt>
                 <dd class="mt-1 text-sm font-medium">#{{ request.id }}</dd>
               </div>
               <div>
-                <dt class="text-xs text-[color:var(--text-muted)]">Submitted</dt>
+                <dt class="text-xs text-muted">Submitted</dt>
                 <dd class="mt-1 text-sm font-medium">
                   {{ formatDate(request.created_at) }}
                 </dd>
               </div>
               <div v-if="request.tier_name">
-                <dt class="text-xs text-[color:var(--text-muted)]">Processing Tier</dt>
+                <dt class="text-xs text-muted">Processing Tier</dt>
                 <dd class="mt-1">
                   <TierBadge
                     :name="request.tier_name"
@@ -310,36 +310,36 @@ watch(() => route.params.id, loadRequest, { immediate: true })
                 </dd>
               </div>
               <div v-if="request.fee_amount != null">
-                <dt class="text-xs text-[color:var(--text-muted)]">Processing Fee</dt>
+                <dt class="text-xs text-muted">Processing Fee</dt>
                 <dd class="mt-1 text-sm font-medium">
                   {{ formatXAF(request.fee_amount) }}
                   <span
                     v-if="request.amount_paid != null && request.amount_paid >= request.fee_amount"
-                    class="ml-1 text-xs text-emerald-700 font-semibold"
+                    class="ml-1 text-xs text-status-success-text font-semibold"
                   >
                     (Paid)
                   </span>
                   <span
                     v-else-if="request.amount_due != null && request.amount_due > 0"
-                    class="ml-1 text-xs text-amber-700 font-semibold"
+                    class="ml-1 text-xs text-status-warning-text font-semibold"
                   >
                     ({{ formatXAF(request.amount_due) }} due)
                   </span>
                 </dd>
               </div>
               <div v-if="request.target_ready_at">
-                <dt class="text-xs text-[color:var(--text-muted)]">Estimated Ready Date</dt>
-                <dd class="mt-1 text-sm font-medium text-sky-800">
+                <dt class="text-xs text-muted">Estimated Ready Date</dt>
+                <dd class="mt-1 text-sm font-medium text-accent-text">
                   {{ formatDate(request.target_ready_at) }}
                 </dd>
               </div>
               <div v-else-if="request.turnaround_days">
-                <dt class="text-xs text-[color:var(--text-muted)]">Target Turnaround</dt>
+                <dt class="text-xs text-muted">Target Turnaround</dt>
                 <dd class="mt-1 text-sm font-medium">
                   ~{{ request.turnaround_days }} days
                   <span
                     v-if="request.status === 'awaiting_payment'"
-                    class="text-xs text-[color:var(--text-muted)] block"
+                    class="text-xs text-muted block"
                   >
                     (starts after payment)
                   </span>
@@ -349,7 +349,7 @@ watch(() => route.params.id, loadRequest, { immediate: true })
             <div>
               <h3 class="text-sm font-semibold">Description</h3>
               <p
-                class="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-[color:var(--text-body)]"
+                class="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-body"
               >
                 {{ request.description || 'No description provided.' }}
               </p>
@@ -358,32 +358,32 @@ watch(() => route.params.id, loadRequest, { immediate: true })
             <!-- Actions Section: Reopen options when rejected, or Collect when ready -->
             <div
               v-if="request.status === 'rejected'"
-              class="border-t border-[color:var(--border-subtle)] pt-5 space-y-4"
+              class="border-t border-subtle pt-5 space-y-4"
               data-testid="reopen-section"
             >
-              <div class="rounded-xl border border-rose-200 bg-rose-50/60 p-4">
+              <div class="rounded-xl border border-status-danger-border bg-status-danger-bg p-4">
                 <div class="flex items-center gap-2">
-                  <span class="inline-flex h-2 w-2 rounded-full bg-rose-500" />
-                  <h3 class="text-sm font-bold text-rose-950">
+                  <span class="inline-flex h-2 w-2 rounded-full bg-status-danger-text" />
+                  <h3 class="text-sm font-bold text-heading">
                     Request Rejected — Reopen Options
                   </h3>
                 </div>
-                <p class="mt-1 text-xs text-rose-800">
+                <p class="mt-1 text-xs text-status-danger-text">
                   This request was rejected during departmental review. You can return it to the review queue with your current tier or choose a faster processing tier.
                 </p>
 
                 <!-- Option A: Standard free reopen at same tier -->
-                <div class="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3.5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                <div class="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border border-subtle bg-surface-card p-3.5 shadow-sm">
                   <div>
                     <div class="flex items-center gap-2">
-                      <span class="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                      <span class="text-sm font-semibold text-heading">
                         Reopen at current tier ({{ request.tier_name || 'Standard' }})
                       </span>
-                      <span class="rounded bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-800">
+                      <span class="rounded bg-status-success-bg px-2 py-0.5 text-[11px] font-bold text-status-success-text">
                         Free
                       </span>
                     </div>
-                    <p class="mt-0.5 text-xs text-[color:var(--text-muted)]">
+                    <p class="mt-0.5 text-xs text-muted">
                       Returns request to review queue with existing turnaround time at no extra fee.
                     </p>
                   </div>
@@ -404,37 +404,37 @@ watch(() => route.params.id, loadRequest, { immediate: true })
                   class="mt-4 space-y-2.5"
                   data-testid="tier-escalation-options"
                 >
-                  <div class="flex items-center justify-between text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  <div class="flex items-center justify-between text-xs font-semibold text-body">
                     <span>Or escalate speed with a tier upgrade:</span>
-                    <span class="text-[11px] text-[color:var(--text-muted)] font-normal">Pay delta fee top-up</span>
+                    <span class="text-[11px] text-muted font-normal">Pay delta fee top-up</span>
                   </div>
                   <div class="grid gap-2.5 sm:grid-cols-2">
                     <div
                       v-for="tier in higherTiers"
                       :key="tier.id"
-                      class="flex flex-col justify-between rounded-lg border border-sky-200 bg-sky-50/70 p-3 text-xs"
+                      class="flex flex-col justify-between rounded-lg border border-accent-soft-border bg-accent-soft p-3 text-xs"
                     >
                       <div>
                         <div class="flex items-center justify-between">
-                          <span class="font-bold text-sky-950">{{ tier.name }}</span>
-                          <span class="font-extrabold text-sky-800">
+                          <span class="font-bold text-accent-soft-text">{{ tier.name }}</span>
+                          <span class="font-extrabold text-accent-soft-text">
                             +{{ formatXAF(getUpgradeDelta(tier)) }}
                           </span>
                         </div>
-                        <p class="mt-1 text-[color:var(--text-body)]">
+                        <p class="mt-1 text-body">
                           Turnaround: ~{{ tier.turnaround_days }} {{ tier.turnaround_days === 1 ? 'day' : 'days' }}
                         </p>
                         <p
                           v-if="tier.description"
-                          class="mt-0.5 text-[11px] text-[color:var(--text-muted)] line-clamp-2"
+                          class="mt-0.5 text-[11px] text-muted line-clamp-2"
                         >
                           {{ tier.description }}
                         </p>
                       </div>
-                      <div class="mt-3 pt-2 border-t border-sky-200/60">
+                      <div class="mt-3 pt-2 border-t border-accent-soft-border">
                         <button
                           type="button"
-                          class="btn-secondary w-full text-xs font-semibold text-sky-800 border-sky-300 hover:bg-sky-100"
+                          class="btn-secondary w-full text-xs font-semibold text-accent-soft-text border-accent-soft-border hover:bg-surface-muted"
                           :data-testid="'reopen-upgrade-' + tier.id"
                           :disabled="!!pending"
                           @click="reopenWithUpgrade(tier.id)"
@@ -450,7 +450,7 @@ watch(() => route.params.id, loadRequest, { immediate: true })
 
             <div
               v-else-if="request.status === 'ready'"
-              class="flex flex-wrap gap-3 border-t border-[color:var(--border-subtle)] pt-4"
+              class="flex flex-wrap gap-3 border-t border-subtle pt-4"
             >
               <button
                 type="button"
@@ -475,7 +475,7 @@ watch(() => route.params.id, loadRequest, { immediate: true })
               class="mb-4 text-lg font-semibold"
             >
               Documents
-              <span class="text-sm font-normal text-[color:var(--text-muted)]"
+              <span class="text-sm font-normal text-muted"
                 >({{ request.attachments?.length ?? 0 }})</span
               >
             </h2>
@@ -496,7 +496,7 @@ watch(() => route.params.id, loadRequest, { immediate: true })
             </h2>
             <p
               v-if="!request.status_history?.length"
-              class="text-sm text-[color:var(--text-muted)]"
+              class="text-sm text-muted"
             >
               No status changes recorded yet.
             </p>
@@ -507,9 +507,9 @@ watch(() => route.params.id, loadRequest, { immediate: true })
               <li
                 v-for="entry in [...request.status_history].reverse()"
                 :key="entry.id"
-                class="rounded-lg bg-[color:var(--surface-input)] border border-[color:var(--border-subtle)] p-3 text-sm text-[color:var(--text-body)]"
+                class="rounded-lg bg-surface-input border border-subtle p-3 text-sm text-body"
               >
-                <p class="font-medium text-slate-700 dark:text-slate-300">
+                <p class="font-medium text-body">
                   {{
                     entry.old_status
                       ? requestStatusLabel(entry.old_status)
@@ -519,13 +519,13 @@ watch(() => route.params.id, loadRequest, { immediate: true })
                   ><span class="sr-only"> to </span>
                   {{ requestStatusLabel(entry.new_status) }}
                 </p>
-                <p class="mt-1 text-xs text-[color:var(--text-muted)]">
+                <p class="mt-1 text-xs text-muted">
                   {{ entry.changed_by?.name ?? 'System' }} ·
                   {{ formatDate(entry.changed_at) }}
                 </p>
                 <p
                   v-if="entry.note"
-                  class="mt-2 whitespace-pre-wrap break-words text-[color:var(--text-body)]"
+                  class="mt-2 whitespace-pre-wrap break-words text-body"
                 >
                   {{ entry.note }}
                 </p>

@@ -187,7 +187,7 @@ function onConfirmationUpdated(updated: DocumentRequest) {
       >
         <div class="flex items-center gap-3">
           <div
-            class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700"
+            class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-status-warning-bg text-status-warning-text"
             aria-hidden="true"
           >
             <svg
@@ -204,11 +204,11 @@ function onConfirmationUpdated(updated: DocumentRequest) {
           <div>
             <h2
               id="new-request-heading"
-              class="text-lg font-semibold text-slate-900 dark:text-slate-100"
+              class="text-lg font-semibold text-heading"
             >
               Request submitted — Fee payment required
             </h2>
-            <p class="text-xs text-slate-500">
+            <p class="text-xs text-muted">
               Request #{{ confirmation.id }}
               <span v-if="confirmation.request_type">· {{ confirmation.request_type }}</span>
             </p>
@@ -245,7 +245,7 @@ function onConfirmationUpdated(updated: DocumentRequest) {
         data-testid="confirmation-submitted-standard"
       >
         <div
-          class="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-50 text-green-700"
+          class="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-status-success-bg text-status-success-text"
           aria-hidden="true"
         >
           <svg
@@ -260,13 +260,13 @@ function onConfirmationUpdated(updated: DocumentRequest) {
         </div>
         <h2
           id="new-request-heading"
-          class="text-lg font-semibold text-slate-900 dark:text-slate-100"
+          class="text-lg font-semibold text-heading"
         >
           Request submitted
         </h2>
-        <p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+        <p class="mt-2 text-sm leading-6 text-body">
           Request #{{ confirmation.id }}
-          <span v-if="confirmation.tier_name" class="font-medium text-slate-900 dark:text-slate-100">
+          <span v-if="confirmation.tier_name" class="font-medium text-heading">
             ({{ confirmation.tier_name }}
             <span v-if="confirmation.fee_amount">· {{ formatXAF(confirmation.fee_amount) }}</span>)
           </span>
@@ -280,10 +280,10 @@ function onConfirmationUpdated(updated: DocumentRequest) {
           <li
             v-for="(stage, index) in orderedDepartments"
             :key="stage.id"
-            class="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-300"
+            class="flex items-center gap-3 text-sm text-body"
           >
             <span
-              class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sky-50 text-xs font-semibold text-sky-700 dark:bg-sky-950/60 dark:text-sky-300"
+              class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent-soft text-xs font-semibold text-accent-soft-text"
               >{{ index + 1 }}</span
             >{{ stage.department_name }}
           </li>
@@ -309,7 +309,7 @@ function onConfirmationUpdated(updated: DocumentRequest) {
     <template v-else>
       <div class="mb-5 flex items-start gap-3">
         <span
-          class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300"
+          class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent-soft-text"
           aria-hidden="true"
           ><svg
             class="h-5 w-5"
@@ -323,11 +323,11 @@ function onConfirmationUpdated(updated: DocumentRequest) {
         <div>
           <h2
             id="new-request-heading"
-            class="text-lg font-semibold text-slate-900 dark:text-slate-100"
+            class="text-lg font-semibold text-heading"
           >
             New request
           </h2>
-          <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Start with what you need.</p>
+          <p class="mt-1 text-sm text-muted">Start with what you need.</p>
         </div>
       </div>
       <SkeletonLoader
@@ -336,7 +336,7 @@ function onConfirmationUpdated(updated: DocumentRequest) {
       />
       <p
         v-else-if="requestTypes.length === 0"
-        class="rounded-xl bg-slate-50 p-4 text-sm text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+        class="rounded-xl bg-surface-muted p-4 text-sm text-body"
       >
         No request types are currently available. Please try refreshing the
         dashboard.
@@ -352,17 +352,17 @@ function onConfirmationUpdated(updated: DocumentRequest) {
           v-if="validation || error"
           id="student-form-error"
           role="alert"
-          class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300"
+          class="rounded-lg border border-status-danger-border bg-status-danger-bg p-3 text-sm text-status-danger-text"
         >
           {{ validation || error }}
         </p>
         <div>
           <label
             for="student-request-type"
-            class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300 dark:text-slate-300"
+            class="mb-2 block text-sm font-medium text-body"
             >Request type
             <span
-              class="text-red-600"
+              class="text-status-danger-text"
               aria-hidden="true"
               >*</span
             ></label
@@ -400,7 +400,7 @@ function onConfirmationUpdated(updated: DocumentRequest) {
           <p
             v-if="selectedType?.description"
             id="request-type-description"
-            class="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400"
+            class="mt-2 text-xs leading-5 text-muted"
           >
             {{ selectedType.description }}
           </p>
@@ -408,23 +408,23 @@ function onConfirmationUpdated(updated: DocumentRequest) {
           <!-- Single Tier Summary Card -->
           <div
             v-if="selectedType && activeTiers.length === 1 && activeTiers[0]"
-            class="mt-3 rounded-xl border border-sky-100 bg-sky-50/50 p-3.5 dark:border-sky-900/40 dark:bg-sky-950/30"
+            class="mt-3 rounded-xl border border-accent-soft-border bg-accent-soft p-3.5"
             data-testid="tier-summary-card"
           >
             <div class="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <span class="text-xs font-semibold uppercase tracking-wider text-sky-800 dark:text-sky-300">
+                <span class="text-xs font-semibold uppercase tracking-wider text-accent-soft-text">
                   Processing Fee
                 </span>
-                <p class="mt-0.5 text-base font-bold text-slate-900 dark:text-slate-100">
+                <p class="mt-0.5 text-base font-bold text-heading">
                   {{ formatXAF(activeTiers[0].fee_amount) }}
                 </p>
               </div>
               <div class="text-right">
-                <span class="text-xs font-semibold uppercase tracking-wider text-sky-800 dark:text-sky-300">
+                <span class="text-xs font-semibold uppercase tracking-wider text-accent-soft-text">
                   Target Turnaround
                 </span>
-                <p class="mt-0.5 text-sm font-medium text-slate-700 dark:text-slate-300">
+                <p class="mt-0.5 text-sm font-medium text-body">
                   ~{{ activeTiers[0].turnaround_days }} days
                 </p>
               </div>
@@ -437,9 +437,9 @@ function onConfirmationUpdated(updated: DocumentRequest) {
             class="mt-4 space-y-2"
             data-testid="tier-selector-fieldset"
           >
-            <legend class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300 dark:text-slate-300">
+            <legend class="mb-2 block text-sm font-medium text-body">
               Processing tier & fee
-              <span class="text-red-600" aria-hidden="true">*</span>
+              <span class="text-status-danger-text" aria-hidden="true">*</span>
             </legend>
             <div class="grid gap-3 sm:grid-cols-3">
               <label
@@ -448,12 +448,12 @@ function onConfirmationUpdated(updated: DocumentRequest) {
                 :class="[
                   'relative flex cursor-pointer flex-col justify-between rounded-xl border p-3.5 transition-all',
                   String(form.request_type_tier_id) === String(tier.id)
-                    ? 'border-sky-600 bg-sky-50/60 shadow-sm ring-2 ring-sky-500/20'
-                    : 'border-slate-200 bg-white hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700'
+                    ? 'border-accent-text bg-accent-soft shadow-sm ring-2 ring-accent-soft-border'
+                    : 'border-subtle bg-surface-card hover:border-strong'
                 ]"
               >
                 <div class="flex items-start justify-between gap-1.5">
-                  <span class="text-sm font-semibold text-slate-900 dark:text-slate-100">{{ tier.name }}</span>
+                  <span class="text-sm font-semibold text-heading">{{ tier.name }}</span>
                   <input
                     type="radio"
                     name="request-tier"
@@ -464,22 +464,22 @@ function onConfirmationUpdated(updated: DocumentRequest) {
                   />
                   <span
                     v-if="tier.priority === 3"
-                    class="shrink-0 rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-bold text-purple-700 dark:bg-purple-950/60 dark:text-purple-300"
+                    class="shrink-0 rounded-full bg-status-purple-bg px-2 py-0.5 text-[10px] font-bold text-status-purple-text"
                   >
                     Top Priority
                   </span>
                   <span
                     v-else-if="tier.priority === 2"
-                    class="shrink-0 rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-bold text-sky-700 dark:bg-sky-950/60 dark:text-sky-300"
+                    class="shrink-0 rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-bold text-accent-soft-text"
                   >
                     Priority
                   </span>
                 </div>
                 <div class="mt-2.5">
-                  <p class="text-base font-bold text-slate-900 dark:text-slate-100">{{ formatXAF(tier.fee_amount) }}</p>
-                  <p class="mt-0.5 text-xs text-slate-500">~{{ tier.turnaround_days }} days turnaround</p>
+                  <p class="text-base font-bold text-heading">{{ formatXAF(tier.fee_amount) }}</p>
+                  <p class="mt-0.5 text-xs text-muted">~{{ tier.turnaround_days }} days turnaround</p>
                 </div>
-                <p v-if="tier.description" class="mt-2 text-[11px] leading-4 text-slate-500 dark:text-slate-400">
+                <p v-if="tier.description" class="mt-2 text-[11px] leading-4 text-muted">
                   {{ tier.description }}
                 </p>
               </label>
@@ -490,10 +490,10 @@ function onConfirmationUpdated(updated: DocumentRequest) {
         <div>
           <label
             for="student-description"
-            class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300 dark:text-slate-300"
+            class="mb-2 block text-sm font-medium text-body"
             >Description
             <span
-              class="text-red-600"
+              class="text-status-danger-text"
               aria-hidden="true"
               >*</span
             ></label
@@ -515,7 +515,7 @@ function onConfirmationUpdated(updated: DocumentRequest) {
           />
           <p
             id="description-count"
-            class="mt-1 text-right text-xs text-slate-500"
+            class="mt-1 text-right text-xs text-muted"
           >
             {{ form.description.length }} / 1,000
           </p>
@@ -523,23 +523,23 @@ function onConfirmationUpdated(updated: DocumentRequest) {
         <div>
           <label
             for="student-attachments"
-            class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300 dark:text-slate-300"
+            class="mb-2 block text-sm font-medium text-body"
             >Supporting documents
-            <span class="font-normal text-slate-500 dark:text-slate-400">(optional)</span></label
+            <span class="font-normal text-muted">(optional)</span></label
           >
           <div
             class="rounded-xl border-2 border-dashed p-4 text-center transition-colors"
             :class="
               dragging
-                ? 'border-sky-500 bg-sky-50 dark:bg-sky-950/40'
-                : 'border-slate-200 bg-slate-50/60 dark:border-slate-700 dark:bg-slate-800/40'
+                ? 'border-accent-text bg-accent-soft'
+                : 'border-strong bg-surface-muted'
             "
             @dragover.prevent="dragging = true"
             @dragleave.prevent="dragging = false"
             @drop.prevent="onDrop"
           >
             <svg
-              class="mx-auto mb-2 h-6 w-6 text-slate-400"
+              class="mx-auto mb-2 h-6 w-6 text-muted"
               aria-hidden="true"
               viewBox="0 0 24 24"
               fill="none"
@@ -548,20 +548,20 @@ function onConfirmationUpdated(updated: DocumentRequest) {
             >
               <path d="M12 16V4m-4 4 4-4 4 4M4 16v4h16v-4" />
             </svg>
-            <p class="text-sm text-slate-600 dark:text-slate-300">Drop files here, or browse</p>
+            <p class="text-sm text-body">Drop files here, or browse</p>
             <input
               id="student-attachments"
               type="file"
               multiple
               accept=".pdf,.docx,.jpg,.jpeg,.png"
-              class="mt-3 block min-h-11 w-full min-w-0 text-xs text-slate-600 dark:text-slate-400 file:mr-2 file:rounded-md file:border-0 file:bg-white dark:file:bg-slate-800 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-sky-700 dark:file:text-sky-300"
+              class="mt-3 block min-h-11 w-full min-w-0 text-xs text-body file:mr-2 file:rounded-md file:border file:border-strong file:bg-surface-muted file:px-3 file:py-2 file:text-xs file:font-semibold file:text-accent-text"
               :disabled="submitting"
               aria-describedby="attachment-help"
               @change="onFiles"
             />
             <p
               id="attachment-help"
-              class="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400"
+              class="mt-2 text-xs leading-5 text-muted"
             >
               PDF, DOCX, JPG, PNG · Up to 5 MB per file
             </p>
@@ -574,14 +574,14 @@ function onConfirmationUpdated(updated: DocumentRequest) {
             <li
               v-for="(file, index) in files"
               :key="`${file.name}-${file.lastModified}`"
-              class="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800/60 pl-3"
+              class="flex items-center gap-2 rounded-lg border border-subtle bg-surface-muted pl-3"
             >
-              <span class="min-w-0 flex-1 break-all text-xs text-slate-700 dark:text-slate-300">{{
+              <span class="min-w-0 flex-1 break-all text-xs text-body">{{
                 file.name
               }}</span
               ><button
                 type="button"
-                class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-red-50 hover:text-red-700 dark:text-slate-400 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+                class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-status-danger-bg hover:text-status-danger-text"
                 :disabled="submitting"
                 :aria-label="`Remove ${file.name}`"
                 @click="files.splice(index, 1)"
@@ -608,7 +608,7 @@ function onConfirmationUpdated(updated: DocumentRequest) {
             >→</span
           >
         </button>
-        <p class="text-center text-xs leading-5 text-slate-500 dark:text-slate-400">
+        <p class="text-center text-xs leading-5 text-muted">
           Your request will be routed to the right departments.
         </p>
       </form>

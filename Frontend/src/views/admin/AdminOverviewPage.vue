@@ -37,37 +37,37 @@
         class="grid grid-cols-2 gap-3 lg:grid-cols-4"
       >
         <div class="card">
-          <p class="text-xs font-medium text-[color:var(--text-muted)]">Total requests</p>
-          <p class="mt-3 text-3xl font-bold tracking-tight text-[color:var(--text-heading)]">
+          <p class="text-xs font-medium text-muted">Total requests</p>
+          <p class="mt-3 text-3xl font-bold tracking-tight text-heading">
             {{ stats.total }}
           </p>
-          <p class="mt-1 text-xs text-[color:var(--text-muted)]">Across the institution</p>
+          <p class="mt-1 text-xs text-muted">Across the institution</p>
         </div>
         <div class="card">
-          <p class="text-xs font-medium text-[color:var(--text-muted)]">Submitted today</p>
-          <p class="mt-3 text-3xl font-bold tracking-tight text-[color:var(--accent-text)]">
+          <p class="text-xs font-medium text-muted">Submitted today</p>
+          <p class="mt-3 text-3xl font-bold tracking-tight text-accent-text">
             {{ stats.requests_today }}
           </p>
-          <p class="mt-1 text-xs text-[color:var(--text-muted)]">New requests today</p>
+          <p class="mt-1 text-xs text-muted">New requests today</p>
         </div>
         <div class="card">
-          <p class="text-xs font-medium text-[color:var(--text-muted)]">In review</p>
-          <p class="mt-3 text-3xl font-bold tracking-tight text-[color:var(--accent-text)]">
+          <p class="text-xs font-medium text-muted">In review</p>
+          <p class="mt-3 text-3xl font-bold tracking-tight text-accent-text">
             {{ stats.by_status.in_review ?? 0 }}
           </p>
-          <p class="mt-1 text-xs text-[color:var(--text-muted)]">Currently being handled</p>
+          <p class="mt-1 text-xs text-muted">Currently being handled</p>
         </div>
         <div class="card">
-          <p class="text-xs font-medium text-[color:var(--text-muted)]">Average resolution</p>
-          <p class="mt-3 text-3xl font-bold tracking-tight text-[color:var(--text-heading)]">
+          <p class="text-xs font-medium text-muted">Average resolution</p>
+          <p class="mt-3 text-3xl font-bold tracking-tight text-heading">
             {{ stats.avg_resolution_hours ?? '—'
             }}<span
               v-if="stats.avg_resolution_hours !== null"
-              class="ml-1 text-sm font-medium text-[color:var(--text-muted)]"
+              class="ml-1 text-sm font-medium text-muted"
               >hrs</span
             >
           </p>
-          <p class="mt-1 text-xs text-[color:var(--text-muted)]">
+          <p class="mt-1 text-xs text-muted">
             {{
               stats.avg_resolution_hours === null
                 ? 'No resolved requests yet'
@@ -78,11 +78,11 @@
       </div>
       <div
         v-else
-        class="card text-sm text-[color:var(--text-body)]"
+        class="card text-sm text-body"
       >
         Overview statistics are unavailable.
         <button
-          class="min-h-11 font-semibold text-sky-700 underline"
+          class="min-h-11 font-semibold text-accent-text underline"
           @click="loadStats"
         >
           Try again
@@ -93,7 +93,7 @@
         class="grid gap-4 xl:grid-cols-[1fr_1.5fr]"
       >
         <section class="card">
-          <h2 class="text-base font-semibold text-[color:var(--text-heading)]">
+          <h2 class="text-base font-semibold text-heading">
             Request distribution
           </h2>
           <div class="mt-4 space-y-3">
@@ -105,7 +105,7 @@
               <StatusBadge
                 kind="request"
                 :status="status"
-              /><span class="font-semibold tabular-nums text-[color:var(--text-body)]">{{
+              /><span class="font-semibold tabular-nums text-body">{{
                 stats.by_status[status] ?? 0
               }}</span>
             </div>
@@ -113,12 +113,12 @@
         </section>
         <section class="card">
           <div class="flex flex-wrap items-center justify-between gap-2">
-            <h2 class="text-base font-semibold text-[color:var(--text-heading)]">
+            <h2 class="text-base font-semibold text-heading">
               Recent activity
             </h2>
             <RouterLink
               to="/admin/history"
-              class="inline-flex min-h-11 items-center text-sm font-medium text-sky-700"
+              class="inline-flex min-h-11 items-center text-sm font-medium text-accent-text"
               >View status history →</RouterLink
             >
           </div>

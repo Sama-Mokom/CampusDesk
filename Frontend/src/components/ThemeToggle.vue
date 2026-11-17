@@ -111,7 +111,7 @@ onBeforeUnmount(() => {
       ref="triggerRef"
       type="button"
       class="icon-button"
-      :aria-label="`Theme: currently ${activeLabel}. Click to change theme.`"
+      :aria-label="`Theme: ${activeLabel}. Change theme.`"
       :title="`Theme: ${activeLabel}`"
       :aria-expanded="isOpen"
       aria-haspopup="menu"
@@ -124,9 +124,9 @@ onBeforeUnmount(() => {
       v-if="isOpen"
       role="menu"
       aria-label="Select theme"
-      class="absolute right-0 z-50 mt-2 w-44 origin-top-right rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg backdrop-blur focus:outline-none dark:border-slate-800 dark:bg-slate-900"
+      class="absolute right-0 z-50 mt-2 w-44 origin-top-right rounded-xl border border-subtle bg-surface-raised p-1.5 shadow-lg backdrop-blur focus:outline-none"
     >
-      <div class="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+      <div class="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted">
         Theme
       </div>
       <button
@@ -139,8 +139,8 @@ onBeforeUnmount(() => {
         class="flex w-full items-center justify-between gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium transition-colors"
         :class="[
           theme === opt.id
-            ? 'bg-sky-50 font-semibold text-sky-800 dark:bg-sky-950/60 dark:text-sky-300'
-            : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
+            ? 'bg-accent-soft font-semibold text-accent-soft-text'
+            : 'text-body hover:bg-surface-muted hover:text-heading'
         ]"
         @click="selectTheme(opt.id)"
       >
@@ -150,7 +150,7 @@ onBeforeUnmount(() => {
         </span>
         <span
           v-if="theme === opt.id"
-          class="text-sky-600 dark:text-sky-400"
+          class="text-accent-text"
         >
           <AppIcon name="check" />
         </span>

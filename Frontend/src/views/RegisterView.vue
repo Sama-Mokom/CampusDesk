@@ -156,7 +156,7 @@ async function onSubmit() {
         <p
           v-if="fieldErrors.name"
           id="name-error"
-          class="mt-1 text-xs text-red-700"
+          class="mt-1 text-xs text-status-danger-text"
         >
           {{ fieldErrors.name.join(' ') }}
         </p>
@@ -180,7 +180,7 @@ async function onSubmit() {
         <p
           v-if="fieldErrors.email"
           id="email-error"
-          class="mt-1 text-xs text-red-700"
+          class="mt-1 text-xs text-status-danger-text"
         >
           {{ fieldErrors.email.join(' ') }}
         </p>
@@ -203,14 +203,14 @@ async function onSubmit() {
         />
         <p
           id="password-help"
-          class="mt-1 text-xs text-slate-500"
+          class="mt-1 text-xs text-muted"
         >
           Use at least 8 characters.
         </p>
         <p
           v-if="fieldErrors.password"
           id="password-error"
-          class="mt-1 text-xs text-red-700"
+          class="mt-1 text-xs text-status-danger-text"
         >
           {{ fieldErrors.password.join(' ') }}
         </p>
@@ -232,7 +232,7 @@ async function onSubmit() {
           <p
             v-if="fieldErrors.matricule"
             id="matricule-error"
-            class="mt-1 text-xs text-red-700"
+            class="mt-1 text-xs text-status-danger-text"
           >
             {{ fieldErrors.matricule.join(' ') }}
           </p>
@@ -258,9 +258,9 @@ async function onSubmit() {
           </select>
         </div>
       </div>
-      <fieldset class="space-y-4 rounded-xl border border-slate-200 p-4">
+      <fieldset class="space-y-4 rounded-xl border border-subtle p-4">
         <legend
-          class="px-2 text-xs font-semibold uppercase tracking-wider text-slate-500"
+          class="px-2 text-xs font-semibold uppercase tracking-wider text-muted"
         >
           Academic details
         </legend>
@@ -345,7 +345,7 @@ async function onSubmit() {
           </select>
           <p
             v-if="form.department_id && !filteredProgrammes.length"
-            class="mt-2 text-xs text-amber-800"
+            class="mt-2 text-xs text-status-warning-text"
           >
             No programmes are available for this department. Contact your
             university administrator.
@@ -378,11 +378,11 @@ async function onSubmit() {
         {{ busy ? 'Creating account…' : 'Create account' }}
       </button>
     </form>
-    <p class="mt-6 text-center text-sm text-slate-500">
+    <p class="mt-6 text-center text-sm text-muted">
       Already registered?
       <router-link
         to="/login"
-        class="inline-flex min-h-11 items-center font-semibold text-primary hover:underline"
+        class="inline-flex min-h-11 items-center font-semibold text-accent-text hover:underline"
         >Sign in</router-link
       >
     </p>

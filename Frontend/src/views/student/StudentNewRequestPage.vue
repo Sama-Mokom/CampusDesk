@@ -12,6 +12,7 @@ import type {
 } from '@/types'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import StudentRequestForm from '@/components/student/StudentRequestForm.vue'
+import AppCallout from '@/components/ui/AppCallout.vue'
 
 const router = useRouter()
 const { user } = useAuth()
@@ -108,7 +109,7 @@ onMounted(loadTypes)
     <div
       v-if="confirmation && confirmation.status === 'awaiting_payment'"
       role="status"
-      class="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900"
+      class="rounded-xl border border-status-warning-border bg-status-warning-bg px-4 py-3 text-sm font-medium text-status-warning-text"
     >
       Request #{{ confirmation.id }} created. Complete payment below to start processing.
     </div>
@@ -134,17 +135,17 @@ onMounted(loadTypes)
         @view="viewRequest"
         @updated="onConfirmationUpdated"
       />
-      <aside class="rounded-xl border border-sky-100 bg-sky-50/60 p-5">
-        <h2 class="text-base font-semibold text-sky-900">What happens next?</h2>
+      <AppCallout tone="info">
+        <h2 class="text-base font-semibold text-heading">What happens next?</h2>
         <p
           v-if="confirmation?.status === 'awaiting_payment'"
-          class="mt-3 text-sm leading-6 text-sky-800"
+          class="mt-3 text-sm leading-6 text-status-info-text"
         >
           Mobile Money payments are credited instantly in most cases. As soon as your payment is confirmed, university staff will be able to claim and review your application.
         </p>
         <p
           v-else
-          class="mt-3 text-sm leading-6 text-sky-800"
+          class="mt-3 text-sm leading-6 text-status-info-text"
         >
           After submission, your request is routed to the relevant departments.
           You can check its status, review staff notes, and open your documents
@@ -152,7 +153,7 @@ onMounted(loadTypes)
         </p>
         <RouterLink
           :to="{ name: 'student-requests' }"
-          class="mt-4 inline-flex min-h-11 items-center text-sm font-semibold text-sky-800"
+          class="mt-4 inline-flex min-h-11 items-center text-sm font-semibold text-status-info-text"
           >Go to my requests
           <span
             aria-hidden="true"
@@ -160,7 +161,7 @@ onMounted(loadTypes)
             >→</span
           ></RouterLink
         >
-      </aside>
+      </AppCallout>
     </div>
   </div>
 </template>

@@ -40,11 +40,11 @@
         <div>
           <h2
             id="users-heading"
-            class="text-lg font-semibold text-[color:var(--text-heading)]"
+            class="text-lg font-semibold text-heading"
           >
             People & access
           </h2>
-          <p class="mt-1 text-sm text-[color:var(--text-muted)]">
+          <p class="mt-1 text-sm text-muted">
             Manage accounts, department memberships and admin access.
           </p>
         </div>
@@ -57,13 +57,13 @@
         </button>
       </div>
       <div class="grid gap-3 sm:grid-cols-[1fr_220px_220px]">
-        <label class="text-xs font-medium text-[color:var(--text-muted)]"
+        <label class="text-xs font-medium text-muted"
           >Search users<input
             v-model="userSearch"
             type="search"
             class="input-field mt-1"
             placeholder="Search users" /></label
-        ><label class="text-xs font-medium text-[color:var(--text-muted)]"
+        ><label class="text-xs font-medium text-muted"
           >Role<select
             v-model="userRole"
             class="input-field mt-1"
@@ -72,7 +72,7 @@
             <option value="student">Student</option>
             <option value="staff">Staff</option>
           </select></label
-        ><label class="text-xs font-medium text-[color:var(--text-muted)]"
+        ><label class="text-xs font-medium text-muted"
           >Account status<select
             v-model="userStatus"
             class="input-field mt-1"
@@ -107,7 +107,7 @@
       />
       <div
         v-else
-        class="divide-y divide-[color:var(--border-subtle)]"
+        class="divide-y divide-subtle"
       >
         <article
           v-for="user in users.data"
@@ -116,22 +116,24 @@
         >
           <div class="min-w-0">
             <div class="flex flex-wrap items-center gap-2">
-              <h3 class="font-semibold text-[color:var(--text-heading)] break-words">
+              <h3 class="font-semibold text-heading break-words">
                 {{ user.name }}
               </h3>
-              <span class="badge badge-neutral capitalize">{{
-                user.role
-              }}</span>
-              <span
-                :class="['badge', user.is_disabled ? 'badge-danger' : 'badge-success']"
-              >{{ user.is_disabled ? 'Disabled' : 'Enabled' }}</span>
+              <AppBadge
+                tone="neutral"
+                class="capitalize"
+                >{{ user.role }}</AppBadge
+              >
+              <AppBadge :tone="user.is_disabled ? 'danger' : 'success'">{{
+                user.is_disabled ? 'Disabled' : 'Enabled'
+              }}</AppBadge>
             </div>
-            <p class="mt-1 break-all text-sm text-[color:var(--text-muted)]">
+            <p class="mt-1 break-all text-sm text-muted">
               {{ user.email }}
             </p>
             <p
               v-if="user.staff_profile"
-              class="mt-1 text-xs text-[color:var(--text-muted)] break-words"
+              class="mt-1 text-xs text-muted break-words"
             >
               {{
                 user.staff_profile.departments
@@ -143,7 +145,7 @@
           <div class="flex flex-wrap items-end gap-2">
             <label
               v-if="user.role === 'staff'"
-              class="min-w-0 flex-1 text-xs font-medium text-[color:var(--text-muted)] sm:flex-none"
+              class="min-w-0 flex-1 text-xs font-medium text-muted sm:flex-none"
               >Admin access<select
                 :value="user.staff_profile?.admin_level ?? ''"
                 class="input-field mt-1"
@@ -166,7 +168,7 @@
               Edit</button
             ><button
               v-if="user.is_disabled"
-              class="btn-secondary text-emerald-700"
+              class="btn-secondary text-status-success-text"
               :disabled="pending"
               :aria-label="`Re-enable ${user.name}`"
               @click="enableAccount(user)"
@@ -174,14 +176,14 @@
               Re-enable</button
             ><button
               v-else-if="signedInUser?.id !== user.id"
-              class="btn-secondary text-amber-700"
+              class="btn-secondary text-status-warning-text"
               :disabled="pending"
               :aria-label="`Disable ${user.name}`"
               @click="askDisable(user)"
             >
               Disable</button
             ><button
-              class="btn-secondary text-red-700"
+              class="btn-secondary text-status-danger-text"
               :disabled="pending"
               :aria-label="`Delete ${user.name}`"
               @click="askRemove('users', user.id, user.name)"
@@ -252,7 +254,7 @@
       :busy="pending"
       @close="closeDisable"
     >
-      <p class="text-sm text-[color:var(--text-body)]">
+      <p class="text-sm text-body">
         Disable <strong>{{ disableTarget?.name }}</strong>? Their active sessions and password-reset links will be revoked immediately.
       </p>
       <label class="mt-4 block field-label">
@@ -281,7 +283,7 @@
           Cancel
         </button>
         <button
-          class="btn-primary bg-red-700 hover:bg-red-800"
+          class="btn-danger"
           :disabled="pending"
           @click="confirmDisable"
         >
@@ -305,6 +307,7 @@ import EmptyState from '@/components/ui/EmptyState.vue'
 import SkeletonLoader from '@/components/ui/SkeletonLoader.vue'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import AdminPagination from '@/components/admin/AdminPagination.vue'
+import AppBadge from '@/components/ui/AppBadge.vue'
 import AdminUserFields from '@/components/admin/AdminUserFields.vue'
 import AdminDeleteDialog from '@/components/admin/AdminDeleteDialog.vue'
 

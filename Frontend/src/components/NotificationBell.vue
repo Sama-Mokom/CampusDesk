@@ -116,7 +116,7 @@ async function onClick(id: number) {
       </svg>
       <span
         v-if="unreadCount > 0"
-        class="absolute right-0 top-0 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-red-700 px-1 text-[10px] font-bold text-white dark:border-slate-900"
+        class="absolute right-0 top-0 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-surface-page bg-danger-solid px-1 text-[10px] font-bold text-on-danger"
         >{{ unreadCount > 9 ? '9+' : unreadCount
         }}<span class="sr-only"> unread</span></span
       >
@@ -126,12 +126,12 @@ async function onClick(id: number) {
         v-if="open"
         id="notifications-panel"
         aria-label="Notifications"
-        class="notification-panel overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900"
+        class="notification-panel overflow-y-auto rounded-xl border border-subtle bg-surface-raised shadow-xl"
       >
         <header
-          class="flex items-center justify-between border-b border-slate-100 p-4 dark:border-slate-800"
+          class="flex items-center justify-between border-b border-subtle p-4"
         >
-          <h2 class="text-sm text-slate-900 dark:text-slate-100">Notifications</h2>
+          <h2 class="text-sm text-heading">Notifications</h2>
           <button
             type="button"
             class="btn-ghost"
@@ -163,7 +163,7 @@ async function onClick(id: number) {
         </div>
         <p
           v-if="!loading && !error && !items.length"
-          class="px-4 py-10 text-center text-sm text-slate-500 dark:text-slate-400"
+          class="px-4 py-10 text-center text-sm text-muted"
         >
           No notifications. You’re all caught up.
         </p>
@@ -171,13 +171,13 @@ async function onClick(id: number) {
           v-for="item in items"
           :key="item.id"
           type="button"
-          class="block w-full border-b border-slate-100 px-4 py-4 text-left transition-colors hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/60"
-          :class="item.read ? 'bg-white dark:bg-slate-900' : 'bg-sky-50 dark:bg-sky-950/40'"
+          class="block w-full border-b border-subtle px-4 py-4 text-left transition-colors hover:bg-surface-muted"
+          :class="item.read ? 'bg-surface-card' : 'bg-accent-soft'"
           :disabled="reading !== null"
           @click="onClick(item.id)"
         >
-          <span class="block text-sm text-slate-700 dark:text-slate-200">{{ item.message }}</span
-          ><span class="mt-2 block text-xs text-slate-500 dark:text-slate-400"
+          <span class="block text-sm text-body">{{ item.message }}</span
+          ><span class="mt-2 block text-xs text-muted"
             >{{ formatTime(item.created_at) }} ·
             {{ item.read ? 'Read' : 'Mark as read' }}</span
           >

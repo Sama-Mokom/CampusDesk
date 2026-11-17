@@ -329,10 +329,10 @@ onMounted(() => {
           {{ staffUser?.name?.charAt(0) ?? 'S' }}
         </div>
         <div class="min-w-0">
-          <h2 class="break-words text-base font-semibold text-slate-900 dark:text-slate-100">
+          <h2 class="break-words text-base font-semibold text-heading">
             {{ staffUser?.name }}
           </h2>
-          <p class="mt-1 text-xs text-slate-500">
+          <p class="mt-1 text-xs text-muted">
             <span class="font-mono">{{ sp?.staff_id }}</span
             ><span v-if="primaryDeptName"> · {{ primaryDeptName }}</span>
           </p>
@@ -342,7 +342,7 @@ onMounted(() => {
         <label
           v-if="deptOptions.length > 1"
           for="staff-department"
-          class="mb-1.5 block text-xs font-semibold text-slate-500"
+          class="mb-1.5 block text-xs font-semibold text-muted"
           >QUEUE DEPARTMENT</label
         >
         <select
@@ -362,7 +362,7 @@ onMounted(() => {
         </select>
         <p
           v-else
-          class="text-sm font-medium text-slate-700 dark:text-slate-300"
+          class="text-sm font-medium text-body"
         >
           {{ selectedDeptName || 'No department assigned' }}
         </p>
@@ -377,7 +377,7 @@ onMounted(() => {
     </div>
     <section
       id="staff-workspace"
-      class="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
+      class="overflow-hidden rounded-2xl border border-subtle bg-surface-card"
       aria-label="Request workspace"
     >
       <div
@@ -391,7 +391,7 @@ onMounted(() => {
           <div class="min-w-0 flex-1">
             <label
               for="staff-search"
-              class="mb-1.5 block text-xs font-medium text-slate-600"
+              class="mb-1.5 block text-xs font-medium text-body"
               >Search requests</label
             ><input
               id="staff-search"
@@ -404,7 +404,7 @@ onMounted(() => {
           <div class="sm:w-52">
             <label
               for="staff-type"
-              class="mb-1.5 block text-xs font-medium text-slate-600"
+              class="mb-1.5 block text-xs font-medium text-body"
               >Request type</label
             ><select
               id="staff-type"
@@ -422,7 +422,7 @@ onMounted(() => {
             </select>
           </div>
         </div>
-        <p class="mb-4 text-xs text-slate-500">
+        <p class="mb-4 text-xs text-muted">
           {{
             workspaceTab === 'queue'
               ? `${selectedDeptName || 'Your departments'} · Ready to be claimed`
@@ -513,20 +513,20 @@ onMounted(() => {
         v-if="claimModal.stage"
         class="space-y-4"
       >
-        <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-          <p class="text-xs text-slate-500">
+        <div class="rounded-xl border border-subtle bg-surface-muted p-4">
+          <p class="text-xs text-muted">
             Request #{{ claimModal.stage.request_id }} · Stage
             {{ claimModal.stage.sequence_order }}
           </p>
           <h3 class="mt-2 text-base font-semibold">
             {{ claimModal.stage.request?.request_type }}
           </h3>
-          <p class="mt-1 text-sm text-slate-600">
+          <p class="mt-1 text-sm text-body">
             {{ claimModal.stage.request?.student_name }} ·
             {{ claimModal.stage.department_name }}
           </p>
         </div>
-        <p class="text-sm text-slate-600">
+        <p class="text-sm text-body">
           This stage will be assigned to you and moved into My Active Cases,
           where you can review the documents and record a decision.
         </p>
@@ -567,25 +567,25 @@ onMounted(() => {
         v-if="detailsModal.stage"
         class="space-y-5"
       >
-        <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <div class="rounded-xl border border-subtle bg-surface-muted p-4">
           <div class="flex flex-wrap items-center justify-between gap-2">
-            <span class="text-xs font-medium text-slate-500"
+            <span class="text-xs font-medium text-muted"
               >REQUEST #{{ detailsModal.stage.request_id }}</span
             ><StatusBadge
               kind="stage"
               :status="detailsModal.stage.status"
             />
           </div>
-          <p class="mt-3 font-semibold text-slate-900 dark:text-slate-100">
+          <p class="mt-3 font-semibold text-heading">
             {{ detailsModal.stage.request?.student_name }}
           </p>
-          <p class="mt-1 text-xs text-slate-500">
+          <p class="mt-1 text-xs text-muted">
             {{ detailsModal.stage.request?.student_matricule }} ·
             {{ detailsModal.stage.department_name }} · Stage
             {{ detailsModal.stage.sequence_order }}
           </p>
           <p
-            class="mt-4 whitespace-pre-wrap break-words text-sm text-slate-700 dark:text-slate-300"
+            class="mt-4 whitespace-pre-wrap break-words text-sm text-body"
           >
             {{
               detailsModal.request?.description ??
@@ -594,7 +594,7 @@ onMounted(() => {
           </p>
           <p
             v-if="detailsModal.stage.request?.created_at"
-            class="mt-3 text-xs text-slate-500"
+            class="mt-3 text-xs text-muted"
           >
             Submitted {{ formatDate(detailsModal.stage.request.created_at) }}
           </p>
@@ -660,19 +660,19 @@ onMounted(() => {
             <li
               v-for="entry in detailsModal.request.status_history"
               :key="entry.id"
-              class="border-l-2 border-slate-200 pl-4"
+              class="border-l-2 border-subtle pl-4"
             >
               <StatusBadge
                 kind="request"
                 :status="entry.new_status"
               />
-              <p class="mt-2 text-xs text-slate-500">
+              <p class="mt-2 text-xs text-muted">
                 {{ formatDate(entry.changed_at) }} ·
                 {{ entry.changed_by?.name || 'System' }}
               </p>
               <p
                 v-if="entry.note"
-                class="mt-2 whitespace-pre-wrap break-words text-sm text-slate-700 dark:text-slate-300"
+                class="mt-2 whitespace-pre-wrap break-words text-sm text-body"
               >
                 {{ entry.note }}
               </p>
@@ -702,23 +702,23 @@ onMounted(() => {
       >
         <div
           v-if="resolveModal.stage"
-          class="rounded-xl bg-slate-50 p-4"
+          class="rounded-xl bg-surface-muted p-4"
         >
-          <p class="text-xs text-slate-500">
+          <p class="text-xs text-muted">
             Request #{{ resolveModal.stage.request_id }} ·
             {{ resolveModal.stage.department_name }}
           </p>
           <p class="mt-1 font-semibold">
             {{ resolveModal.stage.request?.request_type }}
           </p>
-          <p class="mt-1 text-sm text-slate-600">
+          <p class="mt-1 text-sm text-body">
             {{ resolveModal.stage.request?.student_name }}
           </p>
         </div>
         <div>
           <label
             for="staff-resolution"
-            class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300 dark:text-slate-300"
+            class="mb-2 block text-sm font-medium text-body"
             >Resolution</label
           ><select
             id="staff-resolution"
@@ -729,7 +729,7 @@ onMounted(() => {
             <option value="approved">Approve stage</option>
             <option value="rejected">Reject request</option>
           </select>
-          <p class="mt-2 text-xs leading-relaxed text-slate-500">
+          <p class="mt-2 text-xs leading-relaxed text-muted">
             {{
               resolveStatus === 'approved'
                 ? 'Approval forwards the request to the next department, or marks it ready when this is the final stage.'
@@ -740,9 +740,9 @@ onMounted(() => {
         <div>
           <label
             for="staff-note"
-            class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300 dark:text-slate-300"
+            class="mb-2 block text-sm font-medium text-body"
             >Staff note
-            <span class="font-normal text-slate-500"
+            <span class="font-normal text-muted"
               >({{
                 resolveStatus === 'rejected' ? 'required' : 'optional'
               }})</span
@@ -799,21 +799,21 @@ onMounted(() => {
 
 <style scoped>
 .staff-identity {
-  @apply flex flex-col justify-between gap-5 rounded-2xl border border-slate-200 bg-white p-5 sm:flex-row sm:items-center sm:p-6 dark:border-slate-800 dark:bg-slate-900;
+  @apply flex flex-col justify-between gap-5 rounded-2xl border border-subtle bg-surface-card p-5 sm:flex-row sm:items-center sm:p-6 border-subtle bg-surface-card;
 }
 .staff-avatar {
-  @apply flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-xl font-semibold text-sky-700 dark:bg-sky-950/60 dark:text-sky-300;
+  @apply flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-xl font-semibold text-accent-soft-text;
 }
 .staff-success {
-  @apply rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300;
+  @apply rounded-xl border border-status-success-border bg-status-success-bg px-4 py-3 text-sm text-status-success-text;
 }
 .staff-error {
-  @apply rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300;
+  @apply rounded-xl border border-status-danger-border bg-status-danger-bg px-4 py-3 text-sm text-status-danger-text;
 }
 .staff-detail-tab {
-  @apply min-h-11 rounded-lg px-3 py-2 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800;
+  @apply min-h-11 rounded-lg px-3 py-2 text-sm font-medium text-muted transition-colors hover:bg-surface-muted text-muted hover:bg-surface-muted;
 }
 .staff-detail-tab.selected {
-  @apply bg-sky-50 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300;
+  @apply bg-accent-soft text-accent-soft-text;
 }
 </style>

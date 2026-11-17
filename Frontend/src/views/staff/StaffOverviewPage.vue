@@ -77,7 +77,7 @@ onMounted(load)
       aria-label="Staff profile"
     >
       <h2 class="text-lg font-semibold">{{ user?.name }}</h2>
-      <p class="mt-1 text-sm text-slate-500">
+      <p class="mt-1 text-sm text-muted">
         {{ user?.staff_profile?.staff_id }} ·
         {{ primaryDepartment?.name || 'No department assigned' }}
       </p>
@@ -104,23 +104,23 @@ onMounted(load)
       :aria-busy="loading"
     >
       <div class="card">
-        <p class="text-sm text-slate-500">Unclaimed requests</p>
+        <p class="text-sm text-muted">Unclaimed requests</p>
         <p class="mt-3 text-3xl font-bold">
           {{ loading || queueError ? '—' : unclaimed.length }}
         </p>
-        <p class="mt-2 text-xs text-slate-500">In your primary department</p>
+        <p class="mt-2 text-xs text-muted">In your primary department</p>
       </div>
       <div class="card">
-        <p class="text-sm text-slate-500">My active cases</p>
-        <p class="mt-3 text-3xl font-bold text-sky-700">
+        <p class="text-sm text-muted">My active cases</p>
+        <p class="mt-3 text-3xl font-bold text-accent-text">
           {{ loading || casesError ? '—' : cases.length }}
         </p>
-        <p class="mt-2 text-xs text-slate-500">Across your departments</p>
+        <p class="mt-2 text-xs text-muted">Across your departments</p>
       </div>
       <div class="card">
-        <p class="text-sm text-slate-500">My departments</p>
+        <p class="text-sm text-muted">My departments</p>
         <p class="mt-3 text-3xl font-bold">{{ departments.length }}</p>
-        <p class="mt-2 text-xs text-slate-500">
+        <p class="mt-2 text-xs text-muted">
           Assigned to your staff profile
         </p>
       </div>
@@ -128,7 +128,7 @@ onMounted(load)
     <div class="grid gap-4 md:grid-cols-2">
       <section class="card">
         <h2 class="text-lg font-semibold">Pick up a request</h2>
-        <p class="my-3 text-sm text-slate-500">
+        <p class="my-3 text-sm text-muted">
           Browse eligible requests and choose a stage to work on.
         </p>
         <router-link
@@ -139,7 +139,7 @@ onMounted(load)
       </section>
       <section class="card">
         <h2 class="text-lg font-semibold">Continue your work</h2>
-        <p class="my-3 text-sm text-slate-500">
+        <p class="my-3 text-sm text-muted">
           Inspect documents and record decisions for your assigned cases.
         </p>
         <router-link

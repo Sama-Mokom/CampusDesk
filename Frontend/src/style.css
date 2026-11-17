@@ -23,8 +23,8 @@
 
     --text-heading: #0f172a;
     --text-body: #1e293b;
-    --text-muted: #616f82;
-    --text-placeholder: #616f82;
+    --text-muted: #586777;
+    --text-placeholder: #586777;
     --text-on-accent: #ffffff;
     --text-on-danger: #ffffff;
 
@@ -64,7 +64,7 @@
 
     --status-orange-bg: rgba(249, 115, 22, 0.12);
     --status-orange-border: rgba(249, 115, 22, 0.30);
-    --status-orange-text: #bc3e0a;
+    --status-orange-text: #b83a09;
 
     --danger-solid: #b91c1c;
 

@@ -39,16 +39,16 @@
       <div>
         <h2
           id="organisation-heading"
-          class="text-lg font-semibold text-[color:var(--text-heading)]"
+          class="text-lg font-semibold text-heading"
         >
           {{ tabLabel(activeTab) }} records
         </h2>
-        <p class="mt-1 text-sm text-[color:var(--text-muted)]">
+        <p class="mt-1 text-sm text-muted">
           Maintain academic structures and request routing.
         </p>
       </div>
       <div class="flex flex-wrap items-end gap-3">
-        <label class="min-w-0 flex-1 text-xs font-medium text-[color:var(--text-muted)]"
+        <label class="min-w-0 flex-1 text-xs font-medium text-muted"
           >Search {{ tabLabel(activeTab).toLowerCase()
           }}<input
             v-model="refSearch"
@@ -87,7 +87,7 @@
       />
       <div
         v-else
-        class="divide-y divide-[color:var(--border-subtle)]"
+        class="divide-y divide-subtle"
       >
         <article
           v-for="row in references.data"
@@ -95,10 +95,10 @@
           class="flex flex-col justify-between gap-3 py-4 sm:flex-row sm:items-center"
         >
           <div class="min-w-0">
-            <h3 class="font-semibold text-[color:var(--text-heading)] break-words">
+            <h3 class="font-semibold text-heading break-words">
               {{ row.name }}
             </h3>
-            <p class="mt-1 text-xs text-[color:var(--text-muted)] break-words">
+            <p class="mt-1 text-xs text-muted break-words">
               {{
                 [row.code, row.matricule_prefix, row.type, row.degree_type]
                   .filter(Boolean)
@@ -107,7 +107,7 @@
             </p>
             <p
               v-if="row.default_department_sequence"
-              class="mt-1 text-sm text-[color:var(--text-muted)] break-words"
+              class="mt-1 text-sm text-muted break-words"
             >
               {{
                 row.default_department_sequence.map(routeLabel).join(' → ') ||
@@ -118,15 +118,16 @@
               v-if="activeTab === 'request-types' && row.tiers?.length"
               class="mt-2 flex flex-wrap gap-1.5"
             >
-              <span
+              <AppBadge
                 v-for="tier in row.tiers"
                 :key="tier.id || tier.code"
-                class="badge" :class="[tier.priority === 3 ? 'badge-purple' : tier.priority === 2 ? 'badge-info' : 'badge-neutral', !tier.is_active && 'opacity-50 line-through']"
+                :tone="tier.priority === 3 ? 'purple' : tier.priority === 2 ? 'info' : 'neutral'"
+                :class="{ 'opacity-50 line-through': !tier.is_active }"
               >
                 <span>{{ tier.name }}:</span>
                 <span class="font-semibold">{{ Number(tier.fee_amount).toLocaleString('en-US') }} {{ tier.currency || 'XAF' }}</span>
                 <span class="opacity-70">({{ tier.turnaround_days }}d)</span>
-              </span>
+              </AppBadge>
             </div>
           </div>
           <div class="flex shrink-0 gap-2">
@@ -138,7 +139,7 @@
             >
               Edit</button
             ><button
-              class="btn-secondary text-red-700"
+              class="btn-secondary text-status-danger-text"
               :disabled="pending"
               :aria-label="`Delete ${row.name}`"
               @click="askRemove(activeTab, row.id, row.name)"
@@ -173,7 +174,7 @@
           :disabled="pending"
           class="space-y-4"
         >
-          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300"
+          <label class="block text-sm font-medium text-body"
             >Name<input
               v-model="refForm.name"
               required
@@ -182,14 +183,14 @@
           <div class="grid gap-4 sm:grid-cols-2">
             <label
               v-if="activeTab !== 'request-types'"
-              class="block text-sm font-medium text-slate-700 dark:text-slate-300"
+              class="block text-sm font-medium text-body"
               >Code<input
                 v-model="refForm.code"
                 required
                 class="input-field mt-1" /></label
             ><label
               v-if="activeTab === 'faculties'"
-              class="block text-sm font-medium text-slate-700 dark:text-slate-300"
+              class="block text-sm font-medium text-body"
               >Matricule prefix<input
                 v-model="refForm.matricule_prefix"
                 required
@@ -197,7 +198,7 @@
             /></label>
           </div>
           <template v-if="activeTab === 'departments'"
-            ><label class="block text-sm font-medium text-slate-700 dark:text-slate-300"
+            ><label class="block text-sm font-medium text-body"
               >Faculty<select
                 v-model.number="refForm.faculty_id"
                 required
@@ -217,7 +218,7 @@
                   {{ faculty.name }}
                 </option>
               </select></label
-            ><label class="block text-sm font-medium text-slate-700 dark:text-slate-300"
+            ><label class="block text-sm font-medium text-body"
               >Department type<select
                 v-model="refForm.type"
                 class="input-field mt-1"
@@ -229,7 +230,7 @@
             ></template
           >
           <template v-if="activeTab === 'programmes'"
-            ><label class="block text-sm font-medium text-slate-700 dark:text-slate-300"
+            ><label class="block text-sm font-medium text-body"
               >Department<select
                 v-model.number="refForm.department_id"
                 required
@@ -249,7 +250,7 @@
                   {{ department.name }}
                 </option>
               </select></label
-            ><label class="block text-sm font-medium text-slate-700 dark:text-slate-300"
+            ><label class="block text-sm font-medium text-body"
               >Degree type<select
                 v-model="refForm.degree_type"
                 class="input-field mt-1"
@@ -264,7 +265,7 @@
             ></template
           >
           <template v-if="activeTab === 'request-types'"
-            ><label class="block text-sm font-medium text-slate-700 dark:text-slate-300"
+            ><label class="block text-sm font-medium text-body"
               >Description<textarea
                 v-model="refForm.description"
                 class="input-field mt-1"
@@ -272,19 +273,19 @@
               />
             </label>
             <div>
-              <h3 class="text-sm font-semibold text-[color:var(--text-heading)]">
+              <h3 class="text-sm font-semibold text-heading">
                 Routing sequence
               </h3>
-              <p class="mt-1 text-xs text-[color:var(--text-muted)]">
+              <p class="mt-1 text-xs text-muted">
                 Arrange the departments in the order a request should follow.
               </p>
             </div>
             <div
               v-for="(_step, index) in refForm.default_department_sequence"
               :key="index"
-              class="space-y-2 rounded-xl border border-[color:var(--border-subtle)] bg-[color:var(--surface-input)] p-3"
+              class="space-y-2 rounded-xl border border-subtle bg-surface-input p-3"
             >
-              <label class="block text-xs font-medium text-[color:var(--text-muted)]"
+              <label class="block text-xs font-medium text-muted"
                 >Step {{ index + 1
                 }}<select
                   v-model="refForm.default_department_sequence[index]"
@@ -322,7 +323,7 @@
                   Move down</button
                 ><button
                   type="button"
-                  class="btn-secondary text-xs text-red-700"
+                  class="btn-secondary text-xs text-status-danger-text"
                   :aria-label="`Remove step ${index + 1}`"
                   @click="refForm.default_department_sequence.splice(index, 1)"
                 >
@@ -341,13 +342,13 @@
             </button>
 
             <!-- Processing Tiers Section -->
-            <div class="space-y-3 pt-3 border-t border-[color:var(--border-subtle)]">
+            <div class="space-y-3 pt-3 border-t border-subtle">
               <div class="flex items-center justify-between">
                 <div>
-                  <h3 class="text-sm font-semibold text-[color:var(--text-heading)]">
+                  <h3 class="text-sm font-semibold text-heading">
                     Processing tiers & fees
                   </h3>
-                  <p class="mt-0.5 text-xs text-[color:var(--text-muted)]">
+                  <p class="mt-0.5 text-xs text-muted">
                     Configure service levels, turnaround times, queue priorities, and processing fees.
                   </p>
                 </div>
@@ -362,7 +363,7 @@
 
               <div
                 v-if="!refForm.tiers.length"
-                class="rounded-xl border border-dashed border-[color:var(--border-strong)] p-4 text-center text-xs text-[color:var(--text-muted)]"
+                class="rounded-xl border border-dashed border-strong p-4 text-center text-xs text-muted"
               >
                 No tiers configured. A default standard tier will apply if none are defined.
               </div>
@@ -370,16 +371,16 @@
               <div
                 v-for="(tier, tIndex) in refForm.tiers"
                 :key="tIndex"
-                class="space-y-3 rounded-xl border border-[color:var(--border-subtle)] bg-[color:var(--surface-input)] p-3"
+                class="space-y-3 rounded-xl border border-subtle bg-surface-input p-3"
               >
                 <div class="flex items-center justify-between gap-2">
-                  <span class="text-xs font-bold text-[color:var(--text-heading)]">Tier #{{ tIndex + 1 }}</span>
+                  <span class="text-xs font-bold text-heading">Tier #{{ tIndex + 1 }}</span>
                   <div class="flex items-center gap-2">
-                    <label class="flex items-center gap-1.5 text-xs text-[color:var(--text-muted)] cursor-pointer">
+                    <label class="flex items-center gap-1.5 text-xs text-muted cursor-pointer">
                       <input
                         v-model="tier.is_active"
                         type="checkbox"
-                        class="rounded border-[color:var(--border-strong)] text-[color:var(--accent)] focus:ring-[color:var(--accent)]"
+                        class="rounded border-strong text-accent-text focus:ring-accent-text"
                       />
                       Active
                     </label>
@@ -403,7 +404,7 @@
                     </button>
                     <button
                       type="button"
-                      class="btn-secondary text-xs text-red-700"
+                      class="btn-secondary text-xs text-status-danger-text"
                       :aria-label="`Remove tier ${tIndex + 1}`"
                       @click="removeTier(tIndex)"
                     >
@@ -521,6 +522,7 @@ import EmptyState from '@/components/ui/EmptyState.vue'
 import SkeletonLoader from '@/components/ui/SkeletonLoader.vue'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import AdminPagination from '@/components/admin/AdminPagination.vue'
+import AppBadge from '@/components/ui/AppBadge.vue'
 import AdminDeleteDialog from '@/components/admin/AdminDeleteDialog.vue'
 
 import { useAdminReferences } from '@/composables/admin/useAdminReferences'

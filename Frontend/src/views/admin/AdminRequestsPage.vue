@@ -40,31 +40,29 @@
         <div>
           <h2
             id="all-requests-heading"
-            class="text-lg font-semibold text-[color:var(--text-heading)]"
+            class="text-lg font-semibold text-heading"
           >
             All requests
           </h2>
-          <p class="mt-1 text-sm text-[color:var(--text-muted)]">
+          <p class="mt-1 text-sm text-muted">
             Review requests across every faculty and department.
           </p>
         </div>
-        <span class="badge badge-neutral"
-          >{{ requests.meta.total }} requests</span
-        >
+        <AppBadge tone="neutral">{{ requests.meta.total }} requests</AppBadge>
       </div>
-      <div class="space-y-4 rounded-xl border border-[color:var(--border-subtle)] bg-[color:var(--surface-input)] p-4">
+      <div class="space-y-4 rounded-xl border border-subtle bg-surface-input p-4">
         <div class="flex flex-wrap items-center justify-between gap-2">
-          <h3 class="text-sm font-semibold text-[color:var(--text-heading)]">Filter requests</h3>
+          <h3 class="text-sm font-semibold text-heading">Filter requests</h3>
           <button
             v-if="activeRequestFilterCount"
-            class="min-h-11 text-sm font-semibold text-sky-700"
+            class="min-h-11 text-sm font-semibold text-accent-text"
             @click="clearRequestFilters"
           >
             Clear filters ({{ activeRequestFilterCount }})
           </button>
         </div>
         <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <label class="text-xs font-medium text-[color:var(--text-muted)] sm:col-span-2"
+          <label class="text-xs font-medium text-muted sm:col-span-2"
             >Search<input
               v-model="requestFilters.search"
               type="search"
@@ -72,7 +70,7 @@
               class="input-field mt-1"
               placeholder="Student name, matricule or request ID"
           /></label>
-          <label class="text-xs font-medium text-[color:var(--text-muted)]"
+          <label class="text-xs font-medium text-muted"
             >Faculty<select
               v-model.number="requestFilters.faculty_id"
               class="input-field mt-1"
@@ -87,7 +85,7 @@
               </option>
             </select></label
           >
-          <label class="text-xs font-medium text-[color:var(--text-muted)]"
+          <label class="text-xs font-medium text-muted"
             >Department<select
               v-model.number="requestFilters.department_id"
               class="input-field mt-1"
@@ -102,7 +100,7 @@
               </option>
             </select></label
           >
-          <label class="text-xs font-medium text-[color:var(--text-muted)]"
+          <label class="text-xs font-medium text-muted"
             >Request type<select
               v-model.number="requestFilters.request_type_id"
               class="input-field mt-1"
@@ -117,7 +115,7 @@
               </option>
             </select></label
           >
-          <label class="text-xs font-medium text-[color:var(--text-muted)]"
+          <label class="text-xs font-medium text-muted"
             >Status<select
               v-model="requestFilters.status"
               class="input-field mt-1"
@@ -132,12 +130,12 @@
               </option>
             </select></label
           >
-          <label class="text-xs font-medium text-[color:var(--text-muted)]"
+          <label class="text-xs font-medium text-muted"
             >From<input
               v-model="requestFilters.date_from"
               type="date"
               class="input-field mt-1" /></label
-          ><label class="text-xs font-medium text-[color:var(--text-muted)]"
+          ><label class="text-xs font-medium text-muted"
             >To<input
               v-model="requestFilters.date_to"
               type="date"
@@ -146,7 +144,7 @@
           /></label>
         </div>
         <label
-          class="inline-flex min-h-11 cursor-pointer items-center gap-2 text-sm text-[color:var(--text-muted)]"
+          class="inline-flex min-h-11 cursor-pointer items-center gap-2 text-sm text-muted"
           ><input
             v-model="requestFilters.reopened"
             type="checkbox"
@@ -183,7 +181,7 @@
       />
       <div
         v-else
-        class="divide-y divide-[color:var(--border-subtle)]"
+        class="divide-y divide-subtle"
       >
         <article
           v-for="row in requests.data"
@@ -192,26 +190,26 @@
         >
           <div class="min-w-0 space-y-2">
             <div class="flex flex-wrap items-center gap-2">
-              <h3 class="font-semibold text-[color:var(--text-heading)] break-words">
+              <h3 class="font-semibold text-heading break-words">
                 {{ row.student?.name ?? 'Unknown student' }}
               </h3>
-              <span class="text-xs text-[color:var(--text-muted)]">Request #{{ row.id }}</span
+              <span class="text-xs text-muted">Request #{{ row.id }}</span
               ><StatusBadge
                 kind="request"
                 :status="row.status as RequestStatus"
-              /><span
+              /><AppBadge
                 v-if="row.is_reopened"
-                class="badge badge-orange"
-                >Reopened</span
+                tone="orange"
+                >Reopened</AppBadge
               >
             </div>
-            <p class="text-sm text-[color:var(--text-body)] break-words">
+            <p class="text-sm text-body break-words">
               {{ row.request_type?.name ?? 'Request'
               }}<span v-if="row.student?.student_profile?.matricule">
                 · {{ row.student.student_profile.matricule }}</span
               >
             </p>
-            <p class="text-xs text-[color:var(--text-muted)]">
+            <p class="text-xs text-muted">
               Submitted {{ date(row.created_at) }}
             </p>
           </div>
@@ -266,13 +264,13 @@
         class="space-y-6"
       >
         <div
-          class="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[color:var(--surface-input)] p-4 border border-[color:var(--border-subtle)]"
+          class="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-surface-input p-4 border border-subtle"
         >
           <div>
-            <p class="font-semibold text-[color:var(--text-heading)]">
+            <p class="font-semibold text-heading">
               {{ detail.student?.name }}
             </p>
-            <p class="mt-1 text-xs text-[color:var(--text-muted)]">
+            <p class="mt-1 text-xs text-muted">
               {{ detail.student?.student_profile?.matricule }} · Submitted
               {{ date(detail.created_at) }}
             </p>
@@ -284,18 +282,18 @@
         </div>
         <p
           v-if="detail.is_reopened"
-          class="text-sm font-medium text-[color:var(--status-orange-text)]"
+          class="text-sm font-medium text-status-orange-text"
         >
           This request has been reopened.
         </p>
         <section>
-          <h3 class="mb-2 text-sm font-semibold text-[color:var(--text-heading)]">Description</h3>
-          <p class="whitespace-pre-wrap break-words text-sm text-[color:var(--text-body)]">
+          <h3 class="mb-2 text-sm font-semibold text-heading">Description</h3>
+          <p class="whitespace-pre-wrap break-words text-sm text-body">
             {{ detail.description || 'No description provided.' }}
           </p>
         </section>
         <section>
-          <h3 class="mb-3 text-sm font-semibold text-[color:var(--text-heading)]">
+          <h3 class="mb-3 text-sm font-semibold text-heading">
             Stage timeline
           </h3>
           <RequestTimeline
@@ -304,20 +302,20 @@
           />
           <p
             v-else
-            class="text-sm text-[color:var(--text-muted)]"
+            class="text-sm text-muted"
           >
             No stages recorded.
           </p>
         </section>
         <section>
-          <h3 class="mb-3 text-sm font-semibold text-[color:var(--text-heading)]">Attachments</h3>
+          <h3 class="mb-3 text-sm font-semibold text-heading">Attachments</h3>
           <DocumentViewer
             :key="detail.id"
             :attachments="detailAttachments"
           />
         </section>
         <section>
-          <h3 class="mb-3 text-sm font-semibold text-[color:var(--text-heading)]">
+          <h3 class="mb-3 text-sm font-semibold text-heading">
             Status history
           </h3>
           <AdminAuditTrail
@@ -326,7 +324,7 @@
           />
           <p
             v-else
-            class="text-sm text-[color:var(--text-muted)]"
+            class="text-sm text-muted"
           >
             No status changes recorded.
           </p>
@@ -369,6 +367,7 @@ import SkeletonLoader from '@/components/ui/SkeletonLoader.vue'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import AdminPagination from '@/components/admin/AdminPagination.vue'
 import AdminAuditTrail from '@/components/admin/AdminAuditTrail.vue'
+import AppBadge from '@/components/ui/AppBadge.vue'
 
 import { requestStatusLabel } from '@/types'
 import type { RequestStatus } from '@/types'

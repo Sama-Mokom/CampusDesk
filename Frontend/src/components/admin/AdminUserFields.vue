@@ -2,7 +2,7 @@
   <div class="space-y-5">
     <label
       v-if="!userForm.id"
-      class="block text-sm font-medium text-slate-700 dark:text-slate-300"
+      class="block text-sm font-medium text-body"
       >Role<select
         v-model="userForm.role"
         class="input-field mt-1"
@@ -12,14 +12,14 @@
       </select></label
     >
     <div class="grid gap-4 sm:grid-cols-2">
-      <label class="block text-sm font-medium text-slate-700 dark:text-slate-300"
+      <label class="block text-sm font-medium text-body"
         >Name<input
           v-model="userForm.name"
           required
           class="input-field mt-1"
           placeholder="Full name"
       /></label>
-      <label class="block text-sm font-medium text-slate-700 dark:text-slate-300"
+      <label class="block text-sm font-medium text-body"
         >Email<input
           v-model="userForm.email"
           type="email"
@@ -27,7 +27,7 @@
           class="input-field mt-1"
           placeholder="name@example.com"
       /></label>
-      <label class="block text-sm font-medium text-slate-700 dark:text-slate-300"
+      <label class="block text-sm font-medium text-body"
         >Password<input
           v-model="userForm.password"
           type="password"
@@ -43,7 +43,7 @@
       /></label>
       <label
         v-if="userForm.role === 'staff'"
-        class="block text-sm font-medium text-slate-700 dark:text-slate-300"
+        class="block text-sm font-medium text-body"
         >Staff ID<input
           v-model="userForm.staff_id"
           required
@@ -56,14 +56,14 @@
       v-if="userForm.role === 'student'"
       class="grid gap-4 sm:grid-cols-2"
     >
-      <label class="block text-sm font-medium text-slate-700 dark:text-slate-300"
+      <label class="block text-sm font-medium text-body"
         >Matricule<input
           v-model="userForm.matricule"
           required
           class="input-field mt-1"
           placeholder="Matricule"
       /></label>
-      <label class="block text-sm font-medium text-slate-700 dark:text-slate-300"
+      <label class="block text-sm font-medium text-body"
         >Faculty<select
           v-model.number="userForm.faculty_id"
           required
@@ -84,7 +84,7 @@
           </option>
         </select></label
       >
-      <label class="block text-sm font-medium text-slate-700 dark:text-slate-300"
+      <label class="block text-sm font-medium text-body"
         >Department<select
           v-model.number="userForm.department_id"
           required
@@ -108,7 +108,7 @@
           </option>
         </select></label
       >
-      <label class="block text-sm font-medium text-slate-700 dark:text-slate-300"
+      <label class="block text-sm font-medium text-body"
         >Programme<select
           v-model.number="userForm.programme_id"
           required
@@ -132,7 +132,7 @@
           </option>
         </select></label
       >
-      <label class="block text-sm font-medium text-slate-700 dark:text-slate-300"
+      <label class="block text-sm font-medium text-body"
         >Level<select
           v-model="userForm.level"
           class="input-field mt-1"
@@ -155,27 +155,25 @@
       <div>
         <h3
           id="department-memberships-title"
-          class="text-base font-semibold text-primary"
+          class="text-base font-semibold text-heading"
         >
           Department memberships
         </h3>
-        <p class="text-sm text-slate-600">
+        <p class="text-sm text-body">
           Find departments, select memberships, then choose one primary
           department.
         </p>
       </div>
-      <div class="rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900/60 p-4 space-y-3">
+      <div class="rounded-lg border border-subtle bg-surface-muted p-4 space-y-3">
         <div class="flex flex-wrap items-center justify-between gap-2">
-          <h4 class="text-sm font-semibold text-primary">
+          <h4 class="text-sm font-semibold text-heading">
             Selected departments
           </h4>
-          <span class="badge bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
-            >{{ userForm.department_ids.length }} selected</span
-          >
+          <AppBadge tone="neutral">{{ userForm.department_ids.length }} selected</AppBadge>
         </div>
         <p
           v-if="!selectedStaffDepartments.length"
-          class="text-sm text-slate-500"
+          class="text-sm text-muted"
         >
           No departments selected yet. Choose at least one below.
         </p>
@@ -187,17 +185,17 @@
             v-for="d in selectedStaffDepartments"
             :key="d.id"
             type="button"
-            class="inline-flex max-w-full items-center gap-2 rounded-full border border-primary/20 bg-white px-3 py-2 min-h-11 text-left text-xs font-medium text-primary hover:bg-slate-100 dark:border-primary/40 dark:bg-slate-800 dark:text-sky-300 dark:hover:bg-slate-700"
+            class="inline-flex max-w-full items-center gap-2 rounded-full border border-subtle bg-surface-card px-3 py-2 min-h-11 text-left text-xs font-medium text-body hover:bg-surface-muted"
             :aria-label="`Remove ${d.name} from memberships`"
             @click="toggleStaffDepartment(d.id, false)"
           >
             {{ d.name }}
-            <span class="text-slate-500"
+            <span class="text-muted"
               >· {{ facultyNameForDepartment(d) }}</span
             ><span aria-hidden="true">×</span>
           </button>
         </div>
-        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300"
+        <label class="block text-sm font-medium text-body"
           >Primary department<select
             v-model.number="userForm.primary_department_id"
             class="input-field mt-1"
@@ -218,18 +216,18 @@
             </option>
           </select></label
         >
-        <p class="text-xs text-slate-600">
+        <p class="text-xs text-body">
           The primary department determines department admin scope.
         </p>
       </div>
       <div class="grid gap-3 sm:grid-cols-2">
-        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300"
+        <label class="block text-sm font-medium text-body"
           >Search departments<input
             v-model="departmentSearch"
             type="search"
             class="input-field mt-1"
             placeholder="Search name, code or faculty" /></label
-        ><label class="block text-sm font-medium text-slate-700 dark:text-slate-300"
+        ><label class="block text-sm font-medium text-body"
           >Faculty<select
             v-model.number="departmentFacultyFilter"
             class="input-field mt-1"
@@ -246,27 +244,27 @@
         >
       </div>
       <div
-        class="max-h-60 overflow-y-auto rounded-lg border border-slate-200"
+        class="max-h-60 overflow-y-auto rounded-lg border border-subtle"
         aria-label="Available departments"
       >
         <div
           v-for="group in filteredDepartmentGroups"
           :key="group.facultyId"
-          class="border-b border-slate-200 last:border-b-0"
+          class="border-b border-subtle last:border-b-0"
         >
           <h4
-            class="sticky top-0 bg-slate-100 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600"
+            class="sticky top-0 bg-surface-muted px-4 py-2 text-xs font-semibold uppercase tracking-wide text-body"
           >
             {{ group.facultyName }}
           </h4>
           <label
             v-for="d in group.departments"
             :key="d.id"
-            class="flex cursor-pointer items-center gap-3 border-t border-slate-100 px-4 py-2.5 text-sm hover:bg-slate-50"
+            class="flex cursor-pointer items-center gap-3 border-t border-subtle px-4 py-2.5 text-sm hover:bg-surface-muted"
             ><input
               type="checkbox"
               :checked="userForm.department_ids.includes(d.id)"
-              class="rounded border-slate-300 text-primary focus:ring-primary"
+              class="rounded border-strong"
               :aria-label="`Assign ${d.name}`"
               @change="
                 toggleStaffDepartment(
@@ -274,15 +272,15 @@
                   ($event.target as HTMLInputElement).checked
                 )
               "
-            /><span class="min-w-0 flex-1 font-medium text-foreground">{{
+            /><span class="min-w-0 flex-1 font-medium text-heading">{{
               d.name
             }}</span
-            ><span class="text-xs text-slate-500">{{ d.code }}</span></label
+            ><span class="text-xs text-muted">{{ d.code }}</span></label
           >
         </div>
         <p
           v-if="!filteredDepartmentGroups.length"
-          class="px-4 py-6 text-center text-sm text-slate-500"
+          class="px-4 py-6 text-center text-sm text-muted"
         >
           No departments match your search.
         </p>
@@ -294,6 +292,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import type { Department, Faculty, Programme } from '@/services/admin'
+import AppBadge from '@/components/ui/AppBadge.vue'
 
 export interface UserForm {
   id: number
