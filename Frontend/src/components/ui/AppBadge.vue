@@ -1,5 +1,5 @@
 <script setup lang="ts">
-export type BadgeTone =
+type BadgeTone =
   | 'neutral'
   | 'success'
   | 'warning'
@@ -11,6 +11,7 @@ export type BadgeTone =
 withDefaults(
   defineProps<{
     tone?: BadgeTone
+    /** Status badges keep a dot so colour is never the only signal. */
     dot?: boolean
   }>(),
   {

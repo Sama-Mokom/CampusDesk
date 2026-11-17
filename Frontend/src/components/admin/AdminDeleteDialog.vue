@@ -6,16 +6,16 @@
     :busy="busy"
     @close="emit('close')"
   >
-    <p class="text-sm text-slate-600">
+    <p class="text-sm text-body">
       Delete
-      <strong class="break-words text-slate-900 dark:text-slate-100">{{ target?.name }}</strong
+      <strong class="break-words text-heading">{{ target?.name }}</strong
       >? This cannot be undone. Records used by other parts of CampusDesk cannot
       be deleted.
     </p>
     <p
       v-if="error"
       role="alert"
-      class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-800"
+      class="feedback-error mt-4"
     >
       {{ error }}
     </p>
@@ -27,7 +27,7 @@
       >
         Cancel</button
       ><button
-        class="btn-primary !bg-red-700 hover:!bg-red-800"
+        class="btn-danger"
         :disabled="busy"
         @click="emit('confirm')"
       >

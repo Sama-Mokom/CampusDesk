@@ -1,21 +1,10 @@
 <template>
-  <span
-    :class="['badge', badgeClass]"
+  <AppBadge
+    :tone="tone"
     :title="tooltip"
   >
-    <span
-      v-if="priority === 3"
-      aria-hidden="true"
-      class="text-[11px]"
-      >⚡</span
-    >
-    <span
-      v-else
-      aria-hidden="true"
-      class="h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-70"
-    />
     {{ name }}
-  </span>
+  </AppBadge>
 </template>
 
 <script lang="ts">
@@ -27,6 +16,9 @@ export function formatXAF(amount: number | null | undefined): string {
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import AppBadge from './ui/AppBadge.vue'
+
+type Tone = 'neutral' | 'info' | 'purple'
 
 const props = withDefaults(
   defineProps<{
@@ -42,14 +34,14 @@ const props = withDefaults(
   }
 )
 
-const badgeClass = computed(() => {
+const tone = computed<Tone>(() => {
   if (props.priority === 3 || /super\s*fast/i.test(props.name)) {
-    return 'badge-tier-super-fast'
+    return 'purple'
   }
   if (props.priority === 2 || /fast|standard/i.test(props.name)) {
-    return 'badge-tier-fast'
+    return 'info'
   }
-  return 'badge-tier-normal'
+  return 'neutral'
 })
 
 const tooltip = computed(() => {

@@ -1,16 +1,14 @@
 <template>
-  <span :class="['badge', badgeClass]"
-    ><span
-      aria-hidden="true"
-      class="h-1.5 w-1.5 shrink-0 rounded-[50%] bg-current opacity-70"
-    />{{ label }}</span
-  >
+  <AppBadge :tone="tone">{{ label }}</AppBadge>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import AppBadge from './ui/AppBadge.vue'
 import type { RequestStatus, StageStatus } from '@/types'
 import { requestStatusLabel, stageStatusLabel } from '@/types'
+
+type Tone = 'neutral' | 'success' | 'warning' | 'info' | 'purple' | 'danger' | 'orange'
 
 const props = defineProps<{
   kind: 'request' | 'stage'
@@ -23,24 +21,24 @@ const label = computed(() =>
     : stageStatusLabel(props.status as StageStatus)
 )
 
-const badgeClass = computed(() => {
+const tone = computed<Tone>(() => {
   if (props.kind === 'stage') {
     const s = props.status as StageStatus
-    if (s === 'approved') return 'badge-stage-approved'
-    if (s === 'rejected') return 'badge-rejected'
-    if (s === 'in_review') return 'badge-in-review'
-    return 'badge-pending'
+    if (s === 'approved') return 'success'
+    if (s === 'rejected') return 'danger'
+    if (s === 'in_review') return 'info'
+    return 'warning'
   }
-  const map: Record<RequestStatus, string> = {
-    draft: 'badge-draft',
-    awaiting_payment: 'badge-awaiting-payment',
-    pending: 'badge-pending',
-    in_review: 'badge-in-review',
-    forwarded: 'badge-forwarded',
-    ready: 'badge-ready',
-    collected: 'badge-collected',
-    rejected: 'badge-rejected'
+  const map: Record<RequestStatus, Tone> = {
+    draft: 'neutral',
+    awaiting_payment: 'warning',
+    pending: 'warning',
+    in_review: 'info',
+    forwarded: 'purple',
+    ready: 'success',
+    collected: 'success',
+    rejected: 'danger'
   }
-  return map[props.status as RequestStatus] ?? 'badge-draft'
+  return map[props.status as RequestStatus] ?? 'neutral'
 })
 </script>

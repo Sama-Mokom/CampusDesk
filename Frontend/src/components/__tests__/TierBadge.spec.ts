@@ -10,7 +10,7 @@ describe('TierBadge component and helpers', () => {
     expect(formatXAF(undefined)).toBe('')
   })
 
-  it('renders Priority 3 with super-fast badge class and bolt icon', () => {
+  it('renders Priority 3 with the shared super-fast badge treatment', () => {
     const wrapper = mount(TierBadge, {
       props: {
         name: 'Super Fast Mode',
@@ -19,8 +19,8 @@ describe('TierBadge component and helpers', () => {
         feeAmount: 5000
       }
     })
-    expect(wrapper.classes()).toContain('badge-tier-super-fast')
-    expect(wrapper.text()).toContain('⚡')
+    expect(wrapper.classes()).toContain('badge-purple')
+    expect(wrapper.get('[aria-hidden="true"]').text()).toBe('')
     expect(wrapper.text()).toContain('Super Fast Mode')
     expect(wrapper.attributes('title')).toBe('5,000 XAF · ~3 days')
   })
@@ -34,7 +34,7 @@ describe('TierBadge component and helpers', () => {
         feeAmount: 2500
       }
     })
-    expect(wrapper.classes()).toContain('badge-tier-fast')
+    expect(wrapper.classes()).toContain('badge-info')
     expect(wrapper.text()).toContain('Fast Mode')
     expect(wrapper.attributes('title')).toBe('2,500 XAF · ~7 days')
   })
@@ -48,7 +48,7 @@ describe('TierBadge component and helpers', () => {
         feeAmount: 1000
       }
     })
-    expect(wrapper.classes()).toContain('badge-tier-normal')
+    expect(wrapper.classes()).toContain('badge-neutral')
     expect(wrapper.text()).toContain('Normal Mode')
     expect(wrapper.attributes('title')).toBe('1,000 XAF · ~14 days')
   })

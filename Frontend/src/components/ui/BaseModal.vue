@@ -104,7 +104,7 @@ onBeforeUnmount(restore)
     >
       <div class="modal-surface">
         <header
-          class="flex shrink-0 items-center justify-between gap-4 border-b border-slate-200 px-5 py-4 dark:border-slate-800 sm:px-6"
+          class="flex shrink-0 items-center justify-between gap-4 border-b border-subtle px-5 py-4 sm:px-6"
         >
           <h2
             :id="titleId"

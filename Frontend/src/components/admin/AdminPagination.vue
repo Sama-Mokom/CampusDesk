@@ -1,9 +1,9 @@
 <template>
   <nav
-    class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4 text-sm"
+    class="flex flex-wrap items-center justify-between gap-3 border-t border-subtle pt-4 text-sm"
     :aria-label="label"
   >
-    <span class="text-slate-500"
+    <span class="text-muted"
       >Page {{ page }} of {{ Math.max(1, last)
       }}<span
         v-if="total !== undefined"
