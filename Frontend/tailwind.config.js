@@ -5,22 +5,51 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Semantic surface layers
         surface: {
           page: 'var(--surface-page)',
           card: 'var(--surface-card)',
           raised: 'var(--surface-raised)',
           input: 'var(--surface-input)',
+          muted: 'var(--surface-muted)',
           DEFAULT: 'var(--surface-card)',
         },
+        // Semantic borders
         subtle: 'var(--border-subtle)',
         strong: 'var(--border-strong)',
+        // Semantic text
         heading: 'var(--text-heading)',
         body: 'var(--text-body)',
         muted: 'var(--text-muted)',
         placeholder: 'var(--text-placeholder)',
-        'accent-token': 'var(--accent)',
-        'accent-text': 'var(--accent-text)',
         overlay: 'var(--overlay)',
+        primary: 'var(--accent)',
+        'primary-light': 'var(--accent-text)',
+        accent: {
+          DEFAULT: 'var(--accent)',
+          hover: 'var(--accent-hover)',
+          text: 'var(--accent-text)',
+          soft: 'var(--accent-soft-bg)',
+          'soft-border': 'var(--accent-soft-border)',
+          'soft-text': 'var(--accent-soft-text)',
+        },
+        'on-accent': 'var(--text-on-accent)',
+        'on-danger': 'var(--text-on-danger)',
+        'danger-solid': 'var(--danger-solid)',
+        // Fixed inverse chrome (sidebar, auth masthead)
+        inverse: {
+          DEFAULT: 'var(--surface-inverse)',
+          hover: 'var(--inverse-hover)',
+          active: 'var(--inverse-active)',
+          soft: 'var(--inverse-accent-soft)',
+          border: 'var(--inverse-border)',
+          divider: 'var(--inverse-divider)',
+          fg: 'var(--inverse-text-strong)',
+          body: 'var(--inverse-text)',
+          muted: 'var(--inverse-text-muted)',
+          accent: 'var(--inverse-accent)',
+        },
+        // Tinted status pairs
         status: {
           'success-bg': 'var(--status-success-bg)',
           'success-border': 'var(--status-success-border)',
@@ -44,14 +73,11 @@ export default {
           'orange-border': 'var(--status-orange-border)',
           'orange-text': 'var(--status-orange-text)',
         },
-        // Concrete palettes preserved for backward compatibility
+        // Concrete light palette retained for backwards compatibility.
+        // New work must use the semantic tokens above.
         background: '#F8FAFC',
         foreground: '#0F172A',
         card: '#FFFFFF',
-        primary: '#0369A1',
-        'primary-light': '#0284C7',
-        accent: '#0284C7',
-        'accent-light': '#E0F2FE',
         neutral: {
           50: '#F8FAFC',
           100: '#F1F5F9',

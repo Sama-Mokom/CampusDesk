@@ -3,31 +3,48 @@
 @tailwind utilities;
 
 @layer base {
+  /* ------------------------------------------------------------------
+     CampusDesk semantic colour tokens.
+     Components must consume these tokens (directly or through the
+     Tailwind aliases in tailwind.config.js) instead of raw palette
+     utilities. Light values are the default; `.dark` overrides them.
+     ------------------------------------------------------------------ */
   :root {
     color-scheme: light;
+
     --surface-page: #f8fafc;
     --surface-card: #ffffff;
     --surface-raised: #ffffff;
     --surface-input: #ffffff;
+    --surface-muted: #f1f5f9;
+
     --border-subtle: #e2e8f0;
-    --border-strong: #cbd5e1;
+    --border-strong: #7b8a9e;
+
     --text-heading: #0f172a;
     --text-body: #1e293b;
-    --text-muted: #64748b;
-    --text-placeholder: #94a3b8;
+    --text-muted: #616f82;
+    --text-placeholder: #616f82;
+    --text-on-accent: #ffffff;
+    --text-on-danger: #ffffff;
+
     --accent: #0369a1;
-    --accent-hover: #0284c7;
+    --accent-hover: #075985;
     --accent-text: #0369a1;
+    --accent-soft-bg: #e0f2fe;
+    --accent-soft-border: #7dd3fc;
+    --accent-soft-text: #075985;
+
     --overlay: rgba(15, 23, 42, 0.40);
 
-    /* Tinted Status Pairs - Light Mode */
+    /* Tinted status pairs - light mode */
     --status-success-bg: rgba(16, 185, 129, 0.12);
     --status-success-border: rgba(16, 185, 129, 0.30);
     --status-success-text: #047857;
 
     --status-warning-bg: rgba(245, 158, 11, 0.12);
     --status-warning-border: rgba(245, 158, 11, 0.30);
-    --status-warning-text: #b45309;
+    --status-warning-text: #ad4f08;
 
     --status-info-bg: rgba(2, 132, 199, 0.12);
     --status-info-border: rgba(2, 132, 199, 0.30);
@@ -47,19 +64,26 @@
 
     --status-orange-bg: rgba(249, 115, 22, 0.12);
     --status-orange-border: rgba(249, 115, 22, 0.30);
-    --status-orange-text: #c2410c;
+    --status-orange-text: #bc3e0a;
+
+    --danger-solid: #b91c1c;
+
+    /* Fixed inverse surfaces (sidebar, auth masthead) are intentionally
+       dark in both themes so the brand chrome never flips. */
+    --surface-inverse: #0f172a;
+    --inverse-hover: #1e293b;
+    --inverse-active: #075985;
+    --inverse-border: #1e293b;
+    --inverse-divider: #334155;
+    --inverse-text-strong: #ffffff;
+    --inverse-text: #e2e8f0;
+    --inverse-text-muted: #94a3b8;
+    --inverse-accent: #7dd3fc;
+    --inverse-accent-strong: #38bdf8;
+    --inverse-accent-soft: rgba(56, 189, 248, 0.15);
 
     --scrollbar-track: #f1f5f9;
-    --scrollbar-thumb: #cbd5e1;
-
-    /* Legacy Token Aliases for backward compatibility */
-    --color-background: var(--surface-page);
-    --color-foreground: var(--text-heading);
-    --color-card: var(--surface-card);
-    --color-brand: var(--accent);
-    --color-brand-strong: var(--accent-hover);
-    --color-border: var(--border-subtle);
-    --color-muted: var(--text-muted);
+    --scrollbar-thumb: #94a3b8;
 
     --font-family-sans:
       Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
@@ -67,22 +91,33 @@
 
   .dark {
     color-scheme: dark;
+
     --surface-page: #020617;
     --surface-card: #0f172a;
     --surface-raised: #162036;
     --surface-input: #1e293b;
+    --surface-muted: #1e293b;
+
     --border-subtle: rgba(255, 255, 255, 0.10);
-    --border-strong: rgba(255, 255, 255, 0.20);
+    --border-strong: rgba(255, 255, 255, 0.40);
+
     --text-heading: #f8fafc;
     --text-body: #e2e8f0;
     --text-muted: #94a3b8;
     --text-placeholder: #94a3b8;
-    --accent: #0284c7;
-    --accent-hover: #38bdf8;
+    --text-on-accent: #ffffff;
+    --text-on-danger: #ffffff;
+
+    --accent: #0369a1;
+    --accent-hover: #075985;
     --accent-text: #38bdf8;
+    --accent-soft-bg: #082f49;
+    --accent-soft-border: rgba(56, 189, 248, 0.30);
+    --accent-soft-text: #7dd3fc;
+
     --overlay: rgba(2, 6, 23, 0.70);
 
-    /* Tinted Status Pairs - Dark Mode */
+    /* Tinted status pairs - dark mode */
     --status-success-bg: rgba(16, 185, 129, 0.12);
     --status-success-border: rgba(16, 185, 129, 0.30);
     --status-success-text: #6ee7b7;
@@ -111,17 +146,10 @@
     --status-orange-border: rgba(249, 115, 22, 0.30);
     --status-orange-text: #fdba74;
 
-    --scrollbar-track: #0b1120;
-    --scrollbar-thumb: #334155;
+    --danger-solid: #b91c1c;
 
-    /* Legacy Token Aliases for backward compatibility */
-    --color-background: var(--surface-page);
-    --color-foreground: var(--text-heading);
-    --color-card: var(--surface-card);
-    --color-brand: var(--accent);
-    --color-brand-strong: var(--accent-hover);
-    --color-border: var(--border-subtle);
-    --color-muted: var(--text-muted);
+    --scrollbar-track: #0b1120;
+    --scrollbar-thumb: #475569;
   }
 
   * {
@@ -142,6 +170,7 @@
   }
 
   html {
+    background-color: var(--surface-page);
     scroll-behavior: smooth;
     scroll-padding-top: 6rem;
   }
@@ -193,11 +222,17 @@
   input[type="radio"] {
     accent-color: var(--accent);
   }
+  /* Native pickers, popups and form widgets follow color-scheme above.
+     These rules keep the date affordance visible in both themes. */
   input[type="date"]::-webkit-calendar-picker-indicator {
     cursor: pointer;
   }
   .dark input[type="date"]::-webkit-calendar-picker-indicator {
-    filter: invert(0.85);
+    opacity: 0.9;
+  }
+  select option {
+    background-color: var(--surface-input);
+    color: var(--text-body);
   }
   input,
   select,
@@ -213,7 +248,7 @@
     overflow-wrap: anywhere;
   }
   ::selection {
-    background-color: var(--status-info-bg);
+    background-color: var(--accent-soft-bg);
     color: var(--text-heading);
   }
 }
@@ -228,7 +263,7 @@
   .btn-primary {
     background-color: var(--accent);
     border: 1px solid var(--accent);
-    color: #ffffff;
+    color: var(--text-on-accent);
     @apply shadow-sm;
   }
   .btn-primary:hover {
@@ -242,13 +277,13 @@
     @apply shadow-sm;
   }
   .btn-secondary:hover:not(:disabled) {
-    background-color: var(--surface-raised);
+    background-color: var(--surface-muted);
     border-color: var(--border-strong);
   }
   .btn-danger {
-    background-color: var(--status-danger-text);
-    border: 1px solid var(--status-danger-text);
-    color: #ffffff;
+    background-color: var(--danger-solid);
+    border: 1px solid var(--danger-solid);
+    color: var(--text-on-danger);
   }
   .btn-danger:hover {
     filter: brightness(0.9);
@@ -289,8 +324,11 @@
     opacity: 1;
   }
   .input-field:focus {
-    border-color: var(--accent);
-    outline: none;
+    border-color: var(--accent-text);
+  }
+  .input-field:focus-visible {
+    outline: 2px solid var(--accent-text);
+    outline-offset: 2px;
   }
   .input-field:disabled {
     opacity: 0.6;
@@ -299,6 +337,10 @@
   .field-label {
     color: var(--text-muted);
     @apply mb-1.5 block text-sm font-medium;
+  }
+  .field-help {
+    color: var(--text-muted);
+    @apply mt-1.5 block text-xs leading-5;
   }
   .eyebrow {
     color: var(--text-muted);
@@ -316,11 +358,35 @@
     color: var(--status-success-text);
     @apply rounded-lg px-4 py-3 text-sm;
   }
+  .callout {
+    border: 1px solid;
+    @apply rounded-xl p-5;
+  }
   .callout-info {
     background-color: var(--status-info-bg);
-    border: 1px solid var(--status-info-border);
+    border-color: var(--status-info-border);
     color: var(--status-info-text);
     @apply rounded-xl p-5;
+  }
+  .callout-success {
+    background-color: var(--status-success-bg);
+    border-color: var(--status-success-border);
+    color: var(--status-success-text);
+  }
+  .callout-warning {
+    background-color: var(--status-warning-bg);
+    border-color: var(--status-warning-border);
+    color: var(--status-warning-text);
+  }
+  .callout-danger {
+    background-color: var(--status-danger-bg);
+    border-color: var(--status-danger-border);
+    color: var(--status-danger-text);
+  }
+  .callout-neutral {
+    background-color: var(--status-neutral-bg);
+    border-color: var(--status-neutral-border);
+    color: var(--status-neutral-text);
   }
   .badge {
     @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-medium;
@@ -402,7 +468,7 @@
 
   .skip-link {
     background-color: var(--surface-card);
-    color: var(--accent);
+    color: var(--accent-text);
     @apply fixed left-4 top-4 z-[100] -translate-y-24 rounded-lg px-4 py-3 font-semibold shadow-xl focus:translate-y-0;
   }
 }

@@ -5,6 +5,15 @@ export type ResolvedTheme = 'light' | 'dark'
 
 export const THEME_STORAGE_KEY = 'campusdesk_theme'
 
+// Browser chrome needs concrete values because <meta name="theme-color">
+// cannot resolve a CSS custom property.
+const META_COLOR_DARK = '#020617'
+const META_COLOR_LIGHT = '#f8fafc'
+
+interface LegacyMediaQueryList {
+  addListener?: (listener: (event: MediaQueryListEvent) => void) => void
+}
+
 const theme = ref<ThemePreference>('system')
 const systemPrefersDark = ref(false)
 let initialized = false
@@ -39,7 +48,7 @@ export function applyThemeToDom(isDark: boolean): void {
   }
   const meta = document.getElementById('theme-color-meta')
   if (meta) {
-    meta.setAttribute('content', isDark ? '#0b1120' : '#f8fafc')
+    meta.setAttribute('content', isDark ? META_COLOR_DARK : META_COLOR_LIGHT)
   }
 }
 
@@ -63,13 +72,14 @@ export function initTheme(): void {
   if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
     const mq = window.matchMedia('(prefers-color-scheme: dark)')
     systemPrefersDark.value = mq.matches
-    const handler = (e: MediaQueryListEvent | MediaQueryList) => {
-      systemPrefersDark.value = e.matches
+    const handler = (event: MediaQueryListEvent) => {
+      systemPrefersDark.value = event.matches
     }
     if (typeof mq.addEventListener === 'function') {
       mq.addEventListener('change', handler)
-    } else if (typeof (mq as any).addListener === 'function') {
-      ;(mq as any).addListener(handler)
+    } else {
+      const legacy = mq as MediaQueryList & LegacyMediaQueryList
+      legacy.addListener?.(handler)
     }
   }
 
@@ -93,8 +103,14 @@ export function useTheme() {
   function setTheme(next: ThemePreference) {
     theme.value = next
     setSafeStorage(THEME_STORAGE_KEY, next)
-    if (next === 'system' && typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
-      systemPrefersDark.value = window.matchMedia('(prefers-color-scheme: dark)').matches
+    if (
+      next === 'system' &&
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function'
+    ) {
+      systemPrefersDark.value = window.matchMedia(
+        '(prefers-color-scheme: dark)'
+      ).matches
     }
     applyThemeToDom(resolvedTheme.value === 'dark')
   }

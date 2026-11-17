@@ -55,7 +55,7 @@ describe('useTheme composable', () => {
     expect(document.documentElement.style.colorScheme).toBe('dark')
     expect(
       document.getElementById('theme-color-meta')?.getAttribute('content')
-    ).toBe('#0b1120')
+    ).toBe('#020617')
 
     applyThemeToDom(false)
     expect(document.documentElement.classList.contains('dark')).toBe(false)
