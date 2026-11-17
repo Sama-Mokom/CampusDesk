@@ -121,7 +121,7 @@
               <AppBadge
                 v-for="tier in row.tiers"
                 :key="tier.id || tier.code"
-                :tone="tier.priority === 3 ? 'purple' : tier.priority === 2 ? 'info' : 'neutral'"
+                :tone="tier.priority === 2 || tier.priority === 3 ? 'purple' : 'neutral'"
                 :class="{ 'opacity-50 line-through': !tier.is_active }"
               >
                 <span>{{ tier.name }}:</span>

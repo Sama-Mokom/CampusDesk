@@ -34,7 +34,7 @@ describe('TierBadge component and helpers', () => {
         feeAmount: 2500
       }
     })
-    expect(wrapper.classes()).toContain('badge-info')
+    expect(wrapper.classes()).toContain('badge-purple')
     expect(wrapper.text()).toContain('Fast Mode')
     expect(wrapper.attributes('title')).toBe('2,500 XAF · ~7 days')
   })

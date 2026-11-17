@@ -18,7 +18,7 @@ export function formatXAF(amount: number | null | undefined): string {
 import { computed } from 'vue'
 import AppBadge from './ui/AppBadge.vue'
 
-type Tone = 'neutral' | 'info' | 'purple'
+type Tone = 'neutral' | 'purple'
 
 const props = withDefaults(
   defineProps<{
@@ -35,11 +35,12 @@ const props = withDefaults(
 )
 
 const tone = computed<Tone>(() => {
-  if (props.priority === 3 || /super\s*fast/i.test(props.name)) {
+  if (
+    props.priority === 3 ||
+    props.priority === 2 ||
+    /fast/i.test(props.name)
+  ) {
     return 'purple'
-  }
-  if (props.priority === 2 || /fast|standard/i.test(props.name)) {
-    return 'info'
   }
   return 'neutral'
 })
