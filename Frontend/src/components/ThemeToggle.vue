@@ -124,7 +124,7 @@ onBeforeUnmount(() => {
       v-if="isOpen"
       role="menu"
       aria-label="Select theme"
-      class="absolute right-0 z-50 mt-2 w-44 origin-top-right rounded-xl border border-subtle bg-surface-raised p-1.5 shadow-lg backdrop-blur focus:outline-none"
+      class="theme-menu absolute right-0 z-50 mt-2 w-44 origin-top-right rounded-xl border p-1.5 shadow-lg focus:outline-none"
     >
       <div class="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted">
         Theme
@@ -158,3 +158,12 @@ onBeforeUnmount(() => {
     </div>
   </div>
 </template>
+
+<style scoped>
+/* Keep the popover fully opaque: text behind it must never bleed through. */
+.theme-menu {
+  background-color: var(--surface-raised);
+  border-color: var(--border-subtle);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.35);
+}
+</style>

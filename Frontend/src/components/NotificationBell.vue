@@ -194,6 +194,8 @@ async function onClick(id: number) {
   width: 23rem;
   max-height: min(32rem, 75dvh);
   z-index: 40;
+  background-color: var(--surface-raised);
+  border-color: var(--border-subtle);
 }
 @media (max-width: 639px) {
   .notification-panel {

@@ -799,21 +799,36 @@ onMounted(() => {
 
 <style scoped>
 .staff-identity {
-  @apply flex flex-col justify-between gap-5 rounded-2xl border border-subtle bg-surface-card p-5 sm:flex-row sm:items-center sm:p-6 border-subtle bg-surface-card;
+  @apply flex flex-col justify-between gap-5 rounded-2xl border p-5 sm:flex-row sm:items-center sm:p-6;
+  border-color: var(--border-subtle);
+  background-color: var(--surface-card);
 }
 .staff-avatar {
-  @apply flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-xl font-semibold text-accent-soft-text;
+  @apply flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-xl font-semibold;
+  background-color: var(--accent-soft-bg);
+  color: var(--accent-soft-text);
 }
 .staff-success {
-  @apply rounded-xl border border-status-success-border bg-status-success-bg px-4 py-3 text-sm text-status-success-text;
+  @apply rounded-xl border px-4 py-3 text-sm;
+  background-color: var(--status-success-bg);
+  border-color: var(--status-success-border);
+  color: var(--status-success-text);
 }
 .staff-error {
-  @apply rounded-xl border border-status-danger-border bg-status-danger-bg px-4 py-3 text-sm text-status-danger-text;
+  @apply rounded-xl border px-4 py-3 text-sm;
+  background-color: var(--status-danger-bg);
+  border-color: var(--status-danger-border);
+  color: var(--status-danger-text);
 }
 .staff-detail-tab {
-  @apply min-h-11 rounded-lg px-3 py-2 text-sm font-medium text-muted transition-colors hover:bg-surface-muted text-muted hover:bg-surface-muted;
+  @apply min-h-11 rounded-lg px-3 py-2 text-sm font-medium transition-colors;
+  color: var(--text-muted);
+}
+.staff-detail-tab:hover {
+  background-color: var(--surface-muted);
 }
 .staff-detail-tab.selected {
-  @apply bg-accent-soft text-accent-soft-text;
+  background-color: var(--accent-soft-bg);
+  color: var(--accent-soft-text);
 }
 </style>

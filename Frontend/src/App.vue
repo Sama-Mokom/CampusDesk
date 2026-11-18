@@ -159,7 +159,7 @@ async function onLogout() {
     >
     <aside
       v-if="!isAuthPage"
-      class="fixed inset-y-0 left-0 z-30 hidden flex-col bg-inverse text-inverse-fg transition-[width] duration-200 ease-in-out lg:flex"
+      class="fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-inverse bg-inverse text-inverse-fg transition-[width] duration-200 ease-in-out lg:flex"
       :class="isCollapsed ? 'w-16' : 'w-60'"
     >
       <div
