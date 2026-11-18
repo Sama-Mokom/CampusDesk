@@ -30,6 +30,10 @@ The local Docker Compose environment has been expanded to a 7-service topology: 
 | Off-host recovery | Private versioned S3, SSE-KMS, least-privilege EC2 access, twice-daily coherent captures, download verification, isolated restore test, 15-minute monitoring verified |
 | Public DNS and HTTPS | Not implemented; staging access remains through an SSH tunnel |
 
+## Unmerged frontend theme branch (18 November 2026)
+
+`fix/theme-ui-followups` (created from `development`, not yet merged) completes the dark-theme token refactor and adds the notification unread treatment and Mark all read action. On that branch, type-check, lint and the production build pass; the frontend suite is **25 test files / 209 tests**, the contrast matrix has 0 failures, and axe reports 0 WCAG A/AA violations on the audited dark/light screens. No backend, API, dependency, database or deployment files changed. Review [THEME_REFINEMENT.md](THEME_REFINEMENT.md) and [ADR-14–ADR-16](DECISIONS.md) before merging.
+
 ## Where to work next
 
 The next operational and development tasks are:

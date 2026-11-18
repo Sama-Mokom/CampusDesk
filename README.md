@@ -41,6 +41,7 @@ If you are evaluating, operating, or extending CampusDesk, use the documents bel
 - **[API.md](./Docs/API.md)** — Every endpoint: method, auth requirements, request/response shapes, validation rules, side effects
 - **[UI_UX.md](./Docs/UI_UX.md)** — Design system, key screens, component inventory
 - **[FRONTEND_REDESIGN.md](./Docs/FRONTEND_REDESIGN.md)** — Issue #7 implementation history, API compatibility, automated verification, merge record, and outstanding browser acceptance checks
+- **[THEME_REFINEMENT.md](./Docs/THEME_REFINEMENT.md)** — Dark-theme token system, ThemeToggle, notification unread/mark-all decisions, tradeoffs, verification and follow-ups
 
 ### 5. Understand Why Things Are the Way They Are
 
@@ -77,14 +78,14 @@ All diagrams are embedded as Mermaid code within the relevant document (primaril
 | | |
 |---|---|
 | **Backend** | Laravel 12, PHP 8.3 container runtime, MySQL, Sanctum 4.x (Bearer tokens) |
-| **Frontend** | Vue 3, TypeScript, Vite 6, Tailwind + DaisyUI, Axios |
+| **Frontend** | Vue 3, TypeScript, Vite 6, Tailwind CSS 3.4 (DaisyUI disabled), Axios |
 | **Backend location** | `campusdesk/` |
 | **Frontend location** | `Frontend/src/` |
 | **Backend URL (bare dev)** | `http://127.0.0.1:8000` |
 | **Frontend URL (bare dev)** | `http://localhost:5173` |
 | **Docker Compose URL** | `http://localhost:8080` |
 | **Current status** | Application workflows, CI, immutable ECR publication, manually approved SSM deployment, private attachment hardening, encrypted off-host recovery, isolated restore testing, systemd freshness monitoring, and staging credential remediation are implemented. Public DNS/HTTPS and broader administrative-action audit coverage remain open. |
-| **Automated checks** | GitHub Actions runs backend PHPUnit, frontend Vitest/ESLint/TypeScript/build checks, Compose validation, pull-request image builds, and development-branch image publication. On 7 October 2026 the local suites passed with 58 PHPUnit tests/373 assertions and 132 Vitest tests across 14 files. See [TESTING.md](./Docs/TESTING.md) and the latest CI run. |
+| **Automated checks** | GitHub Actions runs backend PHPUnit, frontend Vitest/ESLint/TypeScript/build checks, Compose validation, pull-request image builds, and development-branch image publication. On 18 November 2026 the frontend dark-theme/notification follow-up passed 209 Vitest tests across 25 files plus lint, type-check and build; the backend baseline remains 111 PHPUnit tests/592 assertions from 21 October (not rerun for that frontend-only change). See [TESTING.md](./Docs/TESTING.md) and the latest CI run. |
 
 ---
 

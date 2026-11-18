@@ -92,4 +92,87 @@ describe('NotificationBell', () => {
     expect(markNotificationRead).toHaveBeenLastCalledWith(4)
     expect(notification().text()).toContain('Read')
   })
+
+  it('marks every unread notification as read from the header action', async () => {
+    authState.isAuthenticated.value = true
+    const notifications = [
+      {
+        id: 1,
+        user_id: 1,
+        type: 'status',
+        message: 'First update',
+        read: false,
+        read_at: null,
+        created_at: '2026-10-02T10:00:00Z'
+      },
+      {
+        id: 2,
+        user_id: 1,
+        type: 'status',
+        message: 'Second update',
+        read: false,
+        read_at: null,
+        created_at: '2026-10-02T11:00:00Z'
+      },
+      {
+        id: 3,
+        user_id: 1,
+        type: 'status',
+        message: 'Already read',
+        read: true,
+        read_at: '2026-10-02T12:00:00Z',
+        created_at: '2026-10-02T12:00:00Z'
+      }
+    ]
+    vi.mocked(fetchNotifications).mockResolvedValue(notifications)
+    vi.mocked(markNotificationRead).mockImplementation(async (id: number) => ({
+      ...notifications.find((item) => item.id === id)!,
+      read: true,
+      read_at: '2026-10-03T10:00:00Z'
+    }))
+    const wrapper = mount(NotificationBell)
+    await flushPromises()
+    await wrapper.get('[aria-label="Notifications"]').trigger('click')
+
+    const markAll = wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('Mark all read'))!
+    await markAll.trigger('click')
+    await flushPromises()
+
+    expect(markNotificationRead).toHaveBeenCalledTimes(2)
+    expect(markNotificationRead).toHaveBeenCalledWith(1)
+    expect(markNotificationRead).toHaveBeenCalledWith(2)
+    expect(wrapper.findAll('.notification-row.read')).toHaveLength(3)
+    expect(wrapper.text()).toContain('All notifications marked as read.')
+  })
+
+  it('reverts an unread row when marking all notifications fails', async () => {
+    authState.isAuthenticated.value = true
+    vi.mocked(fetchNotifications).mockResolvedValue([
+      {
+        id: 7,
+        user_id: 1,
+        type: 'status',
+        message: 'Unread update',
+        read: false,
+        read_at: null,
+        created_at: '2026-10-02T10:00:00Z'
+      }
+    ])
+    vi.mocked(markNotificationRead).mockRejectedValue(new Error('Offline'))
+    const wrapper = mount(NotificationBell)
+    await flushPromises()
+    await wrapper.get('[aria-label="Notifications"]').trigger('click')
+    const markAll = wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('Mark all read'))!
+    await markAll.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.findAll('.notification-row.unread')).toHaveLength(1)
+    expect(wrapper.get('[role="alert"]').text()).toContain(
+      'could not be marked as read'
+    )
+  })
 })

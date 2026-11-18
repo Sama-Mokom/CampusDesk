@@ -218,6 +218,13 @@
     outline: 2px solid var(--accent-text);
     outline-offset: 2px;
   }
+  /* The skip link target is focused programmatically on navigation. It is a
+     layout landmark, not a control, so it must not paint a ring around the
+     whole content area. */
+  #main-content:focus,
+  #main-content:focus-visible {
+    outline: none;
+  }
   input[type="checkbox"],
   input[type="radio"] {
     accent-color: var(--accent);

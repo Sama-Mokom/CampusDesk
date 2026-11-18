@@ -121,13 +121,21 @@ function formatDate(iso: string) {
 
 <style scoped>
 .case-card {
-  @apply flex min-w-0 flex-col gap-4 rounded-xl border border-subtle bg-surface-card p-4 transition-colors hover:border-accent-soft-border sm:p-5 xl:flex-row xl:items-center;
+  @apply flex min-w-0 flex-col gap-4 rounded-xl border p-4 transition-colors sm:p-5 xl:flex-row xl:items-center;
+  border-color: var(--border-subtle);
+  background-color: var(--surface-card);
+}
+.case-card:hover {
+  border-color: var(--accent-soft-border);
 }
 .case-icon {
-  @apply hidden h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-surface-muted text-muted bg-surface-muted text-muted sm:flex;
+  @apply hidden h-11 w-11 shrink-0 items-center justify-center rounded-xl sm:flex;
+  background-color: var(--surface-muted);
+  color: var(--text-muted);
 }
 .case-actions {
-  @apply grid shrink-0 grid-cols-2 gap-2 border-t border-subtle pt-4 sm:flex sm:justify-end xl:border-0 xl:pt-0;
+  @apply grid shrink-0 grid-cols-2 gap-2 border-t pt-4 sm:flex sm:justify-end xl:border-0 xl:pt-0;
+  border-color: var(--border-subtle);
 }
 .case-actions button {
   @apply text-xs;

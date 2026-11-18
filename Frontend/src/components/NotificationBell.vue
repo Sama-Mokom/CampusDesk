@@ -10,6 +10,7 @@ import { useRealtime } from '@/composables/useRealtime'
 import { parseApiError } from '@/utils/error'
 import { format } from 'date-fns'
 import SkeletonLoader from './ui/SkeletonLoader.vue'
+import AppBadge from './ui/AppBadge.vue'
 
 const open = ref(false)
 const root = ref<HTMLElement | null>(null)
@@ -18,6 +19,8 @@ const items = ref<Notification[]>([])
 const loading = ref(false)
 const error = ref('')
 const reading = ref<number | null>(null)
+const markingAll = ref(false)
+const markAllStatus = ref('')
 const unreadCount = computed(
   () => items.value.filter((item) => !item.read).length
 )
@@ -73,7 +76,12 @@ function formatTime(iso: string) {
   }
 }
 async function onClick(id: number) {
-  if (!isAuthenticated.value || reading.value !== null) return
+  if (
+    !isAuthenticated.value ||
+    reading.value !== null ||
+    markingAll.value
+  )
+    return
   const index = items.value.findIndex((item) => item.id === id)
   if (index === -1 || items.value[index]!.read) return
   reading.value = id
@@ -85,6 +93,49 @@ async function onClick(id: number) {
   } finally {
     reading.value = null
   }
+}
+
+/**
+ * Marks every unread notification as read using the existing single-item
+ * endpoint. The UI updates optimistically and only the failed rows are
+ * reverted, so a partial outage does not discard successful updates.
+ */
+async function markAllRead() {
+  if (!isAuthenticated.value || markingAll.value || loading.value) return
+  const unread = items.value.filter((item) => !item.read)
+  if (!unread.length) return
+
+  const ids = unread.map((item) => item.id)
+  const snapshot = new Map(items.value.map((item) => [item.id, item]))
+  markingAll.value = true
+  error.value = ''
+  markAllStatus.value = ''
+  items.value = items.value.map((item) =>
+    item.read
+      ? item
+      : { ...item, read: true, read_at: new Date().toISOString() }
+  )
+
+  const results = await Promise.allSettled(
+    ids.map((id) => markNotificationRead(id))
+  )
+  const failed = new Set<number>()
+  results.forEach((result, index) => {
+    if (result.status === 'rejected') failed.add(ids[index]!)
+  })
+
+  if (failed.size) {
+    items.value = items.value.map((item) =>
+      failed.has(item.id) ? snapshot.get(item.id)! : item
+    )
+    error.value =
+      failed.size === ids.length
+        ? 'Notifications could not be marked as read. Please try again.'
+        : 'Some notifications could not be marked as read. Please try again.'
+  } else {
+    markAllStatus.value = 'All notifications marked as read.'
+  }
+  markingAll.value = false
 }
 </script>
 
@@ -129,18 +180,43 @@ async function onClick(id: number) {
         class="notification-panel overflow-y-auto rounded-xl border border-subtle bg-surface-raised shadow-xl"
       >
         <header
-          class="flex items-center justify-between border-b border-subtle p-4"
+          class="notification-header flex flex-wrap items-center justify-between gap-2 p-4"
         >
-          <h2 class="text-sm text-heading">Notifications</h2>
-          <button
-            type="button"
-            class="btn-ghost"
-            :disabled="loading"
-            @click="load"
-          >
-            Refresh
-          </button>
+          <div class="flex min-w-0 items-center gap-2">
+            <h2 class="text-sm text-heading">Notifications</h2>
+            <AppBadge
+              v-if="unreadCount > 0"
+              tone="danger"
+              :dot="false"
+              >{{ unreadCount }} unread</AppBadge
+            >
+          </div>
+          <div class="flex items-center gap-1">
+            <button
+              v-if="unreadCount > 0"
+              type="button"
+              class="notification-action"
+              :disabled="markingAll || loading"
+              @click="markAllRead"
+            >
+              {{ markingAll ? 'Marking…' : 'Mark all read' }}
+            </button>
+            <button
+              type="button"
+              class="notification-action"
+              :disabled="loading || markingAll"
+              @click="load"
+            >
+              Refresh
+            </button>
+          </div>
         </header>
+        <p
+          class="sr-only"
+          role="status"
+        >
+          {{ markAllStatus }}
+        </p>
         <div
           v-if="loading"
           class="p-3"
@@ -171,16 +247,39 @@ async function onClick(id: number) {
           v-for="item in items"
           :key="item.id"
           type="button"
-          class="block w-full border-b border-subtle px-4 py-4 text-left transition-colors hover:bg-surface-muted"
-          :class="item.read ? 'bg-surface-card' : 'bg-accent-soft'"
-          :disabled="reading !== null"
+          class="notification-row block w-full px-4 py-4 text-left transition-colors"
+          :class="item.read ? 'read' : 'unread'"
+          :disabled="reading !== null || markingAll"
+          :aria-label="
+            item.read
+              ? item.message
+              : `${item.message}. Unread notification. Activate to mark as read.`
+          "
           @click="onClick(item.id)"
         >
-          <span class="block text-sm text-body">{{ item.message }}</span
-          ><span class="mt-2 block text-xs text-muted"
-            >{{ formatTime(item.created_at) }} ·
-            {{ item.read ? 'Read' : 'Mark as read' }}</span
+          <span class="flex items-start gap-2">
+            <span
+              v-if="!item.read"
+              aria-hidden="true"
+              class="notification-dot"
+            />
+            <span
+              class="block min-w-0 break-words text-sm"
+              :class="item.read ? 'text-body' : 'font-semibold text-heading'"
+              >{{ item.message }}</span
+            >
+          </span>
+          <span
+            class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted"
           >
+            <time :datetime="item.created_at">{{
+              formatTime(item.created_at)
+            }}</time>
+            <span aria-hidden="true">·</span>
+            <span :class="{ 'font-medium text-accent-text': !item.read }">{{
+              item.read ? 'Read' : 'Unread · Mark as read'
+            }}</span>
+          </span>
         </button>
       </section>
     </Transition>
@@ -194,6 +293,53 @@ async function onClick(id: number) {
   width: 23rem;
   max-height: min(32rem, 75dvh);
   z-index: 40;
+  background-color: var(--surface-raised);
+  border-color: var(--border-subtle);
+}
+.notification-header {
+  border-bottom: 1px solid var(--border-subtle);
+}
+.notification-action {
+  min-height: 2rem;
+  border-radius: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.notification-action:hover:not(:disabled) {
+  background-color: var(--surface-muted);
+  color: var(--text-heading);
+}
+.notification-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.notification-row {
+  border-bottom: 1px solid var(--border-subtle);
+  border-left: 2px solid transparent;
+}
+.notification-row.read {
+  background-color: transparent;
+}
+.notification-row.unread {
+  background-color: var(--accent-soft-bg);
+  border-left-color: var(--accent-text);
+}
+.notification-row:hover:not(:disabled) {
+  background-color: var(--surface-muted);
+}
+.notification-row:disabled {
+  cursor: default;
+  opacity: 1;
+}
+.notification-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-top: 0.375rem;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background-color: var(--accent-text);
 }
 @media (max-width: 639px) {
   .notification-panel {

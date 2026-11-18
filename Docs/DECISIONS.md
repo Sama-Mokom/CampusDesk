@@ -1,6 +1,6 @@
 # CampusDesk — Architecture Decision Record (ADR)
 
-**Last reviewed:** 21 October 2026
+**Last reviewed:** 18 November 2026
 
 Each entry: Decision, Context, Options Considered, Decision Made, Reasoning, Consequences, Status.
 
@@ -262,3 +262,74 @@ PHPUnit tests in `SequentialRoutingPreservationTest` and `SequentialRoutingBugCo
 - Created backend feature tests (`ApiExceptionHandlingTest.php`) and frontend unit tests (`error.spec.ts`).
 
 **Status:** ✅ Implemented and verified (138 PHPUnit tests / 179 Vitest tests).
+
+---
+
+## ADR-14: Semantic CSS Colour Tokens with a Class-Based Dark Theme
+
+**Context:** The Vue frontend mixed raw Tailwind palette utilities with light/dark pairs (`bg-white dark:bg-slate-900`) and component-level CSS. The dark theme existed only partially: 785 raw colour utilities remained in 33 application `.vue` files (790 including test assertions), several surfaces stayed light in dark mode, and muted text, placeholders and input borders failed WCAG AA. The brief required one token set, one dark mechanism and no raw themeable colours in components.
+
+**Options considered:**
+- A. Keep paired light/dark utility classes and patch individual screens.
+- B. Define semantic CSS custom properties on `:root`/`.dark`, map them into Tailwind, and consume only those tokens.
+- C. Adopt a component library theme or CSS-in-JS system.
+
+**Decision:** B — semantic CSS variables in `Frontend/src/style.css`, exposed through `tailwind.config.js` aliases (`surface`, `heading`, `muted`, `accent-soft`, `status-*`, `inverse-*`). Dark mode uses the existing `.dark` class on `<html>`.
+
+**Reasoning:** A single token layer makes both themes use the same names, keeps the existing Tailwind stack and CSS architecture, avoids a new dependency, and makes the audit objective (zero raw palette utilities). The existing mechanism and class name were retained to avoid a migration and a flash risk. `tailwind.config.ts` was reduced to a re-export of the JS config so two copies cannot drift.
+
+**Consequences:**
+- Light values were adjusted where the old palette failed contrast: muted/placeholder `#586777`, input border `#7b8a9e`, warning/orange text darkened, accent hover `#075985`.
+- Tailwind component-layer classes that are selected at runtime must be written as literal class strings; dynamic ``badge-${tone}`` interpolation is purged. `AppBadge` and `AppCallout` therefore use literal tone maps.
+- Semantic token classes are not used inside scoped `@apply`; scoped styles use `var(--token)` so a stale Tailwind config cannot break compilation.
+- Opacity modifiers are not applied to `var()` colours; alpha variants are explicit tokens.
+- Verification: 0 raw colour utilities in components, 0 contrast failures, 0 axe violations; 209 Vitest tests passed. See [THEME_REFINEMENT.md](THEME_REFINEMENT.md).
+
+**Status:** ✅ Implemented and verified on `fix/theme-ui-followups` (18 November 2026). Not yet merged.
+
+---
+
+## ADR-15: One Persisted Light/Dark/System Theme Toggle
+
+**Context:** The student header previously showed a moon icon and the admin header a monitor icon, implying two behaviours. The app needed one control for every role, a System option, persistence and no flash of the wrong theme.
+
+**Options considered:**
+- A. Keep the two icon controls and make them both binary toggles.
+- B. Use one accessible dropdown with Light, Dark and System, persist the choice, apply it before paint and listen to media-query changes.
+- C. Follow the operating-system preference only, with no user choice.
+
+**Decision:** B — one `ThemeToggle` component (renamed from `ThemeSwitcher`) used in every authenticated header and on auth pages. It stores `light`, `dark` or `system` under `campusdesk_theme` (the existing key), defaults to `system`, provides sun/moon/monitor icons, `aria-haspopup`/`aria-expanded`/`aria-checked`, keyboard navigation and outside-click dismissal.
+
+**Reasoning:** This matches the product requirement, keeps the existing storage key so saved preferences survive, and uses the existing `.dark` class and inline `<head>` script. The component has no Axios or store dependency and is tested in isolation.
+
+**Consequences:**
+- `Frontend/index.html` and `useTheme.ts` both encode the storage key, class name and theme-colour meta values; they must be kept in sync.
+- The meta `theme-color` values remain hardcoded because a meta tag cannot resolve a CSS custom property.
+- System mode updates live via `matchMedia('(prefers-color-scheme: dark)')`.
+- The pre-paint script blocks first paint only long enough to set the class; no Vue mount is required to avoid the flash.
+
+**Status:** ✅ Implemented and verified; Light/Dark/System, persistence, live System changes and pre-paint application checked in headless Chrome.
+
+---
+
+## ADR-16: Mark All Notifications Read via Frontend Fan-Out
+
+**Context:** Notifications could only be marked read one at a time. Users with several unread items needed a quick “mark all” action, but the backend was out of scope and only exposes `PATCH /api/notifications/{id}/read`.
+
+**Options considered:**
+- A. Add a bulk `PATCH /notifications/read-all` endpoint and make one atomic server call.
+- B. Reuse the existing per-notification endpoint from the client with `Promise.allSettled`, optimistic updates and per-row rollback.
+- C. Mark all items read only in local state without persisting.
+
+**Decision:** B for this iteration. A is documented as the preferred future change if inbox sizes grow or the API can be extended.
+
+**Reasoning:** B needs no backend or permission change, uses the already verified read endpoint, and gives immediate UI feedback. `Promise.allSettled` prevents one failure from discarding successful reads, and only failed rows are reverted. A visible error is shown for partial failure and success is announced through a `role="status"` element.
+
+**Consequences:**
+- One PATCH request per unread notification; the operation is not atomic and can be slow against a serialised development server.
+- Successful and failed rows can diverge; the server remains authoritative on refresh.
+- A real-time invalidation arriving during the action can race the local snapshot; the next refresh corrects it.
+- The action is hidden when the count is zero and disabled while loading or another read is in progress.
+- Moving to option A later should add feature tests for ownership scoping, idempotency and an authoritative unread count.
+
+**Status:** ✅ Implemented and verified with success, partial-failure and rollback tests (18 November 2026).

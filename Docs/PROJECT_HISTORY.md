@@ -153,3 +153,19 @@ From 8 through 21 October 2026, CampusDesk added administrative account control,
   - Expanded Docker Compose topology from 4 to 7 services (`frontend`, `backend`, `worker`, `db`, `reverb`, `realtime-worker`, `scheduler`).
   - Conducted a surgical code audit and optimization: removed triplicated aggregate sequence computation in `RequestEventRecorder`, unified error summary formatting in `RequestEventDelivery`, streamlined eager-loading queries in `RequestStatusNotificationService`, and resolved frontend TypeScript warnings.
   - Reached full verification baseline: 111 PHPUnit tests (592 assertions) across 23 suites and 155 Vitest unit tests across 18 files with zero lint/typecheck errors and clean production builds.
+
+## Phase 15: Dark Theme Refinement and Notification Inbox
+
+From 17 through 18 November 2026, the frontend moved from a partial dark-mode refactor to one verified semantic colour system, and the notification inbox gained a clearer unread state and a bulk read action.
+
+- Completed the token layer in `Frontend/src/style.css`: one set of surface, border, text, accent, tinted-status and inverse-chrome variables for light and dark, mapped into Tailwind and consumed everywhere.
+- Replaced all remaining raw palette utilities (785 occurrences across 33 application `.vue` files, plus 5 test class assertions) with semantic tokens; verified 0 remaining raw utilities, 0 inline colour attributes and 0 themeable hex values in components.
+- Added shared `AppBadge` and `AppCallout` tone primitives, adopted them for status, fee-tier and metadata chips, and replaced ad-hoc pills.
+- Consolidated the header control into one `ThemeToggle` with Light, Dark and System, persisted under `campusdesk_theme`, applied before first paint, and reacting live to system changes.
+- Corrected the contrast-driven values for muted text, placeholders, input borders, accent hover and warning/orange status text; the final matrix passed every required pairing in both themes.
+- Fixed the ten human-reported dark-theme defects (filter panel, request-type tier editor, info callout, upload zone, checkbox/date controls, muted metadata, list dividers/chips, fee chips, overview cards/pills, history filters) and swept every other screen.
+- Resolved follow-up regressions found in browser review: purged dynamic Tailwind tone classes, scoped `@apply` token failures that broke the staff queue, transparent theme/notification popovers, misaligned sidebar/header borders and the blue focus frame around main content.
+- Added unread notification rails, dots, tinted surfaces, weight/text cues and a Mark all read action that reuses the existing per-notification endpoint with optimistic updates and per-row rollback.
+- Verified with 209 Vitest tests across 25 files, type-check, lint, production build, a 0-failure contrast matrix and 0 axe WCAG A/AA violations across dark/light desktop and mobile screens. No backend, API, dependency, database or deployment files were changed.
+
+The full implementation record, decisions and tradeoffs are in [THEME_REFINEMENT.md](THEME_REFINEMENT.md). The work is on `fix/theme-ui-followups` and has not yet been merged.
