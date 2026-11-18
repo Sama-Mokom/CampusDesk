@@ -1,12 +1,54 @@
 # CampusDesk — Known Issues, Root Causes & Preventive Guidance
 
-**Last reviewed:** 7 October 2026
+**Last reviewed:** 18 November 2026
 
 This document is a knowledge base of every significant bug encountered during development, its root cause, and its resolution. Future agents should read this before touching related code to avoid repeating the same mistakes.
 
 ---
 
 ## ✅ RECENTLY RESOLVED BUGS
+
+---
+
+### ✅ RESOLVED — Tailwind Purged Dynamically Generated Badge and Callout Classes
+
+**Symptom:** Ready, Collected and Rejected request badges rendered grey in both themes even though `StatusBadge` mapped them to success/danger. Forwarded stayed purple. “What happens next?” lost its tinted callout background and border.
+
+**Root cause:** `AppBadge` built class names by interpolation (``badge-${tone}``) and `AppCallout` did the same (``callout-${tone}``). Tailwind’s content scanner only sees literal strings, so `.badge-success`, `.badge-danger`, `.badge-warning`, `.badge-info`, `.badge-orange` and all `.callout-*` rules were purged from the generated component layer. `badge-purple` and `badge-neutral` survived only because a test file happened to contain those literal strings.
+
+**Fix:** Both components now map their prop to a static object of full class names (`TONE_CLASS`) and `BadgeTones.spec.ts` asserts every badge/callout tone and the request-status mapping.
+
+**Prevention:** Never compose Tailwind class names with template literals. If a class is selected at runtime, include every full class name literally in source or a tested constant map. See [THEME_REFINEMENT.md](THEME_REFINEMENT.md) and ADR-14.
+
+**Status:** ✅ RESOLVED — all tone classes are present in the compiled CSS and verified in the browser.
+
+---
+
+### ✅ RESOLVED — Scoped `@apply` Token Classes Broke the Dev Stylesheet
+
+**Symptom:** The staff unclaimed queue could not be opened. Vite showed “The `border-subtle` class does not exist” at `StaffCaseCard.vue` line 124. While that stylesheet was failing, the theme dropdown appeared transparent, the sidebar lost its background, badges lost their tone rules and shell borders looked inconsistent.
+
+**Root cause:** Scoped SFC styles used `@apply border-subtle bg-surface-card text-muted`. Those are semantic classes generated from the Tailwind config. A dev server started before the token/config change kept the previous config cached, so `@apply` could not resolve the new classes and the CSS pipeline failed.
+
+**Fix:** Scoped styles in `StaffCaseCard.vue` and `StaffCaseWorkspace.vue` now declare colours with explicit CSS variables (`border-color: var(--border-subtle)`, `background-color: var(--surface-card)`) and use `@apply` only for core layout utilities. The theme and notification popovers also set explicit opaque token backgrounds.
+
+**Prevention:** Do not use custom token classes inside scoped `@apply`. Use `var(--token)` for colours. Restart the Vite dev server after changing `tailwind.config.js` to discard a stale PostCSS config.
+
+**Status:** ✅ RESOLVED — both scoped styles return HTTP 200 in Vite dev; staff queue and cases render in dark and light.
+
+---
+
+### ✅ RESOLVED — Blue Focus Frame Around Main Content
+
+**Symptom:** A blue/cyan line appeared along the header boundary and the left edge of the content area on initial page load, then disappeared after clicking. It looked like a stray theme border or glow.
+
+**Root cause:** `App.vue` focuses `#main-content` after every route change for keyboard/screen-reader navigation. The global `:focus-visible` rule drew a 2px accent outline around the entire main landmark.
+
+**Fix:** `#main-content:focus` and `#main-content:focus-visible` now suppress the outline. Interactive controls keep the global focus ring.
+
+**Prevention:** Programmatic focus targets that are layout landmarks should not receive the interactive focus-ring style. Do not remove the global `:focus-visible` rule; scope the exception to the landmark.
+
+**Status:** ✅ RESOLVED — computed outline is `none` while the main region is focused; shell borders align without a glow.
 
 ---
 

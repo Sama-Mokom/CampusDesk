@@ -1,6 +1,6 @@
 # CampusDesk — Testing
 
-**Last reviewed:** 21 October 2026
+**Last reviewed:** 18 November 2026
 
 ## Current State
 
@@ -8,10 +8,12 @@ Automated tests cover authentication, account disablement and credential remedia
 
 Current test suite baseline:
 - `php artisan test`: **111 tests passed (592 assertions)** across 23 test suites.
-- `npm test`: **18 test files passed (155 tests passed)**.
+- `npm test`: **25 test files passed (209 tests passed)** after the 18 November 2026 dark-theme/notification follow-up. The previous 21 October baseline was 18 files / 155 tests.
 - `npm run lint` (`eslint .`): **Passed** (0 errors, 0 warnings).
 - `npm run typecheck` (`vue-tsc --noEmit`): **Passed** (0 errors).
 - `npm run build` (`vite build`): **Passed** (production assets compiled cleanly).
+
+The 18 November follow-up was frontend-only; the PHPUnit baseline was not rerun for it. New frontend coverage includes badge/callout tone emission and status mappings (`BadgeTones.spec.ts`) and notification mark-all success, failure and rollback (`NotificationBell.spec.ts`). See [THEME_REFINEMENT.md](THEME_REFINEMENT.md) for the full verification record.
 
 Historical local baselines:
 - 9 October 2026: 71 PHPUnit tests / 457 assertions; 14 Vitest files / 132 tests.

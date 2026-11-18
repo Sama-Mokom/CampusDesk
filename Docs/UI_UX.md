@@ -1,31 +1,36 @@
 # CampusDesk UI and component system
 
-Last updated: 7 October 2026. Implemented for [Issue #7](https://github.com/Sama-Mokom/CampusDesk/issues/7), originally developed on `development-7` and now merged into `development`.
+Last updated: 18 November 2026. Implemented for [Issue #7](https://github.com/Sama-Mokom/CampusDesk/issues/7), originally developed on `development-7` and now merged into `development`. The dark-theme and notification-inbox follow-up is recorded in [THEME_REFINEMENT.md](THEME_REFINEMENT.md).
 
 ## Design authority and functional scope
 
 The individual references in `Mockups/Frontend` and `Mockups/Mobile`, plus `UI Prompt Campus desk.txt`, establish the visual direction. The Laravel endpoints and existing Vue service modules determine functionality. All nine desktop and eight mobile references were inspected individually across the implementation team. The issue was read through the GitHub API, including its labels and empty comments collection.
 
-The implementation uses slate surfaces, sky accents, restrained borders, clear type hierarchy and real workflow information. Illustrative SSO, password-reset links, profile editing, priorities, request changes, document sharing and unimplemented navigation destinations were not added. The login artwork is a lightweight architectural SVG rather than the reference's stock photograph. There is no dark mode or external font request; Inter is preferred when available, with system fonts as the reliable fallback.
+The implementation uses slate surfaces, sky accents, restrained borders, clear type hierarchy and real workflow information. Illustrative SSO, password-reset links, profile editing, priorities, request changes, document sharing and unimplemented navigation destinations were not added. The login artwork is a lightweight architectural SVG rather than the reference's stock photograph. Inter is preferred when available, with system fonts as the reliable fallback; no external font request is made.
+
+Both light and dark themes now share one semantic token set. The app uses the existing `.dark` class on `<html>`, applies the stored/system preference before first paint, and exposes a single Light/Dark/System control in every header. The sidebar and authentication masthead intentionally remain fixed dark “inverse” chrome in both themes.
 
 ## Shared design system
 
-`Frontend/tailwind.config.ts` provides the palette and type stack; `src/style.css` defines semantic surface/brand variables and reusable classes for buttons, cards, fields, metrics, feedback and status pills. Spacing follows the 4/8/16/24/32 rhythm. Primary button backgrounds use the darker sky `#0369A1` for white-text contrast; `#0284C7` remains the brand/focus accent. DaisyUI remains disabled to avoid its theme-variable overrides.
+`Frontend/src/style.css` defines the semantic surface, border, text, accent, status and inverse variables for both themes; `Frontend/tailwind.config.js` maps them into utilities (`bg-surface-card`, `text-muted`, `border-subtle`, `bg-status-warning-bg`, and so on). `Frontend/tailwind.config.ts` re-exports that JS config so the two cannot drift. Components consume tokens rather than raw palette utilities. Spacing follows the 4/8/16/24/32 rhythm. Primary button backgrounds use the darker sky `#0369A1` for white-text contrast; `#0284C7` remains the brand/focus accent in light mode, with `#38bdf8` for accent text on dark surfaces. DaisyUI remains disabled to avoid its theme-variable overrides.
 
 Reusable components live in `src/components/ui`:
 
 - `BaseModal`: native modal dialog, accessible title, focus containment/return, background inertness, Escape/backdrop dismissal, busy guards, body scroll lock and scrollable content. Footer actions use native form ownership where needed.
 - `PageHeader`: one page heading, contextual eyebrow and actions.
 - `EmptyState` and `SkeletonLoader`: reusable asynchronous-state presentation.
+- `AppBadge`: one tinted dot-and-label badge with `neutral`, `success`, `warning`, `info`, `purple`, `danger` and `orange` tones.
+- `AppCallout`: tinted informational/success/warning/danger callout.
+- `ThemeToggle`: the single Light/Dark/System menu, with persisted preference and accessible menu semantics.
 - `AppIcon`: one small set of consistent stroke icons.
 
 Native form controls retain labels, autocomplete, validation semantics and keyboard behavior. Shared CSS establishes their appearance instead of wrapping every input in a component. Domain components handle meaningful repeated UI: `student/StudentRequestCard`, `student/StudentRequestForm`, `staff/StaffCaseCard`, and admin pagination, user fields and audit history.
 
-`StatusBadge` reuses the centralized request/stage labels in `types/index.ts`. Color is accompanied by readable text: draft/slate, pending/amber, in-review/sky, forwarded/purple, ready or approved/green, collected/emerald, rejected/red.
+`StatusBadge` composes the shared `AppBadge` and reuses the centralized request/stage labels in `types/index.ts`. Colour is accompanied by a dot and readable text: draft/neutral, pending or awaiting payment/amber, in-review/sky, forwarded/purple, ready or approved/green, collected/green, rejected/red. Fee tiers use the same component: Standard neutral, Fast and Super Fast purple.
 
 ## Application shell and authentication
 
-`App.vue` provides a persistent slate desktop sidebar, role-specific navigation to distinct pages, a sticky header, notifications and logout. Below 1024px the sidebar becomes a keyboard-operable navigation disclosure. Both menus mark the current destination, including student request details, and scroll within the viewport when needed. Navigation moves keyboard focus to the main content. The accessibility skip link remains the only shell hash link.
+`App.vue` provides a persistent slate desktop sidebar, role-specific navigation to distinct pages, a sticky header, one `ThemeToggle`, notifications and logout. The sidebar and header use inverse/semantic tokens respectively, and their 1px borders meet at the same coordinate so the shell reads as one frame. Below 1024px the sidebar becomes a keyboard-operable navigation disclosure. Both menus mark the current destination, including student request details, and scroll within the viewport when needed. Navigation moves keyboard focus to the main content; the main landmark itself suppresses the visible focus ring so it does not paint a box around the whole content area. The accessibility skip link remains the only shell hash link.
 
 `components/layout/AuthLayout.vue` supplies the shared split authentication layout. Login has pending/error states and an accessible password-visibility control. Registration loads reference data with retry and cascades faculty to department to programme; the Programme type now reflects the API's existing `department_id` field.
 
@@ -52,7 +57,7 @@ The four role views are nested `RouterView` hosts rather than dashboard monolith
 
 `RequestTimeline` uses an ordered list sorted by `sequence_order`. Only the first unresolved stage after approved predecessors is current. Rejected stages prevent later stages from being represented as active. Approved/rejected indicators include text, and the current stage has `aria-current="step"`.
 
-Notifications retain authenticated loading and mark-read APIs, with loading/error/retry/empty states, outside-click and Escape dismissal, unread counts, and a mobile panel constrained to the viewport.
+Notifications retain authenticated loading and mark-read APIs, with loading/error/retry/empty states, outside-click and Escape dismissal, unread counts, and a mobile panel constrained to the viewport. Unread rows add an accent left rail, dot, tinted surface, heavier message and explicit “Unread · Mark as read” text; read rows are plain with “Read”. A header action marks all unread notifications read using the existing per-notification endpoint, updating optimistically and reverting only rows whose request failed.
 
 ## Responsive and accessibility conventions
 
@@ -67,4 +72,4 @@ Target widths are 375, 768, 1024 and 1440 pixels. Components implement these thr
 
 ## Verification and limitations
 
-See [FRONTEND_REDESIGN.md](FRONTEND_REDESIGN.md) for executed checks and acceptance status. API mocks exist only in tests. The production app does not contain demo responses. The existing Vitest/jsdom infrastructure was extended; browser E2E infrastructure is not configured.
+See [THEME_REFINEMENT.md](THEME_REFINEMENT.md) for the dark-theme and notification verification record. In summary: type-check, lint, the frontend build and 209 Vitest tests pass; the contrast matrix reports 0 failures; axe reports 0 WCAG A/AA violations on the audited screens; and screens were rendered in dark and light at desktop and mobile widths against a temporary fixture API. The production app does not contain demo responses. Native OS date/select popups, real-backend data, screen-reader behavior and forced-colors/high-contrast rendering still require manual acceptance. The existing Vitest/jsdom infrastructure was extended; browser E2E infrastructure is not configured.
