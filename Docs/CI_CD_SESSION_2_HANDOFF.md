@@ -428,7 +428,7 @@ The relevant commits on `development` are:
 
 ## Continuous integration
 
-The workflow is [.github/workflows/ci.yml](../.github/workflows/ci.yml).
+The workflow is [.github/workflows/ci.yml](../.github/workflows/ci.yml). The defects found during the November 2026 staging investigation and their phased remediation plan are recorded in [CI_CD_HARDENING_PLAN.md](CI_CD_HARDENING_PLAN.md).
 
 ### Triggers and permissions
 
@@ -893,7 +893,7 @@ It then invokes version `1` of the restricted custom SSM document for the exact 
 
 ### Fixed host deployment script
 
-The root-owned script is `/usr/local/sbin/campusdesk-deploy`, mode `0750`. It is the only executable called by the restricted SSM document. It:
+The root-owned script is `/usr/local/sbin/campusdesk-deploy`, mode `0750`. It is the only executable called by the restricted SSM document. A reviewed copy is now tracked at [ops/staging/campusdesk-deploy.sh](../ops/staging/campusdesk-deploy.sh); the host copy is installed manually through a reviewed host update. The script records the release in `/opt/campusdesk/release.json` and prints the release SHA, both image digests, the previous release SHA, and whether it recreated or no-op'd. The SSM document contract is recorded in [ops/staging/CampusDesk-DeployStaging.md](../ops/staging/CampusDesk-DeployStaging.md). It:
 
 - accepts only a release SHA and exact backend/frontend digest references;
 - validates their formats and verifies that each SHA tag resolves to the supplied digest;

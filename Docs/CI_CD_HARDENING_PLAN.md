@@ -1,0 +1,596 @@
+# CampusDesk — CI/CD Hardening Plan
+
+**Last reviewed:** 19 November 2026
+
+**Status:** 🚧 Phase 0 implemented on `ci/hardening-phase-0`; pending review, merge, and staging verification. Phases 1–5 not started.
+
+**Scope:** [.github/workflows/ci.yml](../.github/workflows/ci.yml), [.github/workflows/deploy-staging.yml](../.github/workflows/deploy-staging.yml), [Frontend/Dockerfile](../Frontend/Dockerfile), [campusdesk/Dockerfile](../campusdesk/Dockerfile), [compose.yaml](../compose.yaml), [compose.staging.yaml](../compose.staging.yaml), the host deployment script, and the related documentation.
+
+**Related:** [CI-CD.md](../CI-CD.md) (entry point), [CI/CD implementation and operations guide](CI_CD_SESSION_2_HANDOFF.md), [KNOWN_ISSUES.md](KNOWN_ISSUES.md), [STAGING_RECOVERY.md](STAGING_RECOVERY.md).
+
+This document records five defects found while investigating the 18 November 2026 staging "missing changes" report, explains why each exists and what it can break, and defines a phased, testable plan. Checkboxes are ticked only for work implemented on the branch named below; acceptance tests are ticked only after they pass against staging.
+
+## Status
+
+| Phase | State |
+| --- | --- |
+| 0 — Instrument and guard | 🚧 Implemented on `ci/hardening-phase-0`; pending review, merge, and staging verification |
+| 1 — Release selection guard | Not started |
+| 2 — One build recipe | Not started |
+| 3 — Reproducible release builds | Not started |
+| 4 — Runtime configuration | Not started |
+| 5 — End-to-end release verification | Not started |
+
+---
+
+## 1. Why this plan exists
+
+### 1.1 The incident that triggered it
+
+On 18 November 2026 the operator deployed the `development` tip `79bbf0b` to staging and reported that "a couple of changes" from the theme/notification work were not visible in staging, although the same code was visible locally. The working hypothesis was that a stale or wrong image had been deployed.
+
+### 1.2 What the investigation proved
+
+The staging artefact was correct at every link in the chain:
+
+| Link | Verified evidence |
+| --- | --- |
+| Running frontend container | `Config.Image` = `…/campusdesk_frontend@sha256:76dcb2b8…` |
+| ECR tag `79bbf0b` | resolves to `sha256:76dcb2b8…` (exact match) |
+| Deploy action | SSM log shows a fresh digest pull and **Recreate** of `frontend`, `backend`, `worker`, `reverb` — not the no-op path |
+| Image contents | the app layer downloaded from ECR contains `index.html` → `index-DGKx_E9Q.js` |
+| Commit content in the image | `Mark all read`, `unread`, `badge-orange`, `badge-purple`, the `#main-content:focus` rules from `610f6fc`, and `StaffCaseWorkspace-DQyQwns2.css` |
+| Runtime config | staging `REVERB_APP_KEY=campusdesk-key` matches the key baked into the image |
+
+The missing changes were local: the Vite dev server had been serving a stale module graph. Restarting it brought local and staging into sync. This is the same class of staleness already recorded for Tailwind/PostCSS config changes in [KNOWN_ISSUES.md](KNOWN_ISSUES.md).
+
+### 1.3 What the investigation exposed
+
+The incident was **not** a pipeline failure, but four properties of the pipeline made it hard to prove that in less than several hours:
+
+1. an old commit can be deployed as if it were a release;
+2. the same image is built by two different recipes;
+3. the artefact validated in CI is not the artefact that ships;
+4. the pipeline cannot state, in one place, which commit is live.
+
+The five defects in section 3 are the concrete causes of those properties.
+
+---
+
+## 2. Current pipeline (as-is)
+
+### 2.1 Events and jobs
+
+| Event | Quality gates | `backend-image` / `frontend-image` | `backend-publish` / `frontend-publish` |
+| --- | --- | --- | --- |
+| `pull_request` → `development` | run | run, tagged `:ci`, discarded with the runner | skipped |
+| PR merged | — | — | separate `push` run: build jobs skipped, publish jobs rebuild and push |
+| `push` → `development` | run | **skipped** (`if: github.event_name != 'push'`) | rebuild and push at the pushed tip |
+| `workflow_dispatch` | run | run (throwaway) | skipped |
+
+A merge is seen only as a push: `closed` is not a default `pull_request` activity type, and the publish condition requires `github.event_name == 'push'`.
+
+### 2.2 Image paths
+
+- **PR/validation:** `docker build` → local `campusdesk-{backend,frontend}:ci`, never pushed and never uploaded as an artefact.
+- **Release:** `backend-publish` and `frontend-publish` each run their own `docker build` after an ECR existence check, then push `campusdesk_*:<full-sha>`.
+- **Deploy:** `deploy-staging.yml` resolves `imageTag=<sha>` in both repositories to digests and passes digest-pinned references to SSM.
+
+### 2.3 Deploy selection
+
+The only release constraint is `git merge-base --is-ancestor "$RELEASE_SHA" HEAD` ([deploy-staging.yml:64](../.github/workflows/deploy-staging.yml#L64)), plus format and existence checks. There is no tip check, no downgrade check, no provenance check, and no ref assertion in the YAML.
+
+### 2.4 Host-side gap
+
+`/usr/local/sbin/campusdesk-deploy` and the `CampusDesk-DeployStaging` SSM document are **not version-controlled in this repository**. Their behaviour is known only from [CI_CD_SESSION_2_HANDOFF.md](CI_CD_SESSION_2_HANDOFF.md) (sections "Restricted SSM document" and "Fixed host deployment script"). This limits auditability and blocks parts of Phase 0 and Phase 1.
+
+### 2.5 As-is flow
+
+```mermaid
+flowchart LR
+    PR[Pull request] --> T[Tests and config gate]
+    T --> B1[Build :ci images]
+    B1 --> X[Discard]
+
+    P[Push to development] --> T2[Tests and config gate]
+    T2 --> B2[Publish job rebuilds both images]
+    B2 --> E[(ECR immutable SHA tags)]
+
+    D[Manual dispatch + approval] --> A{Any ancestor of development?}
+    A -->|yes| R[Resolve tags to digests]
+    R --> S[SSM: pull, migrate, recreate]
+    S --> H[Health checks]
+```
+
+---
+
+## 3. Defect catalogue
+
+Severity reflects impact if the defect fires, not how often it has fired.
+
+### D1 — Ancestor-only release validation
+
+**Where:** [deploy-staging.yml:47-69](../.github/workflows/deploy-staging.yml#L47-L69), especially line 64.
+
+**What it is:** the deploy accepts any commit reachable from the checked-out `development` tip. It does not require the tip, the newest published release, a forward move, or a CI-produced image.
+
+**Why it exists:** an ancestor check was the cheapest way to reject foreign SHAs. The error text ("not part of the selected development history") implies a stronger guarantee than the code provides.
+
+**Failure modes:**
+
+- silent stale deploy of any past tip — tags are immutable and never expire, so old releases remain deployable forever;
+- deploying a post-merge feature commit such as `610f6fc`, `1a11dff`, or `85eed02` passes the git checks but has no image, so the failure surfaces late and with a misleading message;
+- no downgrade protection: a rollback and a forward deploy use the same flow and approval;
+- `HEAD` is whatever the dispatch was launched from, and the YAML never asserts `github.ref == 'refs/heads/development'`;
+- no check that the tags came from a successful CI run for that SHA.
+
+**Severity:** high impact, moderate likelihood. This is the only defect that can silently ship the wrong code.
+
+**Phase 0 status:** the workflow now rejects any dispatch that is not from `refs/heads/development`; the ancestor check itself is unchanged until Phase 1.
+
+### D2 — Duplicated build recipes
+
+**Where:**
+
+- backend: [ci.yml:114-125](../.github/workflows/ci.yml#L114-L125) vs [ci.yml:216-233](../.github/workflows/ci.yml#L216-L233);
+- frontend: [ci.yml:141-154](../.github/workflows/ci.yml#L141-L154) vs [ci.yml:295-314](../.github/workflows/ci.yml#L295-L314);
+- gating: `if: github.event_name != 'push'` at [ci.yml:102](../.github/workflows/ci.yml#L102) and [:129](../.github/workflows/ci.yml#L129); publish conditions at [:158](../.github/workflows/ci.yml#L158) and [:237](../.github/workflows/ci.yml#L237).
+
+**What it is:** the same two images are built by two independent, hand-maintained command sequences that only one of may run per event.
+
+**Why it exists:** PR build validation predates ECR publishing. When publishing was added, rebuilding in the publish job avoided a second build within one push run, but created a second recipe.
+
+**Failure modes:**
+
+- silent divergence of build args, context, platform, target stage, cache policy, or base image;
+- PR CI can be green while the shipped image differs;
+- the confusing `if:` conditions are a symptom, not the cause: the workflow encodes "builds are for PRs, publishes are for pushes" as an accident of history;
+- drift has already happened once: `0a3c565` had to add `VITE_REVERB_APP_KEY` to both copies.
+
+**Severity:** high impact, high likelihood (already observed).
+
+### D3 — No build-once promotion
+
+**Where:** publish jobs depend only on the test jobs ([ci.yml:159-162](../.github/workflows/ci.yml#L159-L162), [:238-241](../.github/workflows/ci.yml#L238-L241)); no `upload-artifact`, `docker save/load`, or `build-push-action` output is used.
+
+**What it is:** the image validated in CI is discarded; the deployed image is a separate rebuild at a different time on a different runner.
+
+**Why it exists:** simplest model, no cross-job artefact plumbing.
+
+**Failure modes:**
+
+- non-hermetic builds: floating base tags (`node:22-alpine`, `php:8.3-apache`, `nginx:alpine`, `composer:2`) and registry state mean two builds of one commit can differ;
+- no durable "tested artefact" to promote, sign, attest, or roll back to;
+- release readiness is guesswork: the merge build does not exist until CI finishes, which invites selecting an older SHA (compounding D1);
+- promoting a PR build is not automatically safe here: merge commits mean the released tree can differ from the PR head tree if `development` moved.
+
+**Severity:** medium-high, architectural; rarely an immediate outage but it undermines what CI means.
+
+### D4 — Hardcoded Reverb app key
+
+**Where:** literals at [ci.yml:148](../.github/workflows/ci.yml#L148) and [:306](../.github/workflows/ci.yml#L306), defaults at [Frontend/Dockerfile:12](../Frontend/Dockerfile#L12) and [compose.yaml:167](../compose.yaml#L167), the local `Frontend/.env` (untracked as of Phase 0) and [.env.docker.example](../.env.docker.example). Runtime value at [compose.staging.yaml:35](../compose.staging.yaml#L35); the example says [`REPLACE_WITH_RANDOM_KEY`](../.env.staging.example#L24).
+
+**What it is:** a build-time `VITE_*` value is hardcoded in six places instead of derived from one environment-owned source.
+
+**Why it exists:** Vite inlines `VITE_*` at build time; hardcoding the dev value was the quickest way to make realtime work in CI. It works today only because staging also uses `campusdesk-key`.
+
+**Failure modes:**
+
+- rotating `REVERB_APP_KEY` silently kills realtime: the SPA keeps the baked key and the handshake fails while the app still serves;
+- the image is environment-coupled and cannot be promoted across environments with different keys;
+- six sources of truth can drift;
+- baking config into layers is a dangerous precedent for any future secret.
+
+**Severity:** medium today; high on the first key rotation or second environment.
+
+### D5 — Observability
+
+**Where:** the image-reference masks at [deploy-staging.yml:142-143](../.github/workflows/deploy-staging.yml#L142-L143); the deployment summary at [:265-288](../.github/workflows/deploy-staging.yml#L265-L288); host script output; image metadata; application.
+
+**What it is:** the pipeline cannot answer "which commit is staging running, and how was that proven?" Five gaps:
+
+1. no `org.opencontainers.image.revision` label, so image content is not bound to a commit;
+2. image references are masked, and the digests had no unmasked record;
+3. the host script prints no release SHA, previous release, action taken, or digest;
+4. the summary asserts "Host health and API smoke tests: successful" whenever the job is green;
+5. there is no `/api/version` and no build SHA in the SPA.
+
+**Why it exists:** each piece was built for a different purpose; no release-record concept exists.
+
+**Failure modes:**
+
+- "wrong image", "host no-op", "cached bundle", and "stale local server" are indistinguishable from outside;
+- no audit trail of what was live when;
+- D1 cannot be guarded automatically without a last-deployed record;
+- silent failures (key mismatch, wrong digest, no-op) all look green.
+
+**Severity:** high — this is the defect that made the other four expensive.
+
+**Phase 0 status:** labels, the host release record (`/opt/campusdesk/release.json`), the identity log, and a verified deploy summary are implemented; `/api/version`, the release manifest, and the last-deployed record remain for Phases 1 and 5.
+
+---
+
+## 4. Target model (to-be)
+
+### 4.1 Principles
+
+1. **One release, one build.** The build that runs for the release commit is the build that ships; PR builds are validation only. (Decision HD-1.)
+2. **Identity is content.** Images carry their commit as a label; deployment selects a digest and verifies the label.
+3. **Selection is explicit.** Deploying the tip is the default; going backwards is an explicit, logged rollback.
+4. **Configuration is runtime, not image.** Environment-specific values are injected at container start, so one image can be promoted.
+5. **Every deploy can be interrogated.** A release manifest, an unmasked host record, and a runtime version endpoint answer "what is live?".
+
+### 4.2 Target flow
+
+```mermaid
+flowchart LR
+    PR[Pull request] --> T[Tests and config gate]
+    T --> B1[Build and smoke-test both images]
+    B1 --> X[Discard]
+
+    P[Push to development] --> T2[Tests and config gate]
+    T2 --> B2[Single shared build recipe]
+    B2 --> E[(ECR SHA tags + revision labels)]
+    B2 --> M[release.json: SHA + digests + run id]
+    M --> A[(SSM: /campusdesk/staging/latest)]
+
+    D[Manual dispatch + approval] --> V{Release is tip or explicit rollback?}
+    V -->|no| F[Fail fast]
+    V -->|yes| R[Verify tags, digests, revision labels]
+    R --> S[SSM: pull, migrate, recreate]
+    S --> H[Verify runtime SHA]
+    H --> L[(Record last-deployed SHA)]
+```
+
+### 4.3 Contracts
+
+**`release.json`** (CI artefact, and optionally an SSM parameter):
+
+```json
+{
+  "sha": "79bbf0b1d31d46970495f9eadda994777e61d122",
+  "ref": "refs/heads/development",
+  "run_id": "1234567890",
+  "created_at": "2026-11-18T17:21:21Z",
+  "backend":  { "tag": "79bbf0b", "digest": "sha256:…" },
+  "frontend": { "tag": "79bbf0b", "digest": "sha256:…" }
+}
+```
+
+**Image labels:** `org.opencontainers.image.revision`, `.source`, `.version`, `.created`.
+
+**Host record:** `/opt/campusdesk/release.json` (root-owned) with the same SHA and digests, plus `previous_release_sha`.
+
+**Runtime identity:** `GET /api/version` returns `{ "sha": "<build sha>", "built_at": "<timestamp>" }`; the SPA exposes the same value in `meta[name="app-build"]` and `window.__APP_CONFIG__.buildSha`.
+
+### 4.4 Configuration
+
+| Setting | Today | Target |
+| --- | --- | --- |
+| `VITE_API_URL` | build arg | build arg (same value everywhere) |
+| `VITE_REVERB_APP_KEY` | hardcoded build arg | runtime `config.js` generated from container env |
+| `REVERB_APP_KEY` | host `.env.staging` | host `.env.staging` (unchanged) |
+
+---
+
+## 5. Decisions
+
+| ID | Decision | Rationale | Revisit when |
+| --- | --- | --- | --- |
+| HD-1 | Adopt Model A: build once per release commit; PR builds stay validation-only. Model B (PR-built candidate promoted on merge) is deferred. | Model B needs a second ECR repository/role for untrusted PR code and a merge strategy whose tree matches the tested tree. Model A plus D2's shared recipe and D3's digest pinning captures most of the value. | provenance/compliance requires a tested artefact to be promoted, or a merge queue is introduced |
+| HD-2 | Default deploy requires the `development` tip; going backwards requires an explicit `allow_previous_release` input with a reason and is logged. | Closes D1 without removing the rollback path. | automated/scheduled deploys are added |
+| HD-3 | Reverb key becomes runtime configuration; build args are removed. | Closes D4 and makes the image environment-agnostic. | a build-time value genuinely cannot be runtime (e.g. tree-shaking needs it) |
+| HD-4 | The release identity contract is OCI labels + `release.json` + `/api/version`. | Closes D5 and gives D1 something to verify. | an external release system is adopted |
+| HD-5 | Do not grant PR workflows push access to the release repositories. | The publish role is scoped to `refs/heads/development`; giving PRs push rights is a security decision, not a convenience. | Model B is explicitly approved with a separate repository/role |
+
+---
+
+## 6. Phases
+
+Each phase is one pull request (or two if a host-script change must be reviewed separately), independently revertible, and complete only when every acceptance test passes on staging.
+
+### Phase 0 — Instrument and guard (no behaviour change)
+
+**Goal:** make every later change provable, and close the cheapest ambiguity with zero runtime risk.
+
+**Prerequisite:** ✅ Host script obtained. The reviewed copy is tracked at [`ops/staging/campusdesk-deploy.sh`](../ops/staging/campusdesk-deploy.sh) (the repository remains the source of truth; the host copy is installed manually). The exact `CampusDesk-DeployStaging` document JSON is still pending capture; its contract is recorded at [`ops/staging/CampusDesk-DeployStaging.md`](../ops/staging/CampusDesk-DeployStaging.md).
+
+**Tasks:**
+
+- [x] Add OCI labels (`revision`, `source`, `version`, `created`) to both images on both build paths (validation and publication).
+- [x] Host script prints `release_sha`, `backend_digest`, `frontend_digest`, `previous_release_sha`, `action=recreate|noop`, and `migrations_applied`.
+- [x] Host script writes `/opt/campusdesk/release.json` (root-owned, mode `0644`).
+- [x] Deploy summary reports the actual SHA, both digests, and the SSM status; remove unverified claims.
+- [x] Add an explicit `github.ref == 'refs/heads/development'` check step in `deploy-staging.yml` (fails the job with a clear message).
+- [x] Add a reviewed copy of the host script under `ops/staging/`.
+- [ ] Capture and add the exact `CampusDesk-DeployStaging` SSM document JSON (contract recorded; capture procedure documented).
+- [x] Stop tracking `Frontend/.env`; keep `.env.example`; ensure `.gitignore` covers it.
+- [x] Document the as-is model ("PR builds validate; the release build happens on the development push") in `CI-CD.md` and the handoff guide.
+- [x] Add a runbook line: restart the Vite dev server after changing `tailwind.config.js`, PostCSS config, or design tokens.
+
+**Acceptance tests:**
+
+- [ ] `aws ssm get-command-invocation` for a deploy shows `release_sha=<input sha>` and both digests, matching the dispatch input.
+- [ ] `docker image inspect <ref> --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'` returns the commit for both images.
+- [ ] `cat /opt/campusdesk/release.json` on the host returns the same SHA.
+- [x] `git ls-files Frontend/.env` returns nothing; `.env.example` remains tracked.
+- [ ] A clean clone builds and runs locally from `.env.example`.
+- [ ] A dispatch from a non-`development` ref is rejected by the job check (or blocked earlier by the `staging` environment) with an explicit message.
+- [ ] The job summary contains the actual SHA; no line claims a check that was not performed.
+- [ ] No runtime behaviour changes: the same release deploys and a repeat deploy still takes the no-op path.
+
+**Out of scope:** selection logic, build deduplication, runtime config.
+
+**Rollback:** revert the workflow/doc changes; the host-script additions are additive output only.
+
+**Effort / dependencies:** ~0.5–1 day. ✅ Host script obtained. Needs `ssm:GetCommandInvocation` evidence access; the publish role may write and the deploy role may read `/campusdesk/...` parameters (confirmed).
+
+**Progress (19 November 2026):** implemented on `ci/hardening-phase-0`. Statically verified: both workflows parse, ShellCheck passes on the tracked host script, `git ls-files Frontend/.env` is empty, and all workflow/doc links resolve. Runtime acceptance tests remain open until a staging deploy runs the new host script.
+
+---
+
+### Phase 1 — Release selection guard
+
+**Goal:** make it impossible to silently deploy a stale or unrelated release, without losing the rollback path.
+
+**Tasks:**
+
+- [ ] CI publish job writes `release.json` (section 4.3) as a workflow artefact.
+- [ ] CI optionally writes `/campusdesk/releases/<sha>` and `/campusdesk/staging/latest` to SSM Parameter Store (publisher role needs `ssm:PutParameter` on that path).
+- [ ] Deploy fetches `origin/development` explicitly and compares against `origin/development`, not `HEAD`.
+- [ ] Default: require `RELEASE_SHA == $(git rev-parse origin/development)`.
+- [ ] Add `allow_previous_release` (boolean, default `false`) and `reason` (required when `true`).
+- [ ] Read `/campusdesk/staging/last-deployed-sha`; in normal mode require `last_deployed_sha` to be an ancestor of the requested SHA (forward-only). Rollback mode permits ancestors and logs the reason.
+- [ ] Verify `org.opencontainers.image.revision` matches `RELEASE_SHA` for both images before contacting SSM.
+- [ ] Record `last_deployed_sha` after a successful deploy (host script or workflow).
+- [ ] Update the operator procedure in `CI-CD.md` and the handoff guide.
+
+**Acceptance tests:**
+
+- [ ] Deploying the current tip succeeds.
+- [ ] Deploying `d096046` (pre-merge) fails with a message naming the current tip.
+- [ ] Deploying an ancestor with `allow_previous_release=false` fails; with `true` plus a reason it succeeds and the run records a rollback.
+- [ ] A SHA whose image label does not match fails at preflight, before SSM.
+- [ ] A second deploy of the same SHA reports the no-op path and still records health and smoke results.
+- [ ] A deploy of a SHA that is not an ancestor still fails with the existing message.
+
+**Out of scope:** automated deployment on publish; multi-environment promotion.
+
+**Rollback:** revert to the previous workflow version; `allow_previous_release` can be flipped off independently of the rest.
+
+**Effort / dependencies:** ~1 day. Depends on Phase 0 labels and `release.json`. Needs an IAM decision for the SSM parameters (or start artefact-only and add SSM in a follow-up).
+
+---
+
+### Phase 2 — One build recipe
+
+**Goal:** remove the possibility of PR validation and release publication diverging.
+
+**Tasks:**
+
+- [ ] Add `.github/workflows/build-images.yml` with `workflow_call` inputs: `push`, `image_tag`, `environment`.
+- [ ] Steps: checkout, `docker/setup-buildx-action`, conditional ECR login, `docker/build-push-action` with shared `context`, `build-args`, `labels`, `tags`.
+- [ ] Frontend build args defined once; source the Reverb key from `vars.VITE_REVERB_APP_KEY` (removed entirely in Phase 4).
+- [ ] Replace the four `docker build` invocations with calls to the reusable workflow.
+- [ ] PR path: build only (`load: true`), plus a smoke test (`docker run`, `curl -fsS http://127.0.0.1/`).
+- [ ] Release path: build and push, plus the same smoke test.
+- [ ] Rename jobs to state their role ("Validate images (PR)", "Publish release images (development)") and remove the misleading conditional comments.
+
+**Acceptance tests:**
+
+- [ ] `grep -rn "docker build" .github/` returns no matches.
+- [ ] `grep -rn "VITE_API_URL" .github/` returns exactly one definition.
+- [ ] A PR run builds both images and makes no ECR call (no OIDC assumption).
+- [ ] A `development` push builds and pushes both images with identical inputs to the PR path.
+- [ ] The smoke test fails the job when the served page returns a non-200 status.
+- [ ] A registry-pull failure fails the job instead of being retried into a green state.
+
+**Out of scope:** changing the release model (HD-1), publishing from PRs.
+
+**Rollback:** restore `ci.yml` from Git; the reusable workflow can remain unused.
+
+**Effort / dependencies:** ~1–2 days. Depends on Phase 0 labels to keep the contract stable.
+
+---
+
+### Phase 3 — Reproducible release builds
+
+**Goal:** make "the tested build" and "the shipped build" differ only by recipe, and make the recipe deterministic.
+
+**Tasks:**
+
+- [ ] Digest-pin every base image in both Dockerfiles (`node:22-alpine@sha256:…`, `php:8.3-apache@sha256:…`, `nginx:alpine@sha256:…`, `composer:2@sha256:…`).
+- [ ] Add `provenance: true` and `sbom: true` to the release build.
+- [ ] Document Model A (release build = development push build; PR build = validation) in `CI-CD.md`.
+- [ ] Record the digests in `release.json` (already required by Phase 1).
+- [ ] Optional, only if capacity allows: image vulnerability scan in the release path.
+
+**Acceptance tests:**
+
+- [ ] Every `FROM` line contains `@sha256:`.
+- [ ] Two builds of the same commit produce identical application file hashes (`sha256sum /usr/share/nginx/html/index.html` and the `index-*.js` asset).
+- [ ] `docker buildx imagetools inspect <image>` shows the provenance attestation.
+- [ ] `release.json` digests match the images that were actually pushed.
+
+**Out of scope:** bit-for-bit identical image digests (timestamps and layer ordering are outside scope).
+
+**Rollback:** revert the Dockerfiles; labels and provenance are additive.
+
+**Effort / dependencies:** ~1–2 days. Depends on Phase 2 (single build path).
+
+---
+
+### Phase 4 — Runtime configuration for the Reverb key
+
+**Goal:** make the image environment-agnostic so one artefact can be promoted and rotation cannot silently break realtime.
+
+**Tasks:**
+
+- [ ] Add an nginx entrypoint that writes `/usr/share/nginx/html/config.js` from container environment (`REVERB_APP_KEY`, and any other environment-specific public values).
+- [ ] Load `config.js` before the app bundle in `Frontend/index.html`.
+- [ ] Change [echo.ts:88-91](../Frontend/src/services/echo.ts#L88-L91) to prefer `window.__APP_CONFIG__` and fall back to `import.meta.env` for local development.
+- [ ] Serve `config.js` with `Cache-Control: no-store`; keep the existing SPA fallback behaviour.
+- [ ] Remove `VITE_REVERB_APP_KEY` from the Dockerfile, the reusable workflow, and `compose.yaml`; keep `VITE_API_URL`.
+- [ ] Write the rotation runbook: change host env → restart `reverb`, `backend`, `worker`, `realtime-worker` → verify a websocket connects.
+- [ ] Until runtime config ships, add a deploy preflight that compares the host `REVERB_APP_KEY` with the value baked into the image and fails on mismatch.
+
+**Acceptance tests:**
+
+- [ ] Rotating `REVERB_APP_KEY` in `/opt/campusdesk/.env.staging` and recreating the containers keeps realtime working with no image rebuild.
+- [ ] `curl -sI http://127.0.0.1:8080/config.js` returns `200` and `Cache-Control: no-store`.
+- [ ] The same image runs locally and in staging with different keys.
+- [ ] `grep -rn "campusdesk-key" .github/ Frontend/Dockerfile compose.yaml` returns no matches (examples and docs may still show a placeholder).
+- [ ] The SPA still boots when `config.js` is missing (fallback path).
+
+**Out of scope:** rotating the Reverb app secret (host-only, never in the image).
+
+**Rollback:** restore the build-arg path; the `echo.ts` fallback keeps local development working either way.
+
+**Effort / dependencies:** ~1–2 days. Depends on Phase 2 (single build path) and Phase 0 (deploy preflight output).
+
+---
+
+### Phase 5 — End-to-end release verification
+
+**Goal:** prove, on every deploy, that the running application is the requested commit.
+
+**Tasks:**
+
+- [ ] Bake `APP_BUILD_SHA` and `APP_BUILD_TIME` into the backend image.
+- [ ] Add `GET /api/version` returning both values (public, no secrets).
+- [ ] Expose the frontend build SHA in `meta[name="app-build"]` and `window.__APP_CONFIG__.buildSha`.
+- [ ] Add a deploy verification step: query `/api/version` through the host and compare with `RELEASE_SHA`; fail the deploy on mismatch.
+- [ ] Replace the hardcoded summary lines with the verified SHA and digests.
+- [ ] Update `CI_CD_SESSION_2_HANDOFF.md`, `CI-CD.md`, and `KNOWN_ISSUES.md` (stale dev server entry).
+- [ ] Exercise the rollback and key-rotation runbooks once end to end.
+
+**Acceptance tests:**
+
+- [ ] `curl -fsS http://127.0.0.1:8080/api/version` on the host returns the deployed SHA.
+- [ ] A deploy whose runtime SHA does not match the requested SHA fails the workflow with a clear message.
+- [ ] The SPA's `meta[name="app-build"]` matches the same SHA.
+- [ ] The rollback runbook and the key-rotation runbook have both been executed successfully.
+- [ ] The summary contains only verified facts.
+
+**Out of scope:** dashboards, alerting, canary or blue/green deployment.
+
+**Rollback:** make the verification step warn-only if it proves too strict; the endpoint is additive.
+
+**Effort / dependencies:** ~1 day. Depends on Phases 1 and 4.
+
+---
+
+## 7. Sequencing and effort
+
+| Phase | Defects closed | Effort | Risk | Depends on |
+| --- | --- | --- | --- | --- |
+| 0 — Instrument and guard | D5 (most), D1 (ref guard) | 0.5–1 day | very low | host script copy |
+| 1 — Selection guard | D1 | 1 day | medium | Phase 0 |
+| 2 — One build recipe | D2 | 1–2 days | medium | Phase 0 |
+| 3 — Reproducible builds | D3 | 1–2 days | low | Phase 2 |
+| 4 — Runtime config | D4 | 1–2 days | medium | Phases 0, 2 |
+| 5 — Release verification | D5 (rest) | 1 day | low | Phases 1, 4 |
+
+**Why this order:** Phase 0 is nearly free and makes every later phase observable. Phase 1 closes the only defect that can silently ship wrong code. Phase 2 removes the class of bug that already occurred once. Phase 3 is deterministic-build polish and can slip. Phase 4 is latent until the first rotation, so it waits for a maintenance window. Phase 5 makes the guarantee permanent.
+
+**Start here:** Phase 0, tasks 1–4 (labels, host output, host record, summary) in one PR. They are additive, reversible, and immediately make a deploy self-describing.
+
+---
+
+## 8. Verification command reference
+
+| Purpose | Command |
+| --- | --- |
+| Image labels | `docker image inspect <ref> --format '{{json .Config.Labels}}'` |
+| Running frontend digest | `cid=$(sudo docker compose --env-file .env.staging -f compose.staging.yaml ps -q frontend); sudo docker inspect --format '{{.Config.Image}}' "$cid"` |
+| Tag → digest | `aws ecr describe-images --repository-name campusdesk_frontend --image-ids imageTag=<sha> --query 'imageDetails[0].imageDigest' --output text` |
+| Deploy transcript | `aws ssm get-command-invocation --command-id <id> --instance-id <id> --query StandardOutputContent --output text` |
+| Host release record | `cat /opt/campusdesk/release.json` |
+| Runtime SHA | `curl -fsS http://127.0.0.1:8080/api/version` |
+| Runtime config | `curl -sI http://127.0.0.1:8080/config.js` |
+| Served bundle | `docker exec <frontend> grep -o 'assets/index-[^"]*\.js' /usr/share/nginx/html/index.html` |
+| Build-recipe count | `grep -rn "docker build" .github/` |
+| Tracked env files | `git ls-files "Frontend/.env*"` |
+
+---
+
+## 9. Risks and mitigations
+
+| Risk | Mitigation |
+| --- | --- |
+| ECR tag immutability rejects a re-push | Always push a new commit/tag; never reuse a tag; candidate images (if Model B is ever adopted) get unique tags and a separate repository |
+| OIDC trust is scoped to `development`; PR publishing is unsafe | Keep PR builds push-free (HD-5); do not widen the trust policy for convenience |
+| Strict-tip input changes the documented operator flow | Update `CI-CD.md` and the handoff guide in the same PR; keep the rollback input and test it |
+| A new push during a deploy invalidates "tip" | The tip is evaluated at dispatch time; document that the dispatched SHA remains valid for that run |
+| Runtime `config.js` is mutable and cacheable | Generate at container start, serve `no-store`, inject before the app bundle, and test the missing-file fallback |
+| Key rotation drops existing websocket connections | Rotate in a maintenance window; restart all Reverb-related services; verify reconnect |
+| Host script is not in Git and may differ from the documented behaviour | Version a reviewed copy under `ops/staging/`; treat the host as a manually installed copy |
+| Phase 2 changes the workflows that publish releases | Land it on a branch, run a full PR validation, then a development push, and confirm the tags/digests before merging |
+| SSM parameters add IAM surface | Start artefact-only in Phase 1; add `/campusdesk/...` parameters only with a scoped policy |
+
+---
+
+## 10. Rollback strategy
+
+- **Workflow changes:** revert the PR; tags already published remain valid and deployable.
+- **Deploy semantics:** `allow_previous_release` defaults to `false`; flipping it is the documented rollback path and is logged.
+- **Runtime config:** `echo.ts` retains the `import.meta.env` fallback, so reverting the entrypoint alone restores the previous behaviour.
+- **Host script:** keep the previously installed script and SSM document versions recoverable on the host; a reviewed copy lives in `ops/staging/`.
+- **Docs:** every phase updates the operator procedure in the same PR, so a revert restores both code and instructions.
+
+---
+
+## 11. Open questions and prerequisites
+
+1. **Host script access.** ✅ Resolved: the script was provided and is tracked at [`ops/staging/campusdesk-deploy.sh`](../ops/staging/campusdesk-deploy.sh). Outstanding: capture the exact `CampusDesk-DeployStaging` JSON (procedure in [`ops/staging/CampusDesk-DeployStaging.md`](../ops/staging/CampusDesk-DeployStaging.md)).
+2. **IAM for release records.** ✅ Resolved: the publish role may write and the deploy role may read `/campusdesk/...` SSM parameters.
+3. **Multi-environment plans.** Is a second environment (e.g. production) planned? If yes, Phase 4 moves ahead of Phase 3.
+4. **Auto-deploy.** Should a successful publish auto-trigger staging deployment (still approval-gated), or remain fully manual?
+5. **Merge strategy.** Confirm merge commits remain the policy; this is why Model B is deferred.
+6. **Rotation policy.** How often should `REVERB_APP_KEY` rotate, and is a maintenance window acceptable?
+
+---
+
+## 12. Appendix A — incident evidence (18 November 2026)
+
+- Release deployed: `79bbf0b1d31d46970495f9eadda994777e61d122` (`development` tip at the time).
+- Merged PR commits: `610f6fc`, `1a11dff`, `85eed02` (all ancestors of `79bbf0b`; none was ever a `development` tip, so none had its own ECR tag).
+- Frontend digest: `sha256:76dcb2b82461c61ff12847e2b44997feb90fd169732d863c9a8fa349d0d7b9e2` (ECR tag and running container matched).
+- Backend digest recorded on the host: `sha256:b1bb8c3d1ad5cac8a61bb2d1d400cb241aff52298770368c9246218cf9749f63` (not re-verified against the tag during the investigation).
+- Served bundle: `assets/index-DGKx_E9Q.js`; the image layer downloaded from ECR contained the notification and badge code.
+- Staging `REVERB_APP_KEY`: `campusdesk-key`, matching the baked value.
+- Deploy transcript: `2026-11-18T17:25:58Z` pull → recreate → migrate ("Nothing to migrate") → success; no no-op path.
+- Root cause of the report: stale local Vite dev server; restarting it synchronised local and staging.
+
+## 13. Appendix B — current file map
+
+| Concern | File |
+| --- | --- |
+| CI events, tests, image jobs, publishing | [.github/workflows/ci.yml](../.github/workflows/ci.yml) |
+| Manual, approval-gated staging deploy | [.github/workflows/deploy-staging.yml](../.github/workflows/deploy-staging.yml) |
+| Backend image | [campusdesk/Dockerfile](../campusdesk/Dockerfile) |
+| Frontend image and build args | [Frontend/Dockerfile](../Frontend/Dockerfile) |
+| Local Compose (builds frontend) | [compose.yaml](../compose.yaml) |
+| Staging Compose (digest-pinned) | [compose.staging.yaml](../compose.staging.yaml) |
+| Local frontend env (ignored) | `Frontend/.env`; template: [`.env.example`](../Frontend/.env.example) |
+| Staging env example | [.env.staging.example](../.env.staging.example) |
+| Host deploy script and SSM document | not tracked (host: `/usr/local/sbin/campusdesk-deploy`, `CampusDesk-DeployStaging`) |
+| CI/CD narrative and operator procedure | [CI_CD_SESSION_2_HANDOFF.md](CI_CD_SESSION_2_HANDOFF.md) |
+
+## 14. Appendix C — glossary
+
+- **Ancestor:** a commit reachable by following parent links from the tip. Every historical commit is an ancestor; only one is the tip.
+- **Digest:** `sha256:` content identifier of an image manifest. Immutable for the life of the registry.
+- **Tag:** a human-readable pointer to a digest. ECR repositories here are immutable, so a tag cannot be moved once pushed.
+- **Promotion:** deploying the exact digest that was tested, rather than rebuilding the same commit.
+- **Release build:** the build produced from the commit that is actually deployed (the `development` push in Model A).
+- **Runtime configuration:** values injected into the container at start, so the image does not depend on the environment it will run in.
+- **Hermetic build:** a build whose output depends only on the source and pinned inputs (base images, lockfiles), not on mutable registry state.
+
+## 15. References
+
+- [CI-CD.md](../CI-CD.md) — current status and entry point.
+- [CI_CD_SESSION_2_HANDOFF.md](CI_CD_SESSION_2_HANDOFF.md) — existing pipeline, IAM, EC2, and deploy documentation.
+- [KNOWN_ISSUES.md](KNOWN_ISSUES.md) — resolved defects and preventive guidance, including Tailwind/Vite caching.
+- [STAGING_RECOVERY.md](STAGING_RECOVERY.md) — backup, restore, and maintenance-window procedures that a deploy must respect.
+- [DECISIONS.md](DECISIONS.md) — existing ADRs; this plan's decisions are labelled HD-1…HD-5 and do not replace an ADR.
