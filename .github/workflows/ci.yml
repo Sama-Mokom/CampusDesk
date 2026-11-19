@@ -112,7 +112,17 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Build backend image
-        run: docker build --tag campusdesk-backend:ci ./campusdesk
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+          IMAGE_SOURCE: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          docker build \
+            --label "org.opencontainers.image.revision=${IMAGE_TAG}" \
+            --label "org.opencontainers.image.source=${IMAGE_SOURCE}" \
+            --label "org.opencontainers.image.version=${IMAGE_TAG}" \
+            --label "org.opencontainers.image.created=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --tag campusdesk-backend:ci \
+            ./campusdesk
 
   frontend-image:
     name: Frontend image build
@@ -129,7 +139,19 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Build frontend image
-        run: docker build --build-arg VITE_API_URL=/api --build-arg VITE_REVERB_APP_KEY=campusdesk-key --tag campusdesk-frontend:ci ./Frontend
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+          IMAGE_SOURCE: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          docker build \
+            --build-arg VITE_API_URL=/api \
+            --build-arg VITE_REVERB_APP_KEY=campusdesk-key \
+            --label "org.opencontainers.image.revision=${IMAGE_TAG}" \
+            --label "org.opencontainers.image.source=${IMAGE_SOURCE}" \
+            --label "org.opencontainers.image.version=${IMAGE_TAG}" \
+            --label "org.opencontainers.image.created=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --tag campusdesk-frontend:ci \
+            ./Frontend
 
   backend-publish:
     name: Publish backend image
@@ -197,9 +219,16 @@ jobs:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           REPOSITORY: ${{ vars.ECR_BACKEND_REPOSITORY }}
           IMAGE_TAG: ${{ github.sha }}
+          IMAGE_SOURCE: ${{ github.server_url }}/${{ github.repository }}
         run: |
           IMAGE_URI="$REGISTRY/$REPOSITORY:$IMAGE_TAG"
-          docker build --tag "$IMAGE_URI" ./campusdesk
+          docker build \
+            --label "org.opencontainers.image.revision=${IMAGE_TAG}" \
+            --label "org.opencontainers.image.source=${IMAGE_SOURCE}" \
+            --label "org.opencontainers.image.version=${IMAGE_TAG}" \
+            --label "org.opencontainers.image.created=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --tag "$IMAGE_URI" \
+            ./campusdesk
           docker push "$IMAGE_URI"
           echo "Published $IMAGE_URI"
 
@@ -269,11 +298,16 @@ jobs:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           REPOSITORY: ${{ vars.ECR_FRONTEND_REPOSITORY }}
           IMAGE_TAG: ${{ github.sha }}
+          IMAGE_SOURCE: ${{ github.server_url }}/${{ github.repository }}
         run: |
           IMAGE_URI="$REGISTRY/$REPOSITORY:$IMAGE_TAG"
           docker build \
             --build-arg VITE_API_URL=/api \
             --build-arg VITE_REVERB_APP_KEY=campusdesk-key \
+            --label "org.opencontainers.image.revision=${IMAGE_TAG}" \
+            --label "org.opencontainers.image.source=${IMAGE_SOURCE}" \
+            --label "org.opencontainers.image.version=${IMAGE_TAG}" \
+            --label "org.opencontainers.image.created=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --tag "$IMAGE_URI" \
             ./Frontend
           docker push "$IMAGE_URI"
