@@ -35,18 +35,28 @@ It accepts no arbitrary shell commands. The deploy role cannot invoke the genera
 
 ## Capture procedure
 
-The exact JSON must be captured from the account before this file can be treated as a source of truth:
+The exact JSON must be captured from the account before this file can be treated as a source of truth. The deploy workflow invokes `--document-version "1"`, so capture version `1` rather than `$LATEST`; a newer default version would not be the document that runs.
 
 ```bash
 aws ssm get-document \
   --name CampusDesk-DeployStaging \
-  --document-version '$LATEST' \
+  --document-version 1 \
   --region eu-north-1 \
   --query Content \
-  --output text > /tmp/CampusDesk-DeployStaging.json
+  --output text \
+  --no-cli-pager > /tmp/CampusDesk-DeployStaging.json
 ```
 
-Review the captured JSON, then add it as `ops/staging/CampusDesk-DeployStaging.json` and link it from this file.
+On Windows, write the file as UTF-8 without a BOM rather than using `>`, which is UTF-16 in Windows PowerShell 5.1:
+
+```powershell
+$content = aws ssm get-document --name CampusDesk-DeployStaging --document-version 1 `
+  --region eu-north-1 --query Content --output text --no-cli-pager
+[System.IO.File]::WriteAllText("$PWD\ops\staging\CampusDesk-DeployStaging.json", $content,
+  (New-Object System.Text.UTF8Encoding($false)))
+```
+
+Review the captured JSON (including whether it embeds the AWS account ID), then add it as `ops/staging/CampusDesk-DeployStaging.json` and link it from this file.
 
 ## Change control
 
