@@ -1,8 +1,8 @@
 # CampusDesk — CI/CD Hardening Plan
 
-**Last reviewed:** 19 November 2026
+**Last reviewed:** 20 November 2026
 
-**Status:** 🚧 Phase 0 implemented on `ci/hardening-phase-0`; pending review, merge, and staging verification. Phases 1–5 not started.
+**Status:** ✅ Phase 0 verified on staging (release `4f5c02e`). Phase 0.1 record corrections are on `fix/phase-0-1-release-record`; Phase 1 is next.
 
 **Scope:** [.github/workflows/ci.yml](../.github/workflows/ci.yml), [.github/workflows/deploy-staging.yml](../.github/workflows/deploy-staging.yml), [Frontend/Dockerfile](../Frontend/Dockerfile), [campusdesk/Dockerfile](../campusdesk/Dockerfile), [compose.yaml](../compose.yaml), [compose.staging.yaml](../compose.staging.yaml), the host deployment script, and the related documentation.
 
@@ -14,8 +14,8 @@ This document records five defects found while investigating the 18 November 202
 
 | Phase | State |
 | --- | --- |
-| 0 — Instrument and guard | 🚧 Implemented on `ci/hardening-phase-0`; pending review, merge, and staging verification |
-| 1 — Release selection guard | Not started |
+| 0 — Instrument and guard | ✅ Verified on staging (20 November 2026); Phase 0.1 record fixes on `fix/phase-0-1-release-record` |
+| 1 — Release selection guard | Next |
 | 2 — One build recipe | Not started |
 | 3 — Reproducible release builds | Not started |
 | 4 — Runtime configuration | Not started |
@@ -298,8 +298,8 @@ Each phase is one pull request (or two if a host-script change must be reviewed 
 **Tasks:**
 
 - [x] Add OCI labels (`revision`, `source`, `version`, `created`) to both images on both build paths (validation and publication).
-- [x] Host script prints `release_sha`, `backend_digest`, `frontend_digest`, `previous_release_sha`, `action=recreate|noop`, and `migrations_applied`.
-- [x] Host script writes `/opt/campusdesk/release.json` (root-owned, mode `0644`).
+- [x] Host script prints `release_sha`, `backend_digest`, `frontend_digest`, `previous_release_sha`, `action=recreate|noop`, and `migration_step_completed`.
+- [x] Host script writes `/opt/campusdesk/release.json` (root-owned, mode `0644`; digests, not full image references).
 - [x] Deploy summary reports the actual SHA, both digests, and the SSM status; remove unverified claims.
 - [x] Add an explicit `github.ref == 'refs/heads/development'` check step in `deploy-staging.yml` (fails the job with a clear message).
 - [x] Add a reviewed copy of the host script under `ops/staging/`.
@@ -310,14 +310,14 @@ Each phase is one pull request (or two if a host-script change must be reviewed 
 
 **Acceptance tests:**
 
-- [ ] `aws ssm get-command-invocation` for a deploy shows `release_sha=<input sha>` and both digests, matching the dispatch input.
+- [x] `aws ssm get-command-invocation` for a deploy shows `release_sha=<input sha>` and both digests, matching the dispatch input.
 - [ ] `docker image inspect <ref> --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'` returns the commit for both images.
-- [ ] `cat /opt/campusdesk/release.json` on the host returns the same SHA.
+- [x] `cat /opt/campusdesk/release.json` on the host returns the same SHA.
 - [x] `git ls-files Frontend/.env` returns nothing; `.env.example` remains tracked.
 - [ ] A clean clone builds and runs locally from `.env.example`.
 - [ ] A dispatch from a non-`development` ref is rejected by the job check (or blocked earlier by the `staging` environment) with an explicit message.
-- [ ] The job summary contains the actual SHA; no line claims a check that was not performed.
-- [ ] No runtime behaviour changes: the same release deploys and a repeat deploy still takes the no-op path.
+- [x] The job summary contains the actual SHA; no line claims a check that was not performed.
+- [x] No runtime behaviour changes: the same release deploys and a repeat deploy still takes the no-op path.
 
 **Out of scope:** selection logic, build deduplication, runtime config.
 
@@ -325,7 +325,18 @@ Each phase is one pull request (or two if a host-script change must be reviewed 
 
 **Effort / dependencies:** ~0.5–1 day. ✅ Host script obtained. Needs `ssm:GetCommandInvocation` evidence access; the publish role may write and the deploy role may read `/campusdesk/...` parameters (confirmed).
 
-**Progress (19–20 November 2026):** implemented on `ci/hardening-phase-0`. Statically verified: both workflows parse, ShellCheck passes on the tracked host script and the registration script, the captured SSM document is templated and renders to valid JSON with a dummy account ID, `git ls-files Frontend/.env` is empty, and all workflow/doc links resolve. Runtime acceptance tests remain open until a staging deploy runs the new host script.
+**Progress (19–20 November 2026):** implemented on `ci/hardening-phase-0`, merged as `4f5c02e`, and verified on staging.
+
+**Verification (20 November 2026):**
+
+- `4f5c02e` deployed; the SSM output printed `release_sha=4f5c02e…`, `backend_digest=sha256:0d83a67d…`, `frontend_digest=sha256:1af30156…`, and `previous_release_sha=79bbf0b…`.
+- The host pulled both digests and recreated `frontend`, `backend`, `worker`, and `reverb`; the migration step completed ("Nothing to migrate").
+- The deploy summary reported the real SHA, ref, and both digests; no unverified claims.
+- A repeat dispatch of the same SHA took the no-op path (`action=noop`, health checks only) and updated the record.
+- `git ls-files Frontend/.env` is empty.
+- **Still open:** the host-side `docker image inspect` label check; the non-`development` dispatch guard is present in code but was not exercised because the `staging` environment also restricts the branch; a clean-clone local build was not run (CI built both images from a clean checkout).
+
+**Phase 0.1 (record accuracy, 20 November 2026):** `migration_step_completed` replaces the misleading `migrations_applied` (the migrate command can complete with "Nothing to migrate"), and `/opt/campusdesk/release.json` now stores `backend_digest`/`frontend_digest` rather than full image references so the world-readable record does not expose the registry account ID. The host script must be reinstalled and one no-op deploy run to regenerate the record.
 
 ---
 

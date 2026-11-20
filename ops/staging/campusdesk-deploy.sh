@@ -25,7 +25,7 @@ frontend_image=""
 
 previous_release_sha="unknown"
 action=""
-migrations_applied="false"
+migration_step_completed="false"
 
 maintenance_started=false
 migration_started=false
@@ -256,11 +256,11 @@ write_release_record() {
     {
         printf '{\n'
         printf '  "release_sha": "%s",\n' "$release_sha"
-        printf '  "backend_image": "%s",\n' "$backend_image"
-        printf '  "frontend_image": "%s",\n' "$frontend_image"
+        printf '  "backend_digest": "%s",\n' "$backend_digest"
+        printf '  "frontend_digest": "%s",\n' "$frontend_digest"
         printf '  "previous_release_sha": "%s",\n' "$previous_release_sha"
         printf '  "action": "%s",\n' "$action"
-        printf '  "migrations_applied": %s,\n' "$migrations_applied"
+        printf '  "migration_step_completed": %s,\n' "$migration_step_completed"
         printf '  "recorded_at": "%s"\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
         printf '}\n'
     } >"$temporary_record"
@@ -455,14 +455,14 @@ if [[ "$previous_backend" == "$backend_image" &&
 
     write_release_record
 
-    log "action=${action} migrations_applied=${migrations_applied}"
+    log "action=${action} migration_step_completed=${migration_step_completed}"
     log "Existing deployment is healthy."
     exit 0
 fi
 
 action="recreate"
 
-log "action=${action} migrations_applied=${migrations_applied}"
+log "action=${action} migration_step_completed=${migration_step_completed}"
 log "Authenticating to ECR."
 
 aws ecr get-login-password --region "$AWS_REGION" |
@@ -520,7 +520,7 @@ log "Running database migrations exactly once."
 "${compose[@]}" run --rm backend php artisan migrate --force
 
 migration_succeeded=true
-migrations_applied="true"
+migration_step_completed="true"
 
 log "Starting the new application services."
 
@@ -541,5 +541,5 @@ write_state \
 
 write_release_record
 
-log "action=${action} migrations_applied=${migrations_applied}"
+log "action=${action} migration_step_completed=${migration_step_completed}"
 log "CampusDesk staging deployment completed successfully."
