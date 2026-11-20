@@ -194,6 +194,8 @@ npm run dev
 # → http://localhost:5173
 ```
 
+`.env` is local-only and ignored by Git; `.env.example` is the tracked template. If UI changes do not appear after editing `tailwind.config.js`, the PostCSS config, or the design tokens in `src/style.css`, restart `npm run dev` — Vite keeps the previous config and module graph cached. A stale local dev server, not staging, caused the 18 November 2026 "missing changes" report.
+
 ## Running Tests & Quality Gates
 
 ```bash

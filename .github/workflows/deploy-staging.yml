@@ -27,6 +27,18 @@ jobs:
       id-token: write
 
     steps:
+      - name: Verify deployment ref
+        shell: bash
+        env:
+          WORKFLOW_REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$WORKFLOW_REF" != "refs/heads/development" ]]; then
+            echo "Deployments must be dispatched from refs/heads/development (got '${WORKFLOW_REF}')."
+            exit 1
+          fi
+
       - name: Check out development history
         uses: actions/checkout@v7
         with:
@@ -102,9 +114,6 @@ jobs:
             echo "The frontend image did not resolve to a valid digest."
             exit 1
           fi
-
-          echo "::add-mask::$backend_digest"
-          echo "::add-mask::$frontend_digest"
 
           echo "backend_digest=$backend_digest" >> "$GITHUB_OUTPUT"
           echo "frontend_digest=$frontend_digest" >> "$GITHUB_OUTPUT"
@@ -258,15 +267,22 @@ jobs:
         shell: bash
         env:
           RELEASE_SHA: ${{ inputs.commit_sha }}
+          WORKFLOW_REF: ${{ github.ref }}
+          BACKEND_DIGEST: ${{ steps.images.outputs.backend_digest }}
+          FRONTEND_DIGEST: ${{ steps.images.outputs.frontend_digest }}
         run: |
+          set -euo pipefail
+
           {
             echo "### CampusDesk staging deployment"
             echo
             echo "- Release: \`$RELEASE_SHA\`"
-            echo "- Development history: validated"
-            echo "- Backend ECR image: verified"
-            echo "- Frontend ECR image: verified"
-            echo "- Environment approval: granted"
-            echo "- SSM deployment: successful"
-            echo "- Host health and API smoke tests: successful"
+            echo "- Workflow ref: \`$WORKFLOW_REF\`"
+            echo "- Backend digest: \`$BACKEND_DIGEST\`"
+            echo "- Frontend digest: \`$FRONTEND_DIGEST\`"
+            echo "- Release images: verified in ECR"
+            echo "- SSM deployment: Success"
+            echo "- Host release record: \`/opt/campusdesk/release.json\`"
+            echo
+            echo "Host health-check and smoke-test output is in the SSM standard output above."
           } >> "$GITHUB_STEP_SUMMARY"
