@@ -2,7 +2,7 @@
 
 **Last reviewed:** 20 November 2026
 
-**Status:** ✅ Phase 0 verified on staging (release `4f5c02e`). Phase 0.1 record corrections are on `fix/phase-0-1-release-record`; Phase 1 is next.
+**Status:** ✅ Phase 0 closed on staging (20 November 2026); two environment-only checks are documented as not exercised. Phase 1 is next.
 
 **Scope:** [.github/workflows/ci.yml](../.github/workflows/ci.yml), [.github/workflows/deploy-staging.yml](../.github/workflows/deploy-staging.yml), [Frontend/Dockerfile](../Frontend/Dockerfile), [campusdesk/Dockerfile](../campusdesk/Dockerfile), [compose.yaml](../compose.yaml), [compose.staging.yaml](../compose.staging.yaml), the host deployment script, and the related documentation.
 
@@ -14,7 +14,7 @@ This document records five defects found while investigating the 18 November 202
 
 | Phase | State |
 | --- | --- |
-| 0 — Instrument and guard | ✅ Verified on staging (20 November 2026); Phase 0.1 record fixes on `fix/phase-0-1-release-record` |
+| 0 — Instrument and guard | ✅ Closed 20 November 2026; staging acceptance verified, two environment-only checks documented |
 | 1 — Release selection guard | Next |
 | 2 — One build recipe | Not started |
 | 3 — Reproducible release builds | Not started |
@@ -287,7 +287,7 @@ flowchart LR
 
 ## 6. Phases
 
-Each phase is one pull request (or two if a host-script change must be reviewed separately), independently revertible, and complete only when every acceptance test passes on staging.
+Each phase is one pull request (or two if a host-script change must be reviewed separately), independently revertible, and complete when the staging acceptance tests pass; environment-only checks are recorded separately.
 
 ### Phase 0 — Instrument and guard (no behaviour change)
 
@@ -311,7 +311,7 @@ Each phase is one pull request (or two if a host-script change must be reviewed 
 **Acceptance tests:**
 
 - [x] `aws ssm get-command-invocation` for a deploy shows `release_sha=<input sha>` and both digests, matching the dispatch input.
-- [ ] `docker image inspect <ref> --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'` returns the commit for both images.
+- [x] `docker image inspect <ref> --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'` returns the commit for both images.
 - [x] `cat /opt/campusdesk/release.json` on the host returns the same SHA.
 - [x] `git ls-files Frontend/.env` returns nothing; `.env.example` remains tracked.
 - [ ] A clean clone builds and runs locally from `.env.example`.
@@ -334,9 +334,13 @@ Each phase is one pull request (or two if a host-script change must be reviewed 
 - The deploy summary reported the real SHA, ref, and both digests; no unverified claims.
 - A repeat dispatch of the same SHA took the no-op path (`action=noop`, health checks only) and updated the record.
 - `git ls-files Frontend/.env` is empty.
-- **Still open:** the host-side `docker image inspect` label check; the non-`development` dispatch guard is present in code but was not exercised because the `staging` environment also restricts the branch; a clean-clone local build was not run (CI built both images from a clean checkout).
+- The host-side `docker image inspect` check returned `4f5c02e…` for both images.
+- The no-op deploy regenerated `release.json` with `backend_digest`/`frontend_digest`, `migration_step_completed`, and no full image references.
+- **Not exercised:** a clean-clone local build (CI built both images from a clean checkout) and the non-`development` dispatch guard (present in code; the `staging` environment also restricts the branch).
 
-**Phase 0.1 (record accuracy, 20 November 2026):** `migration_step_completed` replaces the misleading `migrations_applied` (the migrate command can complete with "Nothing to migrate"), and `/opt/campusdesk/release.json` now stores `backend_digest`/`frontend_digest` rather than full image references so the world-readable record does not expose the registry account ID. The host script must be reinstalled and one no-op deploy run to regenerate the record.
+**Phase 0.1 (record accuracy, 20 November 2026):** `migration_step_completed` replaces the misleading `migrations_applied` (the migrate command can complete with "Nothing to migrate"), and `/opt/campusdesk/release.json` now stores `backend_digest`/`frontend_digest` rather than full image references so the world-readable record does not expose the registry account ID. The host script was reinstalled and the no-op deploy regenerated the record with the new schema.
+
+**Closed:** 20 November 2026. Phase 0 is complete; Phase 1 starts next.
 
 ---
 
