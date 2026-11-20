@@ -36,6 +36,8 @@ The document is registered from the template; the account ID is never committed.
 
 The script resolves the account from `aws sts get-caller-identity`, renders the template to a temporary file, updates the existing document (or creates it), and sets the resulting version as the default. The rendered file is removed on exit. Re-run it after any change to `CampusDesk-DeployStaging.template.json`.
 
+The deploy workflow pins `--document-version "1"`, so a newly registered version is not used until that pin is updated in the same reviewed change.
+
 ## Release identity
 
 The script now records what it deployed:

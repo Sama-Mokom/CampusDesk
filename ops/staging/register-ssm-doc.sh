@@ -47,6 +47,10 @@ redact() {
     printf '%s\n' "$value" >&2
 }
 
+remind_version_pin() {
+    printf 'If deploy-staging.yml pins an older version, update --document-version in the same reviewed change.\n'
+}
+
 rendered="$(mktemp)"
 trap 'rm -f "$rendered"' EXIT
 
@@ -100,6 +104,7 @@ if (( describe_status == 0 )); then
 
     printf 'Updated %s to version %s and set it as the default.\n' \
         "$DOCUMENT_NAME" "$update_output"
+    remind_version_pin
 elif grep -qiE 'DocumentNotFound|ResourceNotFound|does not exist' <<<"$describe_output"; then
     printf 'Creating %s.\n' "$DOCUMENT_NAME"
 
@@ -128,6 +133,7 @@ elif grep -qiE 'DocumentNotFound|ResourceNotFound|does not exist' <<<"$describe_
         }
 
     printf 'Created %s version %s.\n' "$DOCUMENT_NAME" "$create_output"
+    remind_version_pin
 else
     redact "$describe_output"
     exit "$describe_status"

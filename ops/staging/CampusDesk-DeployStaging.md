@@ -67,9 +67,12 @@ Compare the captured document with `CampusDesk-DeployStaging.template.json` afte
 
 The script resolves the account from STS, renders the template to a temporary file, updates version `1` (or creates it when absent), and sets the new version as the default. An identical-content update is treated as a no-op. The rendered file is deleted on exit and must never be committed.
 
+Registration creates a new immutable document version. The deploy workflow deliberately pins `--document-version "1"` in [deploy-staging.yml](../../.github/workflows/deploy-staging.yml); a newly registered version is not used until that pin is updated in the same reviewed change. Record the new version in this file.
+
 ## Change control
 
 - A change to the document or to the host script requires a separately reviewed host update; neither is synchronized by the deployment workflow.
 - The document must keep the parameter constraints above. Widening them (for example, accepting an image outside the two repositories) would remove the deployment's main safety boundary.
 - Any new parameter must be treated as security-sensitive: it is passed to a root-owned script.
 - The template must never contain a real account ID, and a rendered copy must never be committed.
+- A newly registered document version requires a matching `--document-version` update in the deploy workflow; the pin is intentional.
