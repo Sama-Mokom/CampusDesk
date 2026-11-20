@@ -48,16 +48,17 @@ The script now records what it deployed:
   ```json
   {
     "release_sha": "…",
-    "backend_image": "…@sha256:…",
-    "frontend_image": "…@sha256:…",
+    "backend_digest": "sha256:…",
+    "frontend_digest": "sha256:…",
     "previous_release_sha": "…",
     "action": "recreate",
-    "migrations_applied": true,
+    "migration_step_completed": true,
     "recorded_at": "…"
   }
   ```
 
-- SSM standard output now starts with `release_sha=… backend_digest=… frontend_digest=… previous_release_sha=…` and reports `action=recreate|noop migrations_applied=true|false` on success.
+  It records digests rather than full image references, so the world-readable record does not expose the registry account ID; the root-only `current-release.env` keeps the full references.
+- SSM standard output now starts with `release_sha=… backend_digest=… frontend_digest=… previous_release_sha=…` and reports `action=recreate|noop migration_step_completed=true|false` on success. `migration_step_completed` means the one-time migrate command completed successfully; it does not assert that migrations were pending or applied.
 - The published images carry `org.opencontainers.image.revision` equal to the release SHA.
 
 ## Verification
@@ -72,7 +73,12 @@ cid=$(sudo docker compose --env-file /opt/campusdesk/.env.staging \
 sudo docker inspect --format '{{.Config.Image}}' "$cid"
 
 # What did the image declare about itself?
-sudo docker image inspect <image-ref> \
+backend_ref=$(sudo grep -E '^BACKEND_IMAGE=' /opt/campusdesk/.env.staging | cut -d= -f2-)
+frontend_ref=$(sudo grep -E '^FRONTEND_IMAGE=' /opt/campusdesk/.env.staging | cut -d= -f2-)
+
+sudo docker image inspect "$backend_ref" \
+  --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'
+sudo docker image inspect "$frontend_ref" \
   --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'
 ```
 
