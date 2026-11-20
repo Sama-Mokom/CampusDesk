@@ -1,0 +1,39 @@
+{
+  "schemaVersion" : "2.2",
+  "description" : "Deploy a digest-pinned CampusDesk release to the staging EC2 instance",
+  "parameters" : {
+    "ReleaseSha" : {
+      "type" : "String",
+      "description" : "Full Git commit SHA for the CampusDesk release",
+      "interpolationType" : "ENV_VAR",
+      "minChars" : 40,
+      "maxChars" : 40,
+      "allowedPattern" : "^[0-9a-f]{40}$"
+    },
+    "BackendImage" : {
+      "type" : "String",
+      "description" : "Immutable backend ECR digest reference",
+      "interpolationType" : "ENV_VAR",
+      "maxChars" : 200,
+      "allowedPattern" : "^__AWS_ACCOUNT_ID__\\.dkr\\.ecr\\.eu-north-1\\.amazonaws\\.com/campusdesk_backend@sha256:[0-9a-f]{64}$"
+    },
+    "FrontendImage" : {
+      "type" : "String",
+      "description" : "Immutable frontend ECR digest reference",
+      "interpolationType" : "ENV_VAR",
+      "maxChars" : 200,
+      "allowedPattern" : "^__AWS_ACCOUNT_ID__\\.dkr\\.ecr\\.eu-north-1\\.amazonaws\\.com/campusdesk_frontend@sha256:[0-9a-f]{64}$"
+    }
+  },
+  "mainSteps" : [ {
+    "action" : "aws:runShellScript",
+    "name" : "deployCampusDesk",
+    "precondition" : {
+      "StringEquals" : [ "platformType", "Linux" ]
+    },
+    "inputs" : {
+      "timeoutSeconds" : "1200",
+      "runCommand" : [ "set -eu\numask 077\n\ndeployment_script='/usr/local/sbin/campusdesk-deploy'\n\nif [ ! -f \"$deployment_script\" ]; then\n  printf '%s\\n' 'CampusDesk deployment script is missing.' >&2\n  exit 1\nfi\n\nif [ ! -x \"$deployment_script\" ]; then\n  printf '%s\\n' 'CampusDesk deployment script is not executable.' >&2\n  exit 1\nfi\n\nexec \"$deployment_script\" \\\n  --release-sha \"$SSM_ReleaseSha\" \\\n  --backend-image \"$SSM_BackendImage\" \\\n  --frontend-image \"$SSM_FrontendImage\"" ]
+    }
+  } ]
+}

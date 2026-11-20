@@ -82,7 +82,7 @@ The only release constraint is `git merge-base --is-ancestor "$RELEASE_SHA" HEAD
 
 ### 2.4 Host-side gap
 
-`/usr/local/sbin/campusdesk-deploy` and the `CampusDesk-DeployStaging` SSM document are **not version-controlled in this repository**. Their behaviour is known only from [CI_CD_SESSION_2_HANDOFF.md](CI_CD_SESSION_2_HANDOFF.md) (sections "Restricted SSM document" and "Fixed host deployment script"). This limits auditability and blocks parts of Phase 0 and Phase 1.
+At the time of the investigation, `/usr/local/sbin/campusdesk-deploy` and the `CampusDesk-DeployStaging` SSM document were **not version-controlled in this repository**; their behaviour was known only from [CI_CD_SESSION_2_HANDOFF.md](CI_CD_SESSION_2_HANDOFF.md) (sections "Restricted SSM document" and "Fixed host deployment script"). Phase 0 now tracks both under [`ops/staging/`](../ops/staging/README.md), with the document held as a template and the account ID injected at registration. The host copies are still installed and registered manually.
 
 ### 2.5 As-is flow
 
@@ -293,7 +293,7 @@ Each phase is one pull request (or two if a host-script change must be reviewed 
 
 **Goal:** make every later change provable, and close the cheapest ambiguity with zero runtime risk.
 
-**Prerequisite:** ✅ Host script obtained. The reviewed copy is tracked at [`ops/staging/campusdesk-deploy.sh`](../ops/staging/campusdesk-deploy.sh) (the repository remains the source of truth; the host copy is installed manually). The exact `CampusDesk-DeployStaging` document JSON is still pending capture; its contract is recorded at [`ops/staging/CampusDesk-DeployStaging.md`](../ops/staging/CampusDesk-DeployStaging.md).
+**Prerequisite:** ✅ Host script and SSM document obtained. The reviewed script is tracked at [`ops/staging/campusdesk-deploy.sh`](../ops/staging/campusdesk-deploy.sh) and the version `1` document template at [`ops/staging/CampusDesk-DeployStaging.template.json`](../ops/staging/CampusDesk-DeployStaging.template.json), rendered by [`register-ssm-doc.sh`](../ops/staging/register-ssm-doc.sh) at registration time (the repository remains the source of truth; the host copies are installed manually).
 
 **Tasks:**
 
@@ -303,7 +303,7 @@ Each phase is one pull request (or two if a host-script change must be reviewed 
 - [x] Deploy summary reports the actual SHA, both digests, and the SSM status; remove unverified claims.
 - [x] Add an explicit `github.ref == 'refs/heads/development'` check step in `deploy-staging.yml` (fails the job with a clear message).
 - [x] Add a reviewed copy of the host script under `ops/staging/`.
-- [ ] Capture and add the exact `CampusDesk-DeployStaging` SSM document JSON (contract recorded; capture procedure documented).
+- [x] Capture, review, and template the `CampusDesk-DeployStaging` SSM document; the account ID is injected at registration and never committed.
 - [x] Stop tracking `Frontend/.env`; keep `.env.example`; ensure `.gitignore` covers it.
 - [x] Document the as-is model ("PR builds validate; the release build happens on the development push") in `CI-CD.md` and the handoff guide.
 - [x] Add a runbook line: restart the Vite dev server after changing `tailwind.config.js`, PostCSS config, or design tokens.
@@ -325,7 +325,7 @@ Each phase is one pull request (or two if a host-script change must be reviewed 
 
 **Effort / dependencies:** ~0.5–1 day. ✅ Host script obtained. Needs `ssm:GetCommandInvocation` evidence access; the publish role may write and the deploy role may read `/campusdesk/...` parameters (confirmed).
 
-**Progress (19 November 2026):** implemented on `ci/hardening-phase-0`. Statically verified: both workflows parse, ShellCheck passes on the tracked host script, `git ls-files Frontend/.env` is empty, and all workflow/doc links resolve. Runtime acceptance tests remain open until a staging deploy runs the new host script.
+**Progress (19–20 November 2026):** implemented on `ci/hardening-phase-0`. Statically verified: both workflows parse, ShellCheck passes on the tracked host script and the registration script, the captured SSM document is templated and renders to valid JSON with a dummy account ID, `git ls-files Frontend/.env` is empty, and all workflow/doc links resolve. Runtime acceptance tests remain open until a staging deploy runs the new host script.
 
 ---
 
@@ -542,7 +542,7 @@ Each phase is one pull request (or two if a host-script change must be reviewed 
 
 ## 11. Open questions and prerequisites
 
-1. **Host script access.** ✅ Resolved: the script was provided and is tracked at [`ops/staging/campusdesk-deploy.sh`](../ops/staging/campusdesk-deploy.sh). Outstanding: capture the exact `CampusDesk-DeployStaging` JSON (procedure in [`ops/staging/CampusDesk-DeployStaging.md`](../ops/staging/CampusDesk-DeployStaging.md)).
+1. **Host script and SSM document access.** ✅ Resolved: the host script is tracked at [`ops/staging/campusdesk-deploy.sh`](../ops/staging/campusdesk-deploy.sh) and the version `1` document template at [`ops/staging/CampusDesk-DeployStaging.template.json`](../ops/staging/CampusDesk-DeployStaging.template.json), rendered by [`register-ssm-doc.sh`](../ops/staging/register-ssm-doc.sh) at registration time.
 2. **IAM for release records.** ✅ Resolved: the publish role may write and the deploy role may read `/campusdesk/...` SSM parameters.
 3. **Multi-environment plans.** Is a second environment (e.g. production) planned? If yes, Phase 4 moves ahead of Phase 3.
 4. **Auto-deploy.** Should a successful publish auto-trigger staging deployment (still approval-gated), or remain fully manual?
@@ -574,7 +574,8 @@ Each phase is one pull request (or two if a host-script change must be reviewed 
 | Staging Compose (digest-pinned) | [compose.staging.yaml](../compose.staging.yaml) |
 | Local frontend env (ignored) | `Frontend/.env`; template: [`.env.example`](../Frontend/.env.example) |
 | Staging env example | [.env.staging.example](../.env.staging.example) |
-| Host deploy script and SSM document | not tracked (host: `/usr/local/sbin/campusdesk-deploy`, `CampusDesk-DeployStaging`) |
+| Host deploy script | [`ops/staging/campusdesk-deploy.sh`](../ops/staging/campusdesk-deploy.sh); host copy: `/usr/local/sbin/campusdesk-deploy` |
+| SSM document | [`ops/staging/CampusDesk-DeployStaging.template.json`](../ops/staging/CampusDesk-DeployStaging.template.json), contract in [`CampusDesk-DeployStaging.md`](../ops/staging/CampusDesk-DeployStaging.md), registered by [`register-ssm-doc.sh`](../ops/staging/register-ssm-doc.sh) |
 | CI/CD narrative and operator procedure | [CI_CD_SESSION_2_HANDOFF.md](CI_CD_SESSION_2_HANDOFF.md) |
 
 ## 14. Appendix C — glossary

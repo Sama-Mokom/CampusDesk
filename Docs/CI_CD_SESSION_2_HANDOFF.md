@@ -625,6 +625,8 @@ The custom Linux Command document is `CampusDesk-DeployStaging`, version `1`, wi
 
 Parameters use `ENV_VAR` interpolation. The document contains a fixed `aws:runShellScript` wrapper that executes `/usr/local/sbin/campusdesk-deploy` with those three validated values. It does not accept arbitrary shell commands. A one-time manual `AWS-RunShellScript` call was used only to verify SSM transport before this restricted document was adopted; the GitHub deployment role cannot invoke that general document.
 
+The reviewed document template and its registration script are tracked at [ops/staging/CampusDesk-DeployStaging.template.json](../ops/staging/CampusDesk-DeployStaging.template.json) and [ops/staging/register-ssm-doc.sh](../ops/staging/register-ssm-doc.sh). The account ID is injected from STS at registration time and is never stored in the repository.
+
 AWS CLI obtains temporary credentials from the EC2 Instance Metadata Service. Docker still requires `docker login` because the AWS CLI and Docker use separate credential formats and stores. `aws ecr get-login-password` exchanges the role credentials for a short-lived Docker-compatible registry token.
 
 ## Cost controls and infrastructure choice

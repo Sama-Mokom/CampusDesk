@@ -5,7 +5,8 @@ Reviewed source copies of the staging host tooling. The repository is the source
 | File | Installed as | Purpose |
 | --- | --- | --- |
 | [`campusdesk-deploy.sh`](campusdesk-deploy.sh) | `/usr/local/sbin/campusdesk-deploy` (root:root, mode `0750`) | The only executable invoked by the restricted SSM document. Validates the release, pulls digest-pinned images, runs migrations, recreates services, smoke-tests, and records the release. |
-| [`CampusDesk-DeployStaging.md`](CampusDesk-DeployStaging.md) | SSM document `CampusDesk-DeployStaging` (version `1`) | Record of the document contract and change control. The exact document JSON is still pending capture. |
+| [`CampusDesk-DeployStaging.template.json`](CampusDesk-DeployStaging.template.json) | SSM document `CampusDesk-DeployStaging` (version `1`) | The reviewed document template; `__AWS_ACCOUNT_ID__` is injected at registration time. The contract is [CampusDesk-DeployStaging.md](CampusDesk-DeployStaging.md). |
+| [`register-ssm-doc.sh`](register-ssm-doc.sh) | run from the reviewed checkout | Renders the template with the account from STS, then creates or updates version `1` and sets it as the default. The rendered file is temporary. |
 | `backup*.sh`, `capture-recovery-set.sh`, `restore-test.sh`, `recovery-common.sh`, `systemd/`, `aws/` | see [STAGING_RECOVERY.md](../../Docs/STAGING_RECOVERY.md) | Backup, restore, and freshness tooling. |
 
 ## Installing the deploy script
@@ -24,6 +25,16 @@ sudo bash -n /usr/local/sbin/campusdesk-deploy
 ```
 
 `compose.staging.yaml` is installed the same way (see the handoff guide). Neither file is synchronized automatically.
+
+## Registering the SSM document
+
+The document is registered from the template; the account ID is never committed.
+
+```bash
+./ops/staging/register-ssm-doc.sh
+```
+
+The script resolves the account from `aws sts get-caller-identity`, renders the template to a temporary file, updates the existing document (or creates it), and sets the resulting version as the default. The rendered file is removed on exit. Re-run it after any change to `CampusDesk-DeployStaging.template.json`.
 
 ## Release identity
 
