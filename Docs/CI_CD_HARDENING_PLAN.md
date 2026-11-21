@@ -2,7 +2,7 @@
 
 **Last reviewed:** 20 November 2026
 
-**Status:** ✅ Phase 0 closed on staging (20 November 2026); two environment-only checks are documented as not exercised. Phase 1 PR A is verified (run #64) and PR B is implemented on `ci/deploy-selection`; PR C is next.
+**Status:** ✅ Phase 0 closed on staging (20 November 2026); two environment-only checks are documented as not exercised. Phase 1 PR A/B are verified and PR C is implemented on `ops/last-deployed-record`; host reinstall is next.
 
 **Scope:** [.github/workflows/ci.yml](../.github/workflows/ci.yml), [.github/workflows/deploy-staging.yml](../.github/workflows/deploy-staging.yml), [Frontend/Dockerfile](../Frontend/Dockerfile), [campusdesk/Dockerfile](../campusdesk/Dockerfile), [compose.yaml](../compose.yaml), [compose.staging.yaml](../compose.staging.yaml), the host deployment script, and the related documentation.
 
@@ -15,7 +15,7 @@ This document records five defects found while investigating the 18 November 202
 | Phase | State |
 | --- | --- |
 | 0 — Instrument and guard | ✅ Closed 20 November 2026; staging acceptance verified, two environment-only checks documented |
-| 1 — Release selection guard | 🚧 PR A verified (run #64); PR B implemented on `ci/deploy-selection`; PR C pending |
+| 1 — Release selection guard | 🚧 PR A/B verified; PR C implemented on `ops/last-deployed-record`; host reinstall + EC2 IAM pending |
 | 2 — One build recipe | Not started |
 | 3 — Reproducible release builds | Not started |
 | 4 — Runtime configuration | Not started |
@@ -359,8 +359,8 @@ Each phase is one pull request (or two if a host-script change must be reviewed 
 - [x] Add `allow_previous_release` (boolean, default `false`) and `reason` (required when `true`).
 - [x] Read `/campusdesk/staging/last-deployed-sha`; normal mode requires it to be an ancestor of the requested SHA (or missing); rollback mode requires the target to be an ancestor of the deployed release and logs the reason.
 - [x] Verify the manifest digests against ECR in the workflow.
-- [ ] Verify `org.opencontainers.image.revision` on the host after pull, before downtime (PR C).
-- [ ] Record `last_deployed_sha` after a successful deploy (host script, EC2 role `ssm:PutParameter`; PR C).
+- [x] Verify `org.opencontainers.image.revision` on the host after pull, before downtime (PR C).
+- [x] Record `last_deployed_sha` after a successful deploy (host script, EC2 role `ssm:PutParameter`; PR C).
 - [x] Update the operator procedure in `CI-CD.md` and the handoff guide.
 
 **Acceptance tests:**
@@ -380,7 +380,7 @@ Each phase is one pull request (or two if a host-script change must be reviewed 
 
 **Effort / dependencies:** ~1 day. IAM confirmed: the publisher writes the manifest parameters, the deploy role reads all three parameter paths, and the EC2 role writes `last-deployed-sha` only.
 
-**Progress (21 November 2026):** PR A verified in run #64 (release `56cd835`, `latest` matches, artifact uploaded). PR B implemented on `ci/deploy-selection` — manifest resolution and ECR cross-check, normal/idempotent/rollback rules, input validation, post-deploy record check (reports `skipped` until PR C), and the updated summary. PR C (host label check, `last-deployed-sha` write, EC2 IAM) is next.
+**Progress (21 November 2026):** PR A verified in run #64 (release `56cd835`, `latest` matches, artifact uploaded). PR B verified: `a822327` deployed as `normal`, `56cd835` without the flag was rejected, the same SHA with `allow_previous_release=true` and a reason deployed as `rollback`, and `d096046` failed at the manifest lookup. PR C implemented on `ops/last-deployed-record` — host label verification, `last-deployed-sha` write, stale-container no-op check, and the EC2 IAM statement. Host reinstall and EC2 IAM application are pending.
 
 ---
 

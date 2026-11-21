@@ -589,7 +589,7 @@ The EC2 instance profile role is `CampusDeskEc2Runtime`. Its trust relationship 
 - `ecr:GetAuthorizationToken` on `*`; and
 - `ecr:BatchCheckLayerAvailability`, `ecr:BatchGetImage`, and `ecr:GetDownloadUrlForLayer` on only the exact backend and frontend repository ARNs.
 
-The runtime role also has the AWS-managed `AmazonSSMManagedInstanceCore` policy so the SSM Agent can register the instance and receive commands. The node was verified `Online` in Systems Manager Fleet Manager in `eu-north-1`. The role still cannot upload ECR layers, call `PutImage`, or alter registry content. This separation limits what a compromised application host could do to other consumers of the registry.
+The runtime role also has the AWS-managed `AmazonSSMManagedInstanceCore` policy so the SSM Agent can register the instance and receive commands. The node was verified `Online` in Systems Manager Fleet Manager in `eu-north-1`. The role still cannot upload ECR layers, call `PutImage`, or alter registry content. The Phase 1 PR C host script additionally needs `ssm:PutParameter` on `/campusdesk/staging/last-deployed-sha`; confirm `AmazonSSMManagedInstanceCore` does not already grant `PutParameter` on `*` (if it does, the scoped statement is additive rather than restrictive and needs a boundary or a dedicated role). This separation limits what a compromised application host could do to other consumers of the registry.
 
 ### GitHub OIDC deployment role
 
@@ -917,21 +917,23 @@ It invokes version `1` of the restricted custom SSM document for the exact stagi
 
 ### Fixed host deployment script
 
-The root-owned script is `/usr/local/sbin/campusdesk-deploy`, mode `0750`. It is the only executable called by the restricted SSM document. A reviewed copy is now tracked at [ops/staging/campusdesk-deploy.sh](../ops/staging/campusdesk-deploy.sh); the host copy is installed manually through a reviewed host update. The script records the release in `/opt/campusdesk/release.json` and prints the release SHA, both image digests, the previous release SHA, and whether it recreated or no-op'd. Phase 1 PR C adds host-side image-label verification and the write of `/campusdesk/staging/last-deployed-sha`. The SSM document contract is recorded in [ops/staging/CampusDesk-DeployStaging.md](../ops/staging/CampusDesk-DeployStaging.md). It:
+The root-owned script is `/usr/local/sbin/campusdesk-deploy`, mode `0750`. It is the only executable called by the restricted SSM document. A reviewed copy is now tracked at [ops/staging/campusdesk-deploy.sh](../ops/staging/campusdesk-deploy.sh); the host copy is installed manually through a reviewed host update. The script records the release in `/opt/campusdesk/release.json`, prints the release SHA/digests/previous release/action, verifies each pulled image's revision label before downtime, and writes `/campusdesk/staging/last-deployed-sha` after a successful deploy. The SSM document contract is recorded in [ops/staging/CampusDesk-DeployStaging.md](../ops/staging/CampusDesk-DeployStaging.md). It:
 
 - accepts only a release SHA and exact backend/frontend digest references;
 - validates their formats and verifies that each SHA tag resolves to the supplied digest;
 - acquires a non-blocking deployment lock under `/run/lock`;
 - checks the protected environment file and builds a validated candidate configuration;
 - authenticates with the EC2 role and pulls both immutable images before downtime;
+- verifies each pulled image's `org.opencontainers.image.revision` label before downtime;
 - records previous application image references without copying environment secrets;
 - stops frontend, worker, and backend while leaving MySQL running;
 - runs `php artisan migrate --force` exactly once using the new backend;
 - recreates backend, worker, and frontend;
-- waits for database/backend health and worker/frontend running state; and
-- smoke-tests frontend HTTP `200` and unauthenticated `/api/user` JSON `401`.
+- waits for database/backend health and worker/frontend running state;
+- smoke-tests frontend HTTP `200` and unauthenticated `/api/user` JSON `401`; and
+- writes the release SHA to `/campusdesk/staging/last-deployed-sha`.
 
-If both requested digest references are already deployed, the script runs health and smoke checks only. The verified repeat deployment completed without pulling images, running migrations, recreating containers, or opening a maintenance window.
+If both requested digest references are already deployed **and the running containers match**, the script runs health and smoke checks only and rewrites the release record and the SSM deployed SHA. If the recorded references match but the running containers do not, it recreates instead of no-op'ing. The verified repeat deployment completed without pulling images, running migrations, recreating containers, or opening a maintenance window.
 
 ### Failure and recovery boundaries
 
