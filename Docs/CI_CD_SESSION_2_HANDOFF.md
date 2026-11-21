@@ -502,7 +502,7 @@ After both publish jobs succeed, the `release-manifest` job writes a release rec
 - `/campusdesk/staging/latest` — the newest published SHA, updated only when the published commit is the current `development` tip, so a CI re-run cannot move it backwards; and
 - the artefact `release-<sha>` containing the same manifest.
 
-The manifest contains no AWS account identifier. The publisher role needs `ssm:PutParameter` on those two parameter paths; the full IAM statement and the Phase 1 selection rules are recorded in [CI_CD_PHASE_1_DESIGN.md](CI_CD_PHASE_1_DESIGN.md). Phase 1 PR B will make the deployment workflow require and verify this manifest; until then, the deployment procedure below is unchanged.
+The manifest contains no AWS account identifier. The publisher role needs `ssm:PutParameter` on those two parameter paths; the full IAM statement and the Phase 1 selection rules are recorded in [CI_CD_PHASE_1_DESIGN.md](CI_CD_PHASE_1_DESIGN.md). The deployment workflow now requires and verifies this manifest.
 
 ### Immutable-tag reruns
 
@@ -589,7 +589,7 @@ The EC2 instance profile role is `CampusDeskEc2Runtime`. Its trust relationship 
 - `ecr:GetAuthorizationToken` on `*`; and
 - `ecr:BatchCheckLayerAvailability`, `ecr:BatchGetImage`, and `ecr:GetDownloadUrlForLayer` on only the exact backend and frontend repository ARNs.
 
-The runtime role also has the AWS-managed `AmazonSSMManagedInstanceCore` policy so the SSM Agent can register the instance and receive commands. The node was verified `Online` in Systems Manager Fleet Manager in `eu-north-1`. The role still cannot upload ECR layers, call `PutImage`, or alter registry content. The Phase 1 PR C host script additionally needs `ssm:PutParameter` on `/campusdesk/staging/last-deployed-sha`; confirm `AmazonSSMManagedInstanceCore` does not already grant `PutParameter` on `*` (if it does, the scoped statement is additive rather than restrictive and needs a boundary or a dedicated role). This separation limits what a compromised application host could do to other consumers of the registry.
+The runtime role also has the AWS-managed `AmazonSSMManagedInstanceCore` policy so the SSM Agent can register the instance and receive commands. The node was verified `Online` in Systems Manager Fleet Manager in `eu-north-1`. The role still cannot upload ECR layers, call `PutImage`, or alter registry content. The Phase 1 PR C host script uses `ssm:PutParameter` on `/campusdesk/staging/last-deployed-sha`; `AmazonSSMManagedInstanceCore` does not grant `PutParameter`, and the scoped `CampusDeskStagingLastDeployedWriter` policy is attached. The policy simulator reports two allowing statements for that parameter, so inspect the other identity policies (notably `CampusDeskStagingRecovery`) for a broad grant and tighten it if present. This separation limits what a compromised application host could do to other consumers of the registry.
 
 ### GitHub OIDC deployment role
 
@@ -913,7 +913,7 @@ Before contacting EC2, the workflow:
 
 A missing manifest, a manifest/ECR digest mismatch, a non-tip/non-latest release without the rollback flag, a rollback target that is not older than the deployed release, or an empty rollback reason fails before SSM. The workflow then builds exact digest-pinned image references.
 
-It invokes version `1` of the restricted custom SSM document for the exact staging instance and polls `GetCommandInvocation` for up to 1,300 seconds. `InvocationDoesNotExist` is treated as short-lived SSM eventual consistency; terminal failures and timeouts fail the job and print the available standard output/error. After success, it verifies that `/campusdesk/staging/last-deployed-sha` equals the release SHA. Until the Phase 1 PR C host-side write is installed, the parameter is absent and the check reports `record_status=skipped`; once installed, it must match.
+It invokes version `1` of the restricted custom SSM document for the exact staging instance and polls `GetCommandInvocation` for up to 1,300 seconds. `InvocationDoesNotExist` is treated as short-lived SSM eventual consistency; terminal failures and timeouts fail the job and print the available standard output/error. After success, it verifies that `/campusdesk/staging/last-deployed-sha` equals the release SHA. The host writes the parameter after a successful deploy, so a mismatch fails the run.
 
 ### Fixed host deployment script
 

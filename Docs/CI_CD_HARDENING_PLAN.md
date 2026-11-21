@@ -1,8 +1,8 @@
 # CampusDesk — CI/CD Hardening Plan
 
-**Last reviewed:** 20 November 2026
+**Last reviewed:** 21 November 2026
 
-**Status:** ✅ Phase 0 closed on staging (20 November 2026); two environment-only checks are documented as not exercised. Phase 1 PR A/B are verified and PR C is implemented on `ops/last-deployed-record`; host reinstall is next.
+**Status:** ✅ Phase 0 closed on staging (20 November 2026). ✅ Phase 1 verified on staging (21 November 2026); five acceptance checks are documented as not exercised. Phase 2 is next.
 
 **Scope:** [.github/workflows/ci.yml](../.github/workflows/ci.yml), [.github/workflows/deploy-staging.yml](../.github/workflows/deploy-staging.yml), [Frontend/Dockerfile](../Frontend/Dockerfile), [campusdesk/Dockerfile](../campusdesk/Dockerfile), [compose.yaml](../compose.yaml), [compose.staging.yaml](../compose.staging.yaml), the host deployment script, and the related documentation.
 
@@ -15,8 +15,8 @@ This document records five defects found while investigating the 18 November 202
 | Phase | State |
 | --- | --- |
 | 0 — Instrument and guard | ✅ Closed 20 November 2026; staging acceptance verified, two environment-only checks documented |
-| 1 — Release selection guard | 🚧 PR A/B verified; PR C implemented on `ops/last-deployed-record`; host reinstall + EC2 IAM pending |
-| 2 — One build recipe | Not started |
+| 1 — Release selection guard | ✅ Verified 21 November 2026; five acceptance checks documented as not exercised |
+| 2 — One build recipe | Next |
 | 3 — Reproducible release builds | Not started |
 | 4 — Runtime configuration | Not started |
 | 5 — End-to-end release verification | Not started |
@@ -365,9 +365,9 @@ Each phase is one pull request (or two if a host-script change must be reviewed 
 
 **Acceptance tests:**
 
-- [ ] Deploying the current tip succeeds.
-- [ ] Deploying a SHA with no release manifest (for example a pre-PR-A commit such as `d096046`) fails before SSM with the manifest message.
-- [ ] Deploying a manifest-backed older release with `allow_previous_release=false` fails; with `true` plus a reason it succeeds and the run records a rollback (two post-PR-A releases are needed to exercise this).
+- [x] Deploying the current tip succeeds.
+- [x] Deploying a SHA with no release manifest (for example a pre-PR-A commit such as `d096046`) fails before SSM with the manifest message.
+- [x] Deploying a manifest-backed older release with `allow_previous_release=false` fails; with `true` plus a reason it succeeds and the run records a rollback.
 - [ ] A rollback target newer than the deployed release is rejected.
 - [ ] A manifest/ECR digest mismatch fails before SSM.
 - [ ] A host image whose revision label does not match fails after pull, before downtime (PR C).
@@ -378,9 +378,19 @@ Each phase is one pull request (or two if a host-script change must be reviewed 
 
 **Rollback:** revert to the previous workflow version; `allow_previous_release` can be flipped off independently of the rest.
 
-**Effort / dependencies:** ~1 day. IAM confirmed: the publisher writes the manifest parameters, the deploy role reads all three parameter paths, and the EC2 role writes `last-deployed-sha` only.
+**Effort / dependencies:** ~1 day. IAM applied: the publisher writes manifests, the deploy role reads all three parameter paths, and the EC2 role writes `last-deployed-sha` only.
 
-**Progress (21 November 2026):** PR A verified in run #64 (release `56cd835`, `latest` matches, artifact uploaded). PR B verified: `a822327` deployed as `normal`, `56cd835` without the flag was rejected, the same SHA with `allow_previous_release=true` and a reason deployed as `rollback`, and `d096046` failed at the manifest lookup. PR C implemented on `ops/last-deployed-record` — host label verification, `last-deployed-sha` write, stale-container no-op check, and the EC2 IAM statement. Host reinstall and EC2 IAM application are pending.
+**Progress (21 November 2026):** PR A verified in run #64; PR B verified normal/rollback/no-manifest; PR C implemented, its host script installed, and the EC2 IAM policy applied.
+
+**Verification (21 November 2026):**
+
+- PR A: run #64 published `56cd835`; `/campusdesk/staging/latest` matched; artifact `release-56cd835…` existed.
+- PR B: `a822327` deployed as `normal`; `56cd835` without the flag was rejected; the same SHA with `allow_previous_release=true` and a reason deployed as `rollback`; `d096046` failed at the manifest lookup.
+- PR C: `a28ed154` deployed as `normal` with `Deployment record: verified`; a repeat showed `Previously deployed: a28ed154` and verified; `56cd835` rolled back with `Selection: rollback` and verified; the `a28ed154` restore showed `Previously deployed: 56cd835` and verified.
+- IAM: the policy simulator allows `ssm:PutParameter` for `CampusDeskEc2Runtime`; `AmazonSSMManagedInstanceCore` does not grant it. The simulator reports two allowing statements, so inspect the other identity policies for a broad `PutParameter` grant.
+- **Not exercised:** a rollback target newer than the deployed release; a manifest/ECR digest mismatch; a host image label mismatch; a non-ancestor dispatch; and the host action for the repeat deploy (the summary reports success and the record, not the action).
+
+**Closed:** 21 November 2026. Phase 1 is complete; Phase 2 starts next.
 
 ---
 
