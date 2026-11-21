@@ -7,6 +7,16 @@ on:
         description: Full development commit SHA to deploy
         required: true
         type: string
+      allow_previous_release:
+        description: Deploy a published release older than the current deployment (rollback)
+        required: false
+        default: false
+        type: boolean
+      reason:
+        description: Required when allow_previous_release is true
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
@@ -77,7 +87,7 @@ jobs:
           mask-aws-account-id: true
           role-session-name: CampusDeskStagingDeploy
 
-      - name: Verify release images
+      - name: Resolve release manifest
         id: images
         shell: bash
         env:
@@ -87,7 +97,43 @@ jobs:
         run: |
           set -euo pipefail
 
-          backend_digest="$(
+          set +e
+          manifest="$(aws ssm get-parameter \
+            --name "/campusdesk/releases/${RELEASE_SHA}" \
+            --query Parameter.Value \
+            --output text 2>&1)"
+          manifest_status=$?
+          set -e
+
+          if (( manifest_status != 0 )); then
+            if grep -q 'ParameterNotFound' <<< "$manifest"; then
+              echo "No published release manifest exists for ${RELEASE_SHA}; wait for the publish job to finish."
+            else
+              echo "$manifest"
+            fi
+            exit 1
+          fi
+
+          if ! jq -e --arg sha "$RELEASE_SHA" '.sha == $sha' >/dev/null <<< "$manifest"; then
+            echo "The release manifest is invalid or does not match ${RELEASE_SHA}."
+            exit 1
+          fi
+
+          backend_digest="$(jq -r '.backend.digest' <<< "$manifest")"
+          frontend_digest="$(jq -r '.frontend.digest' <<< "$manifest")"
+          digest_pattern='^sha256:[0-9a-f]{64}$'
+
+          if [[ ! "$backend_digest" =~ $digest_pattern ]]; then
+            echo "The release manifest's backend digest is invalid."
+            exit 1
+          fi
+
+          if [[ ! "$frontend_digest" =~ $digest_pattern ]]; then
+            echo "The release manifest's frontend digest is invalid."
+            exit 1
+          fi
+
+          ecr_backend_digest="$(
             aws ecr describe-images \
               --repository-name "$BACKEND_REPOSITORY" \
               --image-ids "imageTag=$RELEASE_SHA" \
@@ -95,7 +141,7 @@ jobs:
               --output text
           )"
 
-          frontend_digest="$(
+          ecr_frontend_digest="$(
             aws ecr describe-images \
               --repository-name "$FRONTEND_REPOSITORY" \
               --image-ids "imageTag=$RELEASE_SHA" \
@@ -103,22 +149,111 @@ jobs:
               --output text
           )"
 
-          digest_pattern='^sha256:[0-9a-f]{64}$'
-
-          if [[ ! "$backend_digest" =~ $digest_pattern ]]; then
-            echo "The backend image did not resolve to a valid digest."
+          if [[ "$ecr_backend_digest" != "$backend_digest" ]]; then
+            echo "The backend image tag does not match the release manifest."
             exit 1
           fi
 
-          if [[ ! "$frontend_digest" =~ $digest_pattern ]]; then
-            echo "The frontend image did not resolve to a valid digest."
+          if [[ "$ecr_frontend_digest" != "$frontend_digest" ]]; then
+            echo "The frontend image tag does not match the release manifest."
             exit 1
           fi
 
-          echo "backend_digest=$backend_digest" >> "$GITHUB_OUTPUT"
-          echo "frontend_digest=$frontend_digest" >> "$GITHUB_OUTPUT"
+          if ! latest_sha="$(aws ssm get-parameter \
+            --name /campusdesk/staging/latest \
+            --query Parameter.Value \
+            --output text 2>&1)"; then
+            echo "The latest published release parameter is unavailable:"
+            echo "$latest_sha"
+            exit 1
+          fi
 
-          echo "Both release images exist."
+          if [[ ! "$latest_sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "The latest published release parameter is invalid."
+            exit 1
+          fi
+
+          set +e
+          last_deployed_sha="$(aws ssm get-parameter \
+            --name /campusdesk/staging/last-deployed-sha \
+            --query Parameter.Value \
+            --output text 2>&1)"
+          last_deployed_status=$?
+          set -e
+
+          if (( last_deployed_status != 0 )); then
+            if grep -q 'ParameterNotFound' <<< "$last_deployed_sha"; then
+              last_deployed_sha="unknown"
+            else
+              echo "$last_deployed_sha"
+              exit "$last_deployed_status"
+            fi
+          fi
+
+          if [[ "$last_deployed_sha" != "unknown" && ! "$last_deployed_sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "The deployed release record is invalid."
+            exit 1
+          fi
+
+          {
+            echo "backend_digest=$backend_digest"
+            echo "frontend_digest=$frontend_digest"
+            echo "latest_sha=$latest_sha"
+            echo "last_deployed_sha=$last_deployed_sha"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "Release manifest verified; latest=${latest_sha}, deployed=${last_deployed_sha}."
+
+      - name: Apply release selection
+        id: selection
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ inputs.commit_sha }}
+          ALLOW_PREVIOUS_RELEASE: ${{ inputs.allow_previous_release }}
+          REASON: ${{ inputs.reason }}
+          LATEST_SHA: ${{ steps.images.outputs.latest_sha }}
+          LAST_DEPLOYED_SHA: ${{ steps.images.outputs.last_deployed_sha }}
+        run: |
+          set -euo pipefail
+
+          git fetch --no-tags origin \
+            +refs/heads/development:refs/remotes/origin/development
+          tip="$(git rev-parse origin/development)"
+          mode=""
+
+          if [[ "$RELEASE_SHA" == "$tip" && "$RELEASE_SHA" == "$LATEST_SHA" ]]; then
+            if [[ "$LAST_DEPLOYED_SHA" != "unknown" ]] &&
+               ! git merge-base --is-ancestor "$LAST_DEPLOYED_SHA" "$RELEASE_SHA"; then
+              echo "The deployed release ${LAST_DEPLOYED_SHA} is not an ancestor of ${RELEASE_SHA}."
+              echo "Use allow_previous_release=true with a reason for a deliberate rollback."
+              exit 1
+            fi
+            mode="normal"
+          elif [[ "$RELEASE_SHA" == "$LAST_DEPLOYED_SHA" ]]; then
+            mode="idempotent"
+          elif [[ "$ALLOW_PREVIOUS_RELEASE" == "true" ]]; then
+            if [[ -z "${REASON//[[:space:]]/}" ]]; then
+              echo "allow_previous_release requires a non-empty reason."
+              exit 1
+            fi
+            if [[ "$LAST_DEPLOYED_SHA" != "unknown" ]] &&
+               ! git merge-base --is-ancestor "$RELEASE_SHA" "$LAST_DEPLOYED_SHA"; then
+              echo "${RELEASE_SHA} is not older than the deployed release ${LAST_DEPLOYED_SHA}."
+              echo "Rollback targets must be ancestors of the deployed release."
+              exit 1
+            fi
+            mode="rollback"
+          else
+            echo "${RELEASE_SHA} is not the current development tip (${tip}) or the latest published release (${LATEST_SHA})."
+            echo "Use allow_previous_release=true with a reason to deploy a published older release."
+            exit 1
+          fi
+
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+          echo "Selection mode: ${mode} (tip=${tip}, latest=${LATEST_SHA}, deployed=${LAST_DEPLOYED_SHA})."
+          if [[ "$mode" == "rollback" ]]; then
+            echo "Rollback reason: ${REASON}"
+          fi
 
       - name: Send deployment command
         id: command
@@ -262,6 +397,41 @@ jobs:
           echo "The SSM command might still be running; inspect it before retrying."
           exit 1
 
+      - name: Verify deployment record
+        id: record
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ inputs.commit_sha }}
+        run: |
+          set -euo pipefail
+
+          set +e
+          recorded="$(aws ssm get-parameter \
+            --name /campusdesk/staging/last-deployed-sha \
+            --query Parameter.Value \
+            --output text 2>&1)"
+          status=$?
+          set -e
+
+          if (( status != 0 )); then
+            if grep -q 'ParameterNotFound' <<< "$recorded"; then
+              echo "No /campusdesk/staging/last-deployed-sha record exists yet; the host record update (PR C) is not installed."
+              echo "record_status=skipped" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "$recorded"
+            exit "$status"
+          fi
+
+          if [[ "$recorded" != "$RELEASE_SHA" ]]; then
+            echo "The deployment record is ${recorded}, expected ${RELEASE_SHA}."
+            echo "The application may be deployed, but the release record is not current."
+            exit 1
+          fi
+
+          echo "record_status=verified" >> "$GITHUB_OUTPUT"
+          echo "Deployment record confirmed: ${recorded}."
+
       - name: Write deployment summary
         if: ${{ success() }}
         shell: bash
@@ -270,6 +440,11 @@ jobs:
           WORKFLOW_REF: ${{ github.ref }}
           BACKEND_DIGEST: ${{ steps.images.outputs.backend_digest }}
           FRONTEND_DIGEST: ${{ steps.images.outputs.frontend_digest }}
+          SELECTION_MODE: ${{ steps.selection.outputs.mode }}
+          LATEST_SHA: ${{ steps.images.outputs.latest_sha }}
+          LAST_DEPLOYED_SHA: ${{ steps.images.outputs.last_deployed_sha }}
+          REASON: ${{ inputs.reason }}
+          RECORD_STATUS: ${{ steps.record.outputs.record_status }}
         run: |
           set -euo pipefail
 
@@ -278,10 +453,17 @@ jobs:
             echo
             echo "- Release: \`$RELEASE_SHA\`"
             echo "- Workflow ref: \`$WORKFLOW_REF\`"
+            echo "- Selection: \`$SELECTION_MODE\`"
+            echo "- Latest published: \`$LATEST_SHA\`"
+            echo "- Previously deployed: \`$LAST_DEPLOYED_SHA\`"
+            if [[ "$SELECTION_MODE" == "rollback" ]]; then
+              echo "- Rollback reason: $REASON"
+            fi
             echo "- Backend digest: \`$BACKEND_DIGEST\`"
             echo "- Frontend digest: \`$FRONTEND_DIGEST\`"
-            echo "- Release images: verified in ECR"
+            echo "- Release manifest: verified; images match ECR"
             echo "- SSM deployment: Success"
+            echo "- Deployment record: \`$RECORD_STATUS\`"
             echo "- Host release record: \`/opt/campusdesk/release.json\`"
             echo
             echo "Host health-check and smoke-test output is in the SSM standard output above."
