@@ -2,7 +2,7 @@
 
 **Last reviewed:** 21 November 2026
 
-**Status:** PR A verified in run #64 (release `56cd835`); PR B implemented on `ci/deploy-selection`; PR C pending.
+**Status:** PR A verified (run #64); PR B verified (normal `a822327`, rollback `56cd835`, no-manifest `d096046`); PR C implemented on `ops/last-deployed-record` (host reinstall and EC2 IAM pending).
 
 **Scope:** [.github/workflows/ci.yml](../.github/workflows/ci.yml), [.github/workflows/deploy-staging.yml](../.github/workflows/deploy-staging.yml), [ops/staging/campusdesk-deploy.sh](../ops/staging/campusdesk-deploy.sh), IAM for the publisher, deploy, and EC2 runtime roles, and the operator documentation.
 
@@ -176,6 +176,8 @@ recorded="$(aws ssm get-parameter --name /campusdesk/staging/last-deployed-sha \
 Until PR C installs the host-side write, `/campusdesk/staging/last-deployed-sha` is absent; the workflow treats it as `unknown` for selection and reports `record_status=skipped` for the post-deploy check. Once PR C is installed, a successful host deploy writes the parameter and the check enforces equality.
 
 **IAM prerequisite (deploy role):** `ssm:GetParameter` on the three parameter paths.
+
+**Verified 21 November 2026:** `a822327…` deployed as `normal`; `56cd835…` without the flag was rejected; the same SHA with `allow_previous_release=true` and a reason deployed as `rollback`; `d096046…` failed at the manifest lookup.
 
 ## 7. PR C — host record and label verification
 
