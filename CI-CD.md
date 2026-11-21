@@ -6,6 +6,8 @@ This file is the entry point for the CampusDesk CI/CD work. Detailed implementat
 
 The active remediation plan is the [CI/CD Hardening Plan](Docs/CI_CD_HARDENING_PLAN.md): it records the five defects found during the November 2026 staging investigation (ancestor-only release validation, duplicated build recipes, no build-once promotion, the hardcoded Reverb key, and release observability) and the phased, testable plan to fix them.
 
+Phase 1's release-selection design — release manifests, normal/idempotent/rollback rules, the IAM split, and the PR sequence — is in [Docs/CI_CD_PHASE_1_DESIGN.md](Docs/CI_CD_PHASE_1_DESIGN.md).
+
 ## Image publication model
 
 Pull-request runs build both images only to validate the Dockerfiles; those images are never published. A push to `development`, including a merged pull request, runs the publish jobs, which build and push the release images tagged with the pushed commit SHA. Deployment resolves those tags to immutable digests. The hardening plan records why this model is being tightened.

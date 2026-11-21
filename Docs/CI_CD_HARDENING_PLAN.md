@@ -2,7 +2,7 @@
 
 **Last reviewed:** 20 November 2026
 
-**Status:** ✅ Phase 0 closed on staging (20 November 2026); two environment-only checks are documented as not exercised. Phase 1 is next.
+**Status:** ✅ Phase 0 closed on staging (20 November 2026); two environment-only checks are documented as not exercised. Phase 1 PR A is implemented on `ci/release-manifest`; PR B (deploy selection) and PR C (host record) are next.
 
 **Scope:** [.github/workflows/ci.yml](../.github/workflows/ci.yml), [.github/workflows/deploy-staging.yml](../.github/workflows/deploy-staging.yml), [Frontend/Dockerfile](../Frontend/Dockerfile), [campusdesk/Dockerfile](../campusdesk/Dockerfile), [compose.yaml](../compose.yaml), [compose.staging.yaml](../compose.staging.yaml), the host deployment script, and the related documentation.
 
@@ -15,7 +15,7 @@ This document records five defects found while investigating the 18 November 202
 | Phase | State |
 | --- | --- |
 | 0 — Instrument and guard | ✅ Closed 20 November 2026; staging acceptance verified, two environment-only checks documented |
-| 1 — Release selection guard | Next |
+| 1 — Release selection guard | 🚧 PR A (release manifests) implemented on `ci/release-manifest`; PR B/C pending |
 | 2 — One build recipe | Not started |
 | 3 — Reproducible release builds | Not started |
 | 4 — Runtime configuration | Not started |
@@ -348,16 +348,18 @@ Each phase is one pull request (or two if a host-script change must be reviewed 
 
 **Goal:** make it impossible to silently deploy a stale or unrelated release, without losing the rollback path.
 
+**Design:** [CI_CD_PHASE_1_DESIGN.md](CI_CD_PHASE_1_DESIGN.md).
+
 **Tasks:**
 
-- [ ] CI publish job writes `release.json` (section 4.3) as a workflow artefact.
-- [ ] CI optionally writes `/campusdesk/releases/<sha>` and `/campusdesk/staging/latest` to SSM Parameter Store (publisher role needs `ssm:PutParameter` on that path).
+- [x] CI writes `release-manifest.json` and uploads it as the artefact `release-<sha>`.
+- [x] CI writes `/campusdesk/releases/<sha>` and `/campusdesk/staging/latest`; `latest` is updated only when the SHA is the current `development` tip.
 - [ ] Deploy fetches `origin/development` explicitly and compares against `origin/development`, not `HEAD`.
-- [ ] Default: require `RELEASE_SHA == $(git rev-parse origin/development)`.
+- [ ] Default: require the SHA to be the tip and the latest published release, with an idempotent exception for re-deploying the current release.
 - [ ] Add `allow_previous_release` (boolean, default `false`) and `reason` (required when `true`).
-- [ ] Read `/campusdesk/staging/last-deployed-sha`; in normal mode require `last_deployed_sha` to be an ancestor of the requested SHA (forward-only). Rollback mode permits ancestors and logs the reason.
-- [ ] Verify `org.opencontainers.image.revision` matches `RELEASE_SHA` for both images before contacting SSM.
-- [ ] Record `last_deployed_sha` after a successful deploy (host script or workflow).
+- [ ] Read `/campusdesk/staging/last-deployed-sha`; normal mode requires it to be an ancestor of the requested SHA (or missing); rollback mode requires the target to be an ancestor of the deployed release and logs the reason.
+- [ ] Verify the manifest digests against ECR in the workflow, and `org.opencontainers.image.revision` on the host after pull, before downtime.
+- [ ] Record `last_deployed_sha` after a successful deploy (host script, EC2 role `ssm:PutParameter`).
 - [ ] Update the operator procedure in `CI-CD.md` and the handoff guide.
 
 **Acceptance tests:**
@@ -365,6 +367,7 @@ Each phase is one pull request (or two if a host-script change must be reviewed 
 - [ ] Deploying the current tip succeeds.
 - [ ] Deploying `d096046` (pre-merge) fails with a message naming the current tip.
 - [ ] Deploying an ancestor with `allow_previous_release=false` fails; with `true` plus a reason it succeeds and the run records a rollback.
+- [ ] A rollback target newer than the deployed release is rejected.
 - [ ] A SHA whose image label does not match fails at preflight, before SSM.
 - [ ] A second deploy of the same SHA reports the no-op path and still records health and smoke results.
 - [ ] A deploy of a SHA that is not an ancestor still fails with the existing message.
@@ -373,7 +376,9 @@ Each phase is one pull request (or two if a host-script change must be reviewed 
 
 **Rollback:** revert to the previous workflow version; `allow_previous_release` can be flipped off independently of the rest.
 
-**Effort / dependencies:** ~1 day. Depends on Phase 0 labels and `release.json`. Needs an IAM decision for the SSM parameters (or start artefact-only and add SSM in a follow-up).
+**Effort / dependencies:** ~1 day. IAM confirmed: the publisher writes the manifest parameters, the deploy role reads all three parameter paths, and the EC2 role writes `last-deployed-sha` only.
+
+**Progress (21 November 2026):** PR A implemented on `ci/release-manifest` — digest outputs, the `release-manifest` job, tip-guarded `latest`, the artefact, and the publisher IAM prerequisite. PR B (deploy selection) and PR C (host record) are next.
 
 ---
 
