@@ -58,6 +58,8 @@ The script now records what it deployed:
   ```
 
   It records digests rather than full image references, so the world-readable record does not expose the registry account ID; the root-only `current-release.env` keeps the full references.
+- `/campusdesk/staging/last-deployed-sha` — the same release SHA, written with `ssm:PutParameter` after a successful deploy (including a no-op). The deploy workflow reads it to verify what is live and to order rollbacks.
+- Before entering the maintenance window, the script verifies that each pulled image declares `org.opencontainers.image.revision` equal to the release SHA. The no-op path also checks the running containers' image references; if they do not match the recorded release, it recreates instead of no-op'ing.
 - SSM standard output now starts with `release_sha=… backend_digest=… frontend_digest=… previous_release_sha=…` and reports `action=recreate|noop migration_step_completed=true|false` on success. `migration_step_completed` means the one-time migrate command completed successfully; it does not assert that migrations were pending or applied.
 - The published images carry `org.opencontainers.image.revision` equal to the release SHA.
 
@@ -80,6 +82,10 @@ sudo docker image inspect "$backend_ref" \
   --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'
 sudo docker image inspect "$frontend_ref" \
   --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'
+
+# What release does AWS consider deployed?
+aws ssm get-parameter --name /campusdesk/staging/last-deployed-sha \
+  --query Parameter.Value --output text
 ```
 
-The deploy-time acceptance tests live in [Docs/CI_CD_HARDENING_PLAN.md](../../Docs/CI_CD_HARDENING_PLAN.md), Phase 0.
+The deploy-time acceptance tests live in [Docs/CI_CD_HARDENING_PLAN.md](../../Docs/CI_CD_HARDENING_PLAN.md), Phase 0 and Phase 1.

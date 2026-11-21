@@ -16,6 +16,7 @@ readonly FRONTEND_REPOSITORY="campusdesk_frontend"
 readonly COMPOSE_FILE="/opt/campusdesk/compose.staging.yaml"
 readonly ENV_FILE="/opt/campusdesk/.env.staging"
 readonly RELEASE_RECORD="/opt/campusdesk/release.json"
+readonly LAST_DEPLOYED_PARAMETER="/campusdesk/staging/last-deployed-sha"
 readonly STATE_DIR="/var/lib/campusdesk-deploy"
 readonly LOCK_FILE="/run/lock/campusdesk-deploy.lock"
 
@@ -270,6 +271,28 @@ write_release_record() {
     mv -f "$temporary_record" "$RELEASE_RECORD"
 }
 
+verify_image_revision() {
+    local image="$1"
+    local revision
+
+    revision="$(
+        docker image inspect "$image" \
+            --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'
+    )"
+
+    [[ "$revision" == "$release_sha" ]] ||
+        die "Image ${image} declares revision '${revision}', expected ${release_sha}"
+}
+
+record_last_deployed() {
+    aws ssm put-parameter \
+        --region "$AWS_REGION" \
+        --name "$LAST_DEPLOYED_PARAMETER" \
+        --type String \
+        --value "$release_sha" \
+        --overwrite >/dev/null
+}
+
 smoke_test() {
     local frontend_status
     local api_status
@@ -339,6 +362,24 @@ wait_for_service() {
 
     printf 'Service %s did not become %s\n' "$service" "$expected" >&2
     return 1
+}
+
+running_matches() {
+    local service="$1"
+    local expected="$2"
+    local container_id=""
+    local actual=""
+
+    container_id="$("${compose[@]}" ps -q "$service" 2>/dev/null || true)"
+    [[ -n "$container_id" ]] || return 1
+
+    actual="$(
+        docker inspect \
+            --format '{{.Config.Image}}' \
+            "$container_id" 2>/dev/null || true
+    )"
+
+    [[ "$actual" == "$expected" ]]
 }
 
 previous_backend=""
@@ -435,8 +476,22 @@ resolved_frontend_digest="$(resolve_ecr_digest "$FRONTEND_REPOSITORY")"
 [[ "$resolved_frontend_digest" == "$frontend_digest" ]] ||
     die "Frontend digest does not match the requested release SHA"
 
+recorded_release_matches=false
 if [[ "$previous_backend" == "$backend_image" &&
       "$previous_frontend" == "$frontend_image" ]]; then
+    recorded_release_matches=true
+fi
+
+running_release_matches=false
+if running_matches backend "$backend_image" &&
+   running_matches worker "$backend_image" &&
+   running_matches reverb "$backend_image" &&
+   running_matches scheduler "$backend_image" &&
+   running_matches frontend "$frontend_image"; then
+    running_release_matches=true
+fi
+
+if [[ "$recorded_release_matches" == "true" && "$running_release_matches" == "true" ]]; then
     log "Release ${release_sha} is already deployed; running health checks only."
 
     wait_for_service db healthy 60
@@ -455,9 +510,18 @@ if [[ "$previous_backend" == "$backend_image" &&
 
     write_release_record
 
+    if ! record_last_deployed; then
+        log "ERROR: application is deployed but ${LAST_DEPLOYED_PARAMETER} could not be updated."
+        exit 1
+    fi
+
     log "action=${action} migration_step_completed=${migration_step_completed}"
     log "Existing deployment is healthy."
     exit 0
+fi
+
+if [[ "$recorded_release_matches" == "true" ]]; then
+    log "The recorded release matches but the running containers do not; proceeding with a recreate."
 fi
 
 action="recreate"
@@ -480,6 +544,9 @@ docker pull "$frontend_image"
 
 docker image inspect "$backend_image" >/dev/null
 docker image inspect "$frontend_image" >/dev/null
+
+verify_image_revision "$backend_image"
+verify_image_revision "$frontend_image"
 
 docker logout "$registry" >/dev/null
 logged_in=false
@@ -540,6 +607,11 @@ write_state \
     "$frontend_image"
 
 write_release_record
+
+if ! record_last_deployed; then
+    log "ERROR: application is deployed but ${LAST_DEPLOYED_PARAMETER} could not be updated."
+    exit 1
+fi
 
 log "action=${action} migration_step_completed=${migration_step_completed}"
 log "CampusDesk staging deployment completed successfully."
