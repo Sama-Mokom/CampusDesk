@@ -604,6 +604,7 @@ Its trust policy requires:
 The attached `CampusDeskStagingDeployPolicy` allows only:
 
 - `ecr:DescribeImages` on the two exact CampusDesk ECR repositories;
+- `ssm:GetParameter` on `/campusdesk/releases/*`, `/campusdesk/staging/latest`, and `/campusdesk/staging/last-deployed-sha`;
 - `ssm:SendCommand` using the exact `CampusDesk-DeployStaging` document against the exact staging instance; and
 - `ssm:GetCommandInvocation` on `*`, because that action does not support useful resource-level scoping.
 
@@ -886,12 +887,13 @@ The workflow is [.github/workflows/deploy-staging.yml](../.github/workflows/depl
 ### Operator procedure
 
 1. Merge the intended release into `development`.
-2. Wait for the normal CI workflow to pass and publish both SHA-tagged ECR images.
+2. Wait for the normal CI workflow to pass, both images to publish, and the `release-manifest` job to write `/campusdesk/releases/<sha>` and update `/campusdesk/staging/latest`.
 3. Open **Deploy CampusDesk staging** in GitHub Actions.
 4. Select `development` and enter the full lowercase 40-character release SHA.
-5. Start the workflow and review the protected `staging` approval request.
-6. Approve only when the planned maintenance window is acceptable.
-7. Inspect the final job summary and SSM output. Do not automatically rerun a failed or timed-out command; first determine whether the host-side command is still running and which recovery boundary it reached.
+5. For a rollback, enable `allow_previous_release` and enter a non-empty `reason`; leave it disabled for a normal deployment.
+6. Start the workflow and review the protected `staging` approval request.
+7. Approve only when the planned maintenance window is acceptable.
+8. Inspect the final job summary and SSM output. Do not automatically rerun a failed or timed-out command; first determine whether the host-side command is still running and which recovery boundary it reached.
 
 The job uses concurrency group `campusdesk-staging-deployment` with `cancel-in-progress: false`, so deployments are serialized and an active deployment is never cancelled by a newer dispatch.
 
@@ -902,15 +904,20 @@ Before contacting EC2, the workflow:
 - requires a full lowercase SHA;
 - confirms the commit exists and is an ancestor of the selected `development` history;
 - assumes the environment-scoped deployment role through OIDC;
-- resolves both commit tags through `ecr:DescribeImages`;
-- validates both returned SHA-256 digests; and
-- builds exact digest-pinned image references.
+- reads `/campusdesk/releases/<sha>` and verifies its digests against both ECR tags;
+- reads `/campusdesk/staging/latest` and `/campusdesk/staging/last-deployed-sha`; and
+- selects one mode:
+  - **normal** — the SHA is the current `development` tip and the latest published release, and the deployed release is an ancestor of it (or the deployed record is unknown);
+  - **idempotent** — the SHA equals the deployed release (a re-run or health check);
+  - **rollback** — `allow_previous_release=true`, a non-empty reason, and the SHA is an ancestor of the deployed release (or the deployed record is unknown).
 
-It then invokes version `1` of the restricted custom SSM document for the exact staging instance and polls `GetCommandInvocation` for up to 1,300 seconds. `InvocationDoesNotExist` is treated as short-lived SSM eventual consistency; terminal failures and timeouts fail the job and print the available standard output/error.
+A missing manifest, a manifest/ECR digest mismatch, a non-tip/non-latest release without the rollback flag, a rollback target that is not older than the deployed release, or an empty rollback reason fails before SSM. The workflow then builds exact digest-pinned image references.
+
+It invokes version `1` of the restricted custom SSM document for the exact staging instance and polls `GetCommandInvocation` for up to 1,300 seconds. `InvocationDoesNotExist` is treated as short-lived SSM eventual consistency; terminal failures and timeouts fail the job and print the available standard output/error. After success, it verifies that `/campusdesk/staging/last-deployed-sha` equals the release SHA. Until the Phase 1 PR C host-side write is installed, the parameter is absent and the check reports `record_status=skipped`; once installed, it must match.
 
 ### Fixed host deployment script
 
-The root-owned script is `/usr/local/sbin/campusdesk-deploy`, mode `0750`. It is the only executable called by the restricted SSM document. A reviewed copy is now tracked at [ops/staging/campusdesk-deploy.sh](../ops/staging/campusdesk-deploy.sh); the host copy is installed manually through a reviewed host update. The script records the release in `/opt/campusdesk/release.json` and prints the release SHA, both image digests, the previous release SHA, and whether it recreated or no-op'd. The SSM document contract is recorded in [ops/staging/CampusDesk-DeployStaging.md](../ops/staging/CampusDesk-DeployStaging.md). It:
+The root-owned script is `/usr/local/sbin/campusdesk-deploy`, mode `0750`. It is the only executable called by the restricted SSM document. A reviewed copy is now tracked at [ops/staging/campusdesk-deploy.sh](../ops/staging/campusdesk-deploy.sh); the host copy is installed manually through a reviewed host update. The script records the release in `/opt/campusdesk/release.json` and prints the release SHA, both image digests, the previous release SHA, and whether it recreated or no-op'd. Phase 1 PR C adds host-side image-label verification and the write of `/campusdesk/staging/last-deployed-sha`. The SSM document contract is recorded in [ops/staging/CampusDesk-DeployStaging.md](../ops/staging/CampusDesk-DeployStaging.md). It:
 
 - accepts only a release SHA and exact backend/frontend digest references;
 - validates their formats and verifies that each SHA tag resolves to the supplied digest;

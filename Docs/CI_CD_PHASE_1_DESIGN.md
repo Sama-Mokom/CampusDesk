@@ -2,7 +2,7 @@
 
 **Last reviewed:** 21 November 2026
 
-**Status:** PR A (release manifest publication) implemented on `ci/release-manifest`; PRs B and C pending.
+**Status:** PR A verified in run #64 (release `56cd835`); PR B implemented on `ci/deploy-selection`; PR C pending.
 
 **Scope:** [.github/workflows/ci.yml](../.github/workflows/ci.yml), [.github/workflows/deploy-staging.yml](../.github/workflows/deploy-staging.yml), [ops/staging/campusdesk-deploy.sh](../ops/staging/campusdesk-deploy.sh), IAM for the publisher, deploy, and EC2 runtime roles, and the operator documentation.
 
@@ -114,6 +114,7 @@ Failure messages name the values, for example:
 - Artefact `release-<sha>` exists.
 - A re-run of an older CI run does not move `latest`.
 - No deploy behaviour changes.
+- **Verified 21 November 2026:** run #64 published `56cd835…`, `latest` matches, and artifact `release-56cd835…` exists.
 
 ## 6. PR B — deploy selection
 
@@ -171,6 +172,8 @@ recorded="$(aws ssm get-parameter --name /campusdesk/staging/last-deployed-sha \
 ```
 
 **Summary additions:** selection mode, tip, latest, previous deployed, rollback reason, digests.
+
+Until PR C installs the host-side write, `/campusdesk/staging/last-deployed-sha` is absent; the workflow treats it as `unknown` for selection and reports `record_status=skipped` for the post-deploy check. Once PR C is installed, a successful host deploy writes the parameter and the check enforces equality.
 
 **IAM prerequisite (deploy role):** `ssm:GetParameter` on the three parameter paths.
 
@@ -268,7 +271,7 @@ All are additive statements on existing roles. `<ACCOUNT_ID>` is substituted at 
 | Host `PutParameter` fails | App stays up; SSM command fails; workflow reports the record failure |
 | Host image label mismatch | Fails after pull, before downtime |
 | No-op while containers are stale | Falls through to a recreate |
-| Missing `last-deployed-sha` | Treated as `unknown`; bootstrap allowed |
+| Missing `last-deployed-sha` | Treated as `unknown`; bootstrap allowed; post-deploy check reports `skipped` until PR C |
 
 ## 10. Rollout and test plan
 
@@ -278,18 +281,21 @@ All are additive statements on existing roles. `<ACCOUNT_ID>` is substituted at 
 4. Merge PR C and the EC2 IAM statement; install the host script.
 5. Deploy the current tip: normal mode, success, `last-deployed-sha` written.
 6. Repeat the same SHA: idempotent, host no-op.
-7. Negative tests: `d096046` without the flag fails; with the flag and a reason succeeds as a rollback; a feature commit with no manifest fails.
+7. Negative tests: a pre-PR-A SHA with no manifest fails at the manifest lookup; a manifest-backed older release without the flag fails the selection; with the flag and a reason it succeeds as a rollback; a feature commit with no manifest fails.
+
+Releases published before PR A have no manifest and cannot be deployed. Rollback targets must be post-PR-A releases, so exercising a rollback needs at least two manifest-backed releases (for example, deploy a release newer than `56cd835`, then roll back to `56cd835`).
 
 | Test | Expected |
 | --- | --- |
 | Normal deploy of the tip | Success; record updated |
 | Repeat the same SHA | `idempotent`; no-op |
-| `d096046` without flag | Fail: not the tip |
-| `d096046` + flag + reason | Rollback success; record = `d096046`; redeploy tip to restore |
+| Pre-PR-A SHA (no manifest), e.g. `d096046` | Fail: no published manifest |
+| Manifest-backed older release without flag | Fail: not the tip/latest |
+| Manifest-backed older release + flag + reason | Rollback success; record = target; redeploy tip to restore |
 | Feature commit with no manifest | Fail: no manifest |
 | Manifest/ECR mismatch | Fail before SSM |
-| Host label mismatch | Fail after pull, before downtime |
-| Manual container drift | Recreate, not no-op |
+| Host label mismatch | Fail after pull, before downtime (PR C) |
+| Manual container drift | Recreate, not no-op (PR C) |
 
 ## 11. Decisions
 

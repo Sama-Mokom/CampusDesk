@@ -12,6 +12,8 @@ Phase 1's release-selection design — release manifests, normal/idempotent/roll
 
 Pull-request runs build both images only to validate the Dockerfiles; those images are never published. A push to `development`, including a merged pull request, runs the publish jobs, which build and push the release images tagged with the pushed commit SHA. Deployment resolves those tags to immutable digests. The hardening plan records why this model is being tightened.
 
+Deployments now require a published release manifest. A normal deployment must use the current `development` tip and the latest published release; re-deploying the current release is idempotent; a rollback requires `allow_previous_release` plus a reason and a target older than the deployed release. The operator procedure is in the handoff guide.
+
 ## Current status
 
 - [x] Repair and verify existing backend and frontend quality gates.
