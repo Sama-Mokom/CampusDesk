@@ -160,6 +160,8 @@ jobs:
       - backend
       - frontend
       - staging-config
+    outputs:
+      digest: ${{ steps.publish.outputs.digest }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
 
@@ -232,6 +234,30 @@ jobs:
           docker push "$IMAGE_URI"
           echo "Published $IMAGE_URI"
 
+      - name: Resolve published digest
+        id: publish
+        shell: bash
+        env:
+          REPOSITORY: ${{ vars.ECR_BACKEND_REPOSITORY }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          digest="$(
+            aws ecr describe-images \
+              --repository-name "$REPOSITORY" \
+              --image-ids "imageTag=$IMAGE_TAG" \
+              --query 'imageDetails[0].imageDigest' \
+              --output text
+          )"
+
+          if [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "The published backend image did not resolve to a valid digest."
+            exit 1
+          fi
+
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+
   frontend-publish:
     name: Publish frontend image
     if: github.event_name == 'push' && github.ref == 'refs/heads/development'
@@ -239,6 +265,8 @@ jobs:
       - backend
       - frontend
       - staging-config
+    outputs:
+      digest: ${{ steps.publish.outputs.digest }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
 
@@ -312,3 +340,184 @@ jobs:
             ./Frontend
           docker push "$IMAGE_URI"
           echo "Published $IMAGE_URI"
+
+      - name: Resolve published digest
+        id: publish
+        shell: bash
+        env:
+          REPOSITORY: ${{ vars.ECR_FRONTEND_REPOSITORY }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          digest="$(
+            aws ecr describe-images \
+              --repository-name "$REPOSITORY" \
+              --image-ids "imageTag=$IMAGE_TAG" \
+              --query 'imageDetails[0].imageDigest' \
+              --output text
+          )"
+
+          if [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "The published frontend image did not resolve to a valid digest."
+            exit 1
+          fi
+
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+
+  release-manifest:
+    name: Publish release manifest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/development'
+    needs:
+      - backend-publish
+      - frontend-publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          allowed-account-ids: ${{ vars.AWS_ACCOUNT_ID }}
+          mask-aws-account-id: true
+          role-session-name: CampusDeskReleaseManifest
+
+      - name: Build release manifest
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ github.sha }}
+          RELEASE_REF: ${{ github.ref }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          BACKEND_REPOSITORY: ${{ vars.ECR_BACKEND_REPOSITORY }}
+          FRONTEND_REPOSITORY: ${{ vars.ECR_FRONTEND_REPOSITORY }}
+          BACKEND_DIGEST: ${{ needs.backend-publish.outputs.digest }}
+          FRONTEND_DIGEST: ${{ needs.frontend-publish.outputs.digest }}
+        run: |
+          set -euo pipefail
+
+          if [[ ! "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "The release SHA is not a full lowercase commit SHA."
+            exit 1
+          fi
+
+          if [[ ! "$BACKEND_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "The backend digest is missing or invalid."
+            exit 1
+          fi
+
+          if [[ ! "$FRONTEND_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "The frontend digest is missing or invalid."
+            exit 1
+          fi
+
+          created_at="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+
+          jq -cn \
+            --arg sha "$RELEASE_SHA" \
+            --arg ref "$RELEASE_REF" \
+            --arg run_id "$RUN_ID" \
+            --arg run_attempt "$RUN_ATTEMPT" \
+            --arg created_at "$created_at" \
+            --arg backend_repository "$BACKEND_REPOSITORY" \
+            --arg backend_digest "$BACKEND_DIGEST" \
+            --arg frontend_repository "$FRONTEND_REPOSITORY" \
+            --arg frontend_digest "$FRONTEND_DIGEST" \
+            '{
+              schema: 1,
+              sha: $sha,
+              ref: $ref,
+              run_id: $run_id,
+              run_attempt: $run_attempt,
+              created_at: $created_at,
+              backend: {
+                repository: $backend_repository,
+                tag: $sha,
+                digest: $backend_digest
+              },
+              frontend: {
+                repository: $frontend_repository,
+                tag: $sha,
+                digest: $frontend_digest
+              }
+            }' > release-manifest.json
+
+          echo "Release manifest:"
+          cat release-manifest.json
+
+      - name: Publish release parameters
+        id: publish
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          manifest="$(cat release-manifest.json)"
+
+          aws ssm put-parameter \
+            --name "/campusdesk/releases/${RELEASE_SHA}" \
+            --type String \
+            --value "$manifest" \
+            --description "CampusDesk release manifest for ${RELEASE_SHA}" \
+            --overwrite
+
+          git fetch --no-tags origin \
+            +refs/heads/development:refs/remotes/origin/development
+
+          tip="$(git rev-parse origin/development)"
+          latest_updated=false
+
+          if [[ "$RELEASE_SHA" == "$tip" ]]; then
+            aws ssm put-parameter \
+              --name "/campusdesk/staging/latest" \
+              --type String \
+              --value "$RELEASE_SHA" \
+              --description "Latest published CampusDesk release" \
+              --overwrite
+            latest_updated=true
+            echo "Updated /campusdesk/staging/latest to ${RELEASE_SHA}."
+          else
+            echo "Latest unchanged: ${RELEASE_SHA} is not the current development tip (${tip})."
+          fi
+
+          echo "latest_updated=$latest_updated" >> "$GITHUB_OUTPUT"
+
+      - name: Upload release manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ github.sha }}
+          path: release-manifest.json
+          retention-days: 90
+
+      - name: Write release summary
+        if: ${{ success() }}
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ github.sha }}
+          LATEST_UPDATED: ${{ steps.publish.outputs.latest_updated }}
+        run: |
+          set -euo pipefail
+
+          {
+            echo "### CampusDesk release manifest"
+            echo
+            echo "- Release: \`$RELEASE_SHA\`"
+            echo "- Manifest parameter: \`/campusdesk/releases/$RELEASE_SHA\`"
+            echo "- Latest parameter updated: \`$LATEST_UPDATED\`"
+            echo
+            echo '```json'
+            cat release-manifest.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

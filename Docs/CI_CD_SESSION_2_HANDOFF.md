@@ -488,10 +488,21 @@ For pull requests and manual non-push runs:
 For a push to `development`:
 
 - the standalone validation image jobs are skipped;
-- `backend-publish` builds and pushes the backend image; and
-- `frontend-publish` builds and pushes the frontend image.
+- `backend-publish` builds and pushes the backend image;
+- `frontend-publish` builds and pushes the frontend image; and
+- `release-manifest` writes the release record after both publish jobs succeed.
 
 This avoids building an image and then rebuilding the same commit again merely for publication within one push workflow. A pull request build and its later merge-commit build are intentionally different because they represent different Git commits.
+
+### Release manifest
+
+After both publish jobs succeed, the `release-manifest` job writes a release record for the published commit:
+
+- `/campusdesk/releases/<sha>` — the manifest JSON (SHA, both digests, run identity, timestamp);
+- `/campusdesk/staging/latest` — the newest published SHA, updated only when the published commit is the current `development` tip, so a CI re-run cannot move it backwards; and
+- the artefact `release-<sha>` containing the same manifest.
+
+The manifest contains no AWS account identifier. The publisher role needs `ssm:PutParameter` on those two parameter paths; the full IAM statement and the Phase 1 selection rules are recorded in [CI_CD_PHASE_1_DESIGN.md](CI_CD_PHASE_1_DESIGN.md). Phase 1 PR B will make the deployment workflow require and verify this manifest; until then, the deployment procedure below is unchanged.
 
 ### Immutable-tag reruns
 
@@ -563,7 +574,11 @@ The repository-scoped actions are:
 - `ecr:PutImage`
 - `ecr:UploadLayerPart`
 
-This is not broad ECR administrator access.
+The Phase 1 release-manifest job additionally needs:
+
+- `ssm:PutParameter` on `/campusdesk/releases/*` and `/campusdesk/staging/latest`.
+
+This is not broad ECR or SSM administrator access; the exact statement is in [CI_CD_PHASE_1_DESIGN.md](CI_CD_PHASE_1_DESIGN.md).
 
 ### EC2 runtime role
 
