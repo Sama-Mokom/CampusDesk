@@ -2,7 +2,7 @@
 
 **Last reviewed:** 21 November 2026
 
-**Status:** ✅ Phase 0 closed on staging (20 November 2026). ✅ Phase 1 verified on staging (21 November 2026); five acceptance checks are documented as not exercised. Phase 2 is next.
+**Status:** ✅ Phase 0 closed on staging (20 November 2026). ✅ Phase 1 verified on staging (21 November 2026); five acceptance checks are documented as not exercised. Phase 2 is implemented on `ci/build-recipe`; PR validation is pending.
 
 **Scope:** [.github/workflows/ci.yml](../.github/workflows/ci.yml), [.github/workflows/deploy-staging.yml](../.github/workflows/deploy-staging.yml), [Frontend/Dockerfile](../Frontend/Dockerfile), [campusdesk/Dockerfile](../campusdesk/Dockerfile), [compose.yaml](../compose.yaml), [compose.staging.yaml](../compose.staging.yaml), the host deployment script, and the related documentation.
 
@@ -16,7 +16,7 @@ This document records five defects found while investigating the 18 November 202
 | --- | --- |
 | 0 — Instrument and guard | ✅ Closed 20 November 2026; staging acceptance verified, two environment-only checks documented |
 | 1 — Release selection guard | ✅ Verified 21 November 2026; five acceptance checks documented as not exercised |
-| 2 — One build recipe | Next |
+| 2 — One build recipe | 🚧 Implemented on `ci/build-recipe`; PR validation pending |
 | 3 — Reproducible release builds | Not started |
 | 4 — Runtime configuration | Not started |
 | 5 — End-to-end release verification | Not started |
@@ -398,15 +398,17 @@ Each phase is one pull request (or two if a host-script change must be reviewed 
 
 **Goal:** remove the possibility of PR validation and release publication diverging.
 
+**Design:** [CI_CD_PHASE_2_DESIGN.md](CI_CD_PHASE_2_DESIGN.md).
+
 **Tasks:**
 
-- [ ] Add `.github/workflows/build-images.yml` with `workflow_call` inputs: `push`, `image_tag`, `environment`.
-- [ ] Steps: checkout, `docker/setup-buildx-action`, conditional ECR login, `docker/build-push-action` with shared `context`, `build-args`, `labels`, `tags`.
-- [ ] Frontend build args defined once; source the Reverb key from `vars.VITE_REVERB_APP_KEY` (removed entirely in Phase 4).
-- [ ] Replace the four `docker build` invocations with calls to the reusable workflow.
-- [ ] PR path: build only (`load: true`), plus a smoke test (`docker run`, `curl -fsS http://127.0.0.1/`).
-- [ ] Release path: build and push, plus the same smoke test.
-- [ ] Rename jobs to state their role ("Validate images (PR)", "Publish release images (development)") and remove the misleading conditional comments.
+- [x] Add `.github/workflows/build-images.yml` with `workflow_call` inputs `push` and `image_tag`.
+- [x] Steps: checkout, `docker/setup-buildx-action`, conditional ECR login, `docker/build-push-action` with shared `context`, `build-args`, `labels`, `tags`.
+- [x] Frontend build args defined once; source the Reverb key from `vars.VITE_REVERB_APP_KEY` (removed entirely in Phase 4).
+- [x] Replace the four `docker build` invocations with calls to the reusable workflow.
+- [x] PR path: build only (`load: true`), plus a container smoke test (`/up` for Laravel, `/` for Nginx).
+- [x] Release path: build, smoke test, and push; reuse an existing immutable tag without rebuilding.
+- [x] Rename jobs to state their role ("Validate images (PR)", "Publish release images (development)") and remove the misleading conditional comments.
 
 **Acceptance tests:**
 
@@ -422,6 +424,8 @@ Each phase is one pull request (or two if a host-script change must be reviewed 
 **Rollback:** restore `ci.yml` from Git; the reusable workflow can remain unused.
 
 **Effort / dependencies:** ~1–2 days. Depends on Phase 0 labels to keep the contract stable.
+
+**Progress (23 November 2026):** implemented on `ci/build-recipe` — the reusable `build-images.yml`, the `validate-images`/`publish-images` callers, the manifest job consuming the caller digests, a single build-arg definition, immutable-tag reuse, and container smoke tests. The PR run validates the validation path; the push run validates publication and the manifest contract.
 
 ---
 

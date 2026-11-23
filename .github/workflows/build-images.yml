@@ -1,0 +1,354 @@
+name: Build CampusDesk images
+
+on:
+  workflow_call:
+    inputs:
+      push:
+        description: Publish the images to ECR instead of keeping them local
+        required: true
+        type: boolean
+      image_tag:
+        description: Image tag and OCI revision
+        required: true
+        type: string
+    outputs:
+      backend_digest:
+        description: Digest of the published backend image
+        value: ${{ jobs.backend.outputs.digest }}
+      frontend_digest:
+        description: Digest of the published frontend image
+        value: ${{ jobs.frontend.outputs.digest }}
+
+jobs:
+  backend:
+    name: Backend image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    outputs:
+      digest: ${{ steps.publish.outputs.digest }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Configure AWS credentials
+        if: ${{ inputs.push }}
+        uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          allowed-account-ids: ${{ vars.AWS_ACCOUNT_ID }}
+          mask-aws-account-id: true
+          role-session-name: CampusDeskBackendImage
+
+      - name: Log in to Amazon ECR
+        if: ${{ inputs.push }}
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Check for existing backend image
+        if: ${{ inputs.push }}
+        id: image
+        shell: bash
+        env:
+          REPOSITORY: ${{ vars.ECR_BACKEND_REPOSITORY }}
+          IMAGE_TAG: ${{ inputs.image_tag }}
+        run: |
+          set -euo pipefail
+
+          set +e
+          output="$(
+            aws ecr describe-images \
+              --repository-name "$REPOSITORY" \
+              --image-ids "imageTag=$IMAGE_TAG" \
+              --query 'imageDetails[0].imageDigest' \
+              --output text 2>&1
+          )"
+          status=$?
+          set -e
+
+          if (( status == 0 )); then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "digest=$output" >> "$GITHUB_OUTPUT"
+            echo "Backend image ${IMAGE_TAG} already exists; publication will be skipped."
+          elif grep -q 'ImageNotFoundException' <<< "$output"; then
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "Backend image ${IMAGE_TAG} does not exist; it will be built and published."
+          else
+            echo "$output"
+            exit "$status"
+          fi
+
+      - name: Compute image reference
+        id: meta
+        shell: bash
+        env:
+          PUSH: ${{ inputs.push }}
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY: ${{ vars.ECR_BACKEND_REPOSITORY }}
+          IMAGE_TAG: ${{ inputs.image_tag }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$PUSH" == "true" ]]; then
+            echo "tag=${REGISTRY}/${REPOSITORY}:${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=campusdesk-backend:ci" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "created=$(date -u '+%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_OUTPUT"
+
+      - name: Build backend image
+        if: ${{ !inputs.push || steps.image.outputs.exists == 'false' }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ./campusdesk
+          file: ./campusdesk/Dockerfile
+          load: true
+          push: false
+          tags: ${{ steps.meta.outputs.tag }}
+          labels: |
+            org.opencontainers.image.revision=${{ inputs.image_tag }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ inputs.image_tag }}
+            org.opencontainers.image.created=${{ steps.meta.outputs.created }}
+
+      - name: Smoke-test backend image
+        if: ${{ !inputs.push || steps.image.outputs.exists == 'false' }}
+        shell: bash
+        env:
+          IMAGE: ${{ steps.meta.outputs.tag }}
+        run: |
+          set -euo pipefail
+
+          app_key='base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA='
+          container_id="$(
+            docker run -d --rm \
+              -e APP_KEY="$app_key" \
+              -p 127.0.0.1::80 \
+              "$IMAGE"
+          )"
+          trap 'docker rm -f "$container_id" >/dev/null 2>&1 || true' EXIT
+
+          port="$(docker port "$container_id" 80 | head -n1 | awk -F: '{print $NF}')"
+          code=""
+
+          for _ in $(seq 1 20); do
+            code="$(
+              curl -s -o /dev/null -w '%{http_code}' \
+                "http://127.0.0.1:${port}/up" || true
+            )"
+            [[ "$code" == "200" ]] && break
+            sleep 1
+          done
+
+          if [[ "$code" != "200" ]]; then
+            echo "Backend smoke test returned HTTP ${code}."
+            docker logs "$container_id" || true
+            exit 1
+          fi
+
+          echo "Backend smoke test passed."
+
+      - name: Publish backend image
+        if: ${{ inputs.push }}
+        id: publish
+        shell: bash
+        env:
+          EXISTS: ${{ steps.image.outputs.exists }}
+          EXISTING_DIGEST: ${{ steps.image.outputs.digest }}
+          IMAGE: ${{ steps.meta.outputs.tag }}
+          REPOSITORY: ${{ vars.ECR_BACKEND_REPOSITORY }}
+          IMAGE_TAG: ${{ inputs.image_tag }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$EXISTS" == "true" ]]; then
+            digest="$EXISTING_DIGEST"
+            echo "Backend image already exists; reusing its digest."
+          else
+            docker push "$IMAGE"
+            digest="$(
+              aws ecr describe-images \
+                --repository-name "$REPOSITORY" \
+                --image-ids "imageTag=$IMAGE_TAG" \
+                --query 'imageDetails[0].imageDigest' \
+                --output text
+            )"
+          fi
+
+          if [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "The backend image did not resolve to a valid digest."
+            exit 1
+          fi
+
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          echo "Backend image digest: ${digest}"
+
+  frontend:
+    name: Frontend image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    outputs:
+      digest: ${{ steps.publish.outputs.digest }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Configure AWS credentials
+        if: ${{ inputs.push }}
+        uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          allowed-account-ids: ${{ vars.AWS_ACCOUNT_ID }}
+          mask-aws-account-id: true
+          role-session-name: CampusDeskFrontendImage
+
+      - name: Log in to Amazon ECR
+        if: ${{ inputs.push }}
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Check for existing frontend image
+        if: ${{ inputs.push }}
+        id: image
+        shell: bash
+        env:
+          REPOSITORY: ${{ vars.ECR_FRONTEND_REPOSITORY }}
+          IMAGE_TAG: ${{ inputs.image_tag }}
+        run: |
+          set -euo pipefail
+
+          set +e
+          output="$(
+            aws ecr describe-images \
+              --repository-name "$REPOSITORY" \
+              --image-ids "imageTag=$IMAGE_TAG" \
+              --query 'imageDetails[0].imageDigest' \
+              --output text 2>&1
+          )"
+          status=$?
+          set -e
+
+          if (( status == 0 )); then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "digest=$output" >> "$GITHUB_OUTPUT"
+            echo "Frontend image ${IMAGE_TAG} already exists; publication will be skipped."
+          elif grep -q 'ImageNotFoundException' <<< "$output"; then
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "Frontend image ${IMAGE_TAG} does not exist; it will be built and published."
+          else
+            echo "$output"
+            exit "$status"
+          fi
+
+      - name: Compute image reference
+        id: meta
+        shell: bash
+        env:
+          PUSH: ${{ inputs.push }}
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY: ${{ vars.ECR_FRONTEND_REPOSITORY }}
+          IMAGE_TAG: ${{ inputs.image_tag }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$PUSH" == "true" ]]; then
+            echo "tag=${REGISTRY}/${REPOSITORY}:${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=campusdesk-frontend:ci" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "created=$(date -u '+%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_OUTPUT"
+
+      - name: Build frontend image
+        if: ${{ !inputs.push || steps.image.outputs.exists == 'false' }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ./Frontend
+          file: ./Frontend/Dockerfile
+          load: true
+          push: false
+          tags: ${{ steps.meta.outputs.tag }}
+          build-args: |
+            VITE_API_URL=/api
+            VITE_REVERB_APP_KEY=${{ vars.VITE_REVERB_APP_KEY }}
+          labels: |
+            org.opencontainers.image.revision=${{ inputs.image_tag }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ inputs.image_tag }}
+            org.opencontainers.image.created=${{ steps.meta.outputs.created }}
+
+      - name: Smoke-test frontend image
+        if: ${{ !inputs.push || steps.image.outputs.exists == 'false' }}
+        shell: bash
+        env:
+          IMAGE: ${{ steps.meta.outputs.tag }}
+        run: |
+          set -euo pipefail
+
+          container_id="$(docker run -d --rm -p 127.0.0.1::80 "$IMAGE")"
+          trap 'docker rm -f "$container_id" >/dev/null 2>&1 || true' EXIT
+
+          port="$(docker port "$container_id" 80 | head -n1 | awk -F: '{print $NF}')"
+          code=""
+
+          for _ in $(seq 1 20); do
+            code="$(
+              curl -s -o /dev/null -w '%{http_code}' \
+                "http://127.0.0.1:${port}/" || true
+            )"
+            [[ "$code" == "200" ]] && break
+            sleep 1
+          done
+
+          if [[ "$code" != "200" ]]; then
+            echo "Frontend smoke test returned HTTP ${code}."
+            docker logs "$container_id" || true
+            exit 1
+          fi
+
+          echo "Frontend smoke test passed."
+
+      - name: Publish frontend image
+        if: ${{ inputs.push }}
+        id: publish
+        shell: bash
+        env:
+          EXISTS: ${{ steps.image.outputs.exists }}
+          EXISTING_DIGEST: ${{ steps.image.outputs.digest }}
+          IMAGE: ${{ steps.meta.outputs.tag }}
+          REPOSITORY: ${{ vars.ECR_FRONTEND_REPOSITORY }}
+          IMAGE_TAG: ${{ inputs.image_tag }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$EXISTS" == "true" ]]; then
+            digest="$EXISTING_DIGEST"
+            echo "Frontend image already exists; reusing its digest."
+          else
+            docker push "$IMAGE"
+            digest="$(
+              aws ecr describe-images \
+                --repository-name "$REPOSITORY" \
+                --image-ids "imageTag=$IMAGE_TAG" \
+                --query 'imageDetails[0].imageDigest' \
+                --output text
+            )"
+          fi
+
+          if [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "The frontend image did not resolve to a valid digest."
+            exit 1
+          fi
+
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          echo "Frontend image digest: ${digest}"
