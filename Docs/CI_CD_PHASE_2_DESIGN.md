@@ -2,7 +2,7 @@
 
 **Last reviewed:** 23 November 2026
 
-**Status:** Implemented on `ci/build-recipe`; PR validation pending.
+**Status:** ✅ Verified 23 November 2026 — PR #34/CI #69 validated the PR path; merge `0b8e9ef`/CI #70 published both images and the manifest; the deploy verified. Phase 3 is next.
 
 **Scope:** [.github/workflows/ci.yml](../.github/workflows/ci.yml), [.github/workflows/build-images.yml](../.github/workflows/build-images.yml), the frontend test job's local build environment, and the CI documentation.
 
@@ -172,6 +172,8 @@ On an existing immutable tag, the build and smoke test are skipped; that image w
 - A rerun of the same push takes the existing-tag path, resolves the digest, and the manifest job succeeds without rebuilding.
 - The smoke test fails the job when `/up` or `/` is not `200`.
 - Both images carry `org.opencontainers.image.revision == github.sha`.
+
+**Verification (23 November 2026):** PR #34 / CI #69 ran `validate-images` only (both images, two artifacts); merge `0b8e9ef` / CI #70 ran `publish-images` and `release-manifest` (three artifacts, `Latest parameter updated: true`); the deploy selected `normal` with previous `a28ed154`, verified the manifest, and verified the record. Not exercised: a non-200 smoke test, a non-`ImageNotFoundException` ECR error, and an existing-tag rerun.
 
 ## 10. Rollout and test plan
 

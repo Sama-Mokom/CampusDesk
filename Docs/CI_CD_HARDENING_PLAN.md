@@ -2,7 +2,7 @@
 
 **Last reviewed:** 21 November 2026
 
-**Status:** ✅ Phase 0 closed on staging (20 November 2026). ✅ Phase 1 verified on staging (21 November 2026); five acceptance checks are documented as not exercised. Phase 2 is implemented on `ci/build-recipe`; PR validation is pending.
+**Status:** ✅ Phase 0 closed on staging (20 November 2026). ✅ Phase 1 verified on staging (21 November 2026). ✅ Phase 2 verified in CI and on staging (23 November 2026); three checks are documented as not exercised. Phase 3 is next.
 
 **Scope:** [.github/workflows/ci.yml](../.github/workflows/ci.yml), [.github/workflows/deploy-staging.yml](../.github/workflows/deploy-staging.yml), [Frontend/Dockerfile](../Frontend/Dockerfile), [campusdesk/Dockerfile](../campusdesk/Dockerfile), [compose.yaml](../compose.yaml), [compose.staging.yaml](../compose.staging.yaml), the host deployment script, and the related documentation.
 
@@ -16,8 +16,8 @@ This document records five defects found while investigating the 18 November 202
 | --- | --- |
 | 0 — Instrument and guard | ✅ Closed 20 November 2026; staging acceptance verified, two environment-only checks documented |
 | 1 — Release selection guard | ✅ Verified 21 November 2026; five acceptance checks documented as not exercised |
-| 2 — One build recipe | 🚧 Implemented on `ci/build-recipe`; PR validation pending |
-| 3 — Reproducible release builds | Not started |
+| 2 — One build recipe | ✅ Verified 23 November 2026; three checks documented as not exercised |
+| 3 — Reproducible release builds | Next |
 | 4 — Runtime configuration | Not started |
 | 5 — End-to-end release verification | Not started |
 
@@ -412,12 +412,13 @@ Each phase is one pull request (or two if a host-script change must be reviewed 
 
 **Acceptance tests:**
 
-- [ ] `grep -rn "docker build" .github/` returns no matches.
-- [ ] `grep -rn "VITE_API_URL" .github/` returns exactly one definition.
-- [ ] A PR run builds both images and makes no ECR call (no OIDC assumption).
-- [ ] A `development` push builds and pushes both images with identical inputs to the PR path.
+- [x] `grep -rn "docker build" .github/` returns no matches.
+- [x] `grep -rn "VITE_API_URL" .github/` returns exactly one definition.
+- [x] A PR run builds both images and makes no ECR call (no OIDC assumption).
+- [x] A `development` push builds and pushes both images with identical inputs to the PR path.
 - [ ] The smoke test fails the job when the served page returns a non-200 status.
 - [ ] A registry-pull failure fails the job instead of being retried into a green state.
+- [ ] A rerun of the same push takes the existing-tag path and the manifest job succeeds without rebuilding.
 
 **Out of scope:** changing the release model (HD-1), publishing from PRs.
 
@@ -425,7 +426,17 @@ Each phase is one pull request (or two if a host-script change must be reviewed 
 
 **Effort / dependencies:** ~1–2 days. Depends on Phase 0 labels to keep the contract stable.
 
-**Progress (23 November 2026):** implemented on `ci/build-recipe` — the reusable `build-images.yml`, the `validate-images`/`publish-images` callers, the manifest job consuming the caller digests, a single build-arg definition, immutable-tag reuse, and container smoke tests. The PR run validates the validation path; the push run validates publication and the manifest contract.
+**Progress (23 November 2026):** implemented on `ci/build-recipe` — the reusable `build-images.yml`, the `validate-images`/`publish-images` callers, the manifest job consuming the caller digests, a single build-arg definition, immutable-tag reuse, and container smoke tests.
+
+**Verification (23 November 2026):**
+
+- PR #34 / CI #69: `validate-images` built both images and the publish/manifest jobs were skipped; two artifacts.
+- Merge `0b8e9ef` / CI #70: `publish-images` built and pushed both images; `release-manifest` succeeded with `Latest parameter updated: true`; three artifacts.
+- Deploy: `0b8e9ef` selected `normal`; latest matched; previous `a28ed154`; release manifest verified; deployment record verified.
+- Build inputs: `VITE_API_URL=/api` and `VITE_REVERB_APP_KEY=campusdesk-key`; the `revision` label matched the PR SHA and the merge SHA; PR images were local `:ci` tags and push images were ECR SHA tags.
+- **Not exercised:** a non-200 smoke test; a non-`ImageNotFoundException` ECR error; and an existing-tag rerun.
+
+**Closed:** 23 November 2026. Phase 2 is complete; Phase 3 starts next.
 
 ---
 
