@@ -496,6 +496,8 @@ For a push to `development`, `publish-images` calls it with `push: true`:
 
 The PR and push paths use the same Dockerfiles, labels, and frontend build arguments. A pull request build and its later merge-commit build are intentionally different Git commits, but the recipe is identical.
 
+Verified 23 November 2026: PR #34 / CI #69 built both images with no ECR access; merge `0b8e9ef` / CI #70 published both images and the manifest; the deployment of `0b8e9ef` verified the manifest and the deployment record.
+
 ### Release manifest
 
 After `publish-images` succeeds, the `release-manifest` job writes a release record for the published commit:
