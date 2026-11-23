@@ -8,6 +8,8 @@ The active remediation plan is the [CI/CD Hardening Plan](Docs/CI_CD_HARDENING_P
 
 Phase 1's release-selection design — release manifests, normal/idempotent/rollback rules, the IAM split, and the PR sequence — is in [Docs/CI_CD_PHASE_1_DESIGN.md](Docs/CI_CD_PHASE_1_DESIGN.md).
 
+Phase 2's one-build-recipe design is in [Docs/CI_CD_PHASE_2_DESIGN.md](Docs/CI_CD_PHASE_2_DESIGN.md). Both the PR validation path and the development publication path call the same reusable workflow, [build-images.yml](.github/workflows/build-images.yml).
+
 ## Image publication model
 
 Pull-request runs build both images only to validate the Dockerfiles; those images are never published. A push to `development`, including a merged pull request, runs the publish jobs, which build and push the release images tagged with the pushed commit SHA. Deployment resolves those tags to immutable digests. The hardening plan records why this model is being tightened.

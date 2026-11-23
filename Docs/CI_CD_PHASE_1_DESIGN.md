@@ -2,7 +2,7 @@
 
 **Last reviewed:** 21 November 2026
 
-**Status:** PR A verified (run #64); PR B verified (normal `a822327`, rollback `56cd835`, no-manifest `d096046`); PR C implemented on `ops/last-deployed-record` (host reinstall and EC2 IAM pending).
+**Status:** ✅ Verified 21 November 2026 — PR A (run #64), PR B (normal/rollback/no-manifest), and PR C (`a28ed154` normal with record verified, repeat, rollback `56cd835`, restore). Phase 2 is next.
 
 **Scope:** [.github/workflows/ci.yml](../.github/workflows/ci.yml), [.github/workflows/deploy-staging.yml](../.github/workflows/deploy-staging.yml), [ops/staging/campusdesk-deploy.sh](../ops/staging/campusdesk-deploy.sh), IAM for the publisher, deploy, and EC2 runtime roles, and the operator documentation.
 
@@ -215,6 +215,8 @@ Until PR C installs the host-side write, `/campusdesk/staging/last-deployed-sha`
 
 **Rollout:** install the updated host script, then deploy the current tip normally; the host writes `last-deployed-sha`. Until then the workflow treats it as `unknown`.
 
+**Verified 21 November 2026:** `a28ed154…` deployed as `normal` and the workflow reported `Deployment record: verified`; a repeat reported `Previously deployed: a28ed154…`; `56cd835…` rolled back with `Selection: rollback` and a verified record; the `a28ed154…` restore reported `Previously deployed: 56cd835…`. The EC2 policy simulator allows `ssm:PutParameter`; `AmazonSSMManagedInstanceCore` does not grant it, but the simulator reports two allowing statements, so inspect the other identity policies for a broad `PutParameter` grant.
+
 ## 8. IAM changes
 
 All are additive statements on existing roles. `<ACCOUNT_ID>` is substituted at apply time and never committed.
@@ -259,7 +261,7 @@ All are additive statements on existing roles. `<ACCOUNT_ID>` is substituted at 
 }
 ```
 
-`AmazonSSMManagedInstanceCore` grants `GetParameter*` but, as far as known, not `PutParameter`; confirm before relying on the scoped statement. If it does grant `PutParameter`, the statement is additive rather than restrictive and needs a different control (permissions boundary or a dedicated role).
+`AmazonSSMManagedInstanceCore` grants `GetParameter*` but, as far as known, not `PutParameter`; confirm before relying on the scoped statement. If it does grant `PutParameter`, the statement is additive rather than restrictive and needs a different control (permissions boundary or a dedicated role). The 21 November simulator run reported two allowing statements for the last-deployed parameter, so inspect the other identity policies for a broad grant.
 
 ## 9. Failure modes
 
