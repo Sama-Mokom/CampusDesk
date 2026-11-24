@@ -2,7 +2,7 @@
 
 **Last reviewed:** 24 November 2026
 
-**Status:** Implemented on `ci/reproducible-builds`; the first push exposed a missing `ecr:GetDownloadUrlForLayer` permission and an existing-tag smoke gap. The fix is open as PR #42, the IAM permission is applied, and merge/re-validation is pending.
+**Status:** Fix PR #42 and the Dependabot updates are merged; `4a13764` is the latest release. Deploy and reproducibility verification are pending.
 
 **Scope:** [Frontend/Dockerfile](../Frontend/Dockerfile), [campusdesk/Dockerfile](../campusdesk/Dockerfile), [.github/workflows/build-images.yml](../.github/workflows/build-images.yml), [.github/workflows/verify-reproducibility.yml](../.github/workflows/verify-reproducibility.yml), [.github/dependabot.yml](../.github/dependabot.yml), and the CI documentation.
 

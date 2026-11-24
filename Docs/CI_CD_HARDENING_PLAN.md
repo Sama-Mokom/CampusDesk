@@ -2,7 +2,7 @@
 
 **Last reviewed:** 24 November 2026
 
-**Status:** ✅ Phase 0 closed on staging (20 November 2026). ✅ Phase 1 verified on staging (21 November 2026). ✅ Phase 2 verified in CI and on staging (23 November 2026). Phase 3's first push exposed a missing ECR pull permission; the fix is open as PR #42, the IAM permission is applied, and merge/re-validation is pending.
+**Status:** ✅ Phase 0 closed on staging (20 November 2026). ✅ Phase 1 verified on staging (21 November 2026). ✅ Phase 2 verified in CI and on staging (23 November 2026). Phase 3's fix and dependency updates are merged; `4a13764` is the latest release. Deploy and reproducibility verification are pending.
 
 **Scope:** [.github/workflows/ci.yml](../.github/workflows/ci.yml), [.github/workflows/deploy-staging.yml](../.github/workflows/deploy-staging.yml), [Frontend/Dockerfile](../Frontend/Dockerfile), [campusdesk/Dockerfile](../campusdesk/Dockerfile), [compose.yaml](../compose.yaml), [compose.staging.yaml](../compose.staging.yaml), the host deployment script, and the related documentation.
 
@@ -17,7 +17,7 @@ This document records five defects found while investigating the 18 November 202
 | 0 — Instrument and guard | ✅ Closed 20 November 2026; staging acceptance verified, two environment-only checks documented |
 | 1 — Release selection guard | ✅ Verified 21 November 2026; five acceptance checks documented as not exercised |
 | 2 — One build recipe | ✅ Verified 23 November 2026; three checks documented as not exercised |
-| 3 — Reproducible release builds | 🚧 Fix PR #42 open; IAM applied; merge/re-validation pending |
+| 3 — Reproducible release builds | 🚧 Verification in progress; latest `4a13764`; deploy/reproducibility pending |
 | 4 — Runtime configuration | Not started |
 | 5 — End-to-end release verification | Not started |
 
@@ -454,18 +454,20 @@ Each phase is one pull request (or two if a host-script change must be reviewed 
 - [x] Add `verify-reproducibility.yml` (manual dispatch) comparing two cold builds of the same commit.
 - [x] Add the pushed-digest smoke test; an existing tag is pulled and smoke-tested before publication.
 - [x] Add `ecr:GetDownloadUrlForLayer` to the publisher role's repository actions (applied 24 November 2026).
+- [x] Merge the fix and dependency updates; the release push runs succeeded.
 
 **Vulnerability scanning:** deferred to Phase 5 (`trivy`/`grype` on the pushed digest).
 
 **Acceptance tests:**
 
-- [ ] Every external image reference is pinned: every `FROM` and external `COPY --from` has `@sha256:` (the composer reference is now a pinned stage).
+- [x] Every external image reference is pinned: every `FROM` and external `COPY --from` has `@sha256:` (the composer reference is now a pinned stage).
 - [ ] Two dispatched builds of the same commit produce identical frontend file hashes (`sha256sum /usr/share/nginx/html/index.html` and the `index-*.js` asset) and identical backend application file hashes.
 - [ ] `docker buildx imagetools inspect <image>` shows both the provenance and SBOM attestations.
 - [ ] `release.json` digests match the images that were actually pushed.
-- [ ] The smoke test runs on the pushed digest and the recorded digest equals the tested digest.
-- [ ] An existing immutable tag is pulled and smoke-tested before the release manifest is written.
-- [ ] The PR path still builds both images with no ECR call, no OIDC, and no attestations.
+- [x] The smoke test runs on the pushed digest and the recorded digest equals the tested digest.
+- [ ] An existing immutable tag is pulled and smoke-tested before publication (the fix is active, but the existing-tag path has not yet been exercised).
+- [x] The PR path still builds both images with no ECR call, no OIDC, and no attestations.
+- [x] The build-push-action 7, setup-buildx 4, artifact action 7/8, and Node 26 updates pass a release push.
 - [ ] The deploy of the release SHA succeeds with the index digest and the record verifies.
 
 **Out of scope:** bit-for-bit identical image digests (timestamps and layer ordering are outside scope).
@@ -474,7 +476,9 @@ Each phase is one pull request (or two if a host-script change must be reviewed 
 
 **Effort / dependencies:** ~1–2 days. Depends on Phase 2 (single build path).
 
-**Progress (24 November 2026):** implemented on `ci/reproducible-builds` — pinned bases with an explicit composer stage, Option A attestations (`mode=max` + SBOM) with a pushed-digest smoke test, the `verify-reproducibility` dispatch, Dependabot, and the Model A documentation. The first push built and pushed both images, then failed at the smoke-test pull because the publisher role lacked `ecr:GetDownloadUrlForLayer`. PR #42 adds the permission requirement and smoke-tests existing tags before reuse; the IAM permission is now applied. Merge and re-validation are pending.
+**Progress (24 November 2026):** implemented on `ci/reproducible-builds` — pinned bases with an explicit composer stage, Option A attestations (`mode=max` + SBOM) with a pushed-digest smoke test, the `verify-reproducibility` dispatch, Dependabot, and the Model A documentation. The first push exposed a missing `ecr:GetDownloadUrlForLayer` permission; the policy is now updated, and PR #42 makes existing tags smoke-tested before reuse. PR #42 and Dependabot PRs #37–#41 are merged; push runs #84–#88 succeeded, including Node 26 and the action majors. `/campusdesk/staging/latest` is `4a13764`. Remaining: `imagetools` Provenance/SBOM verification, deploy of `4a13764`, and the reproducibility dispatch.
+
+The pre-fix `be6c69d…` release was produced by the old existing-tag path; if its smoke step was skipped, treat it as untested and do not use it as a rollback target until it is re-tested.
 
 ---
 

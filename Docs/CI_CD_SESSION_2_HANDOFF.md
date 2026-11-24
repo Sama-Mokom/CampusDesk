@@ -502,6 +502,8 @@ A separate `Verify reproducibility` workflow ([verify-reproducibility.yml](../.g
 
 Verified 23 November 2026: PR #34 / CI #69 built both images with no ECR access; merge `0b8e9ef` / CI #70 published both images and the manifest; the deployment of `0b8e9ef` verified the manifest and the deployment record.
 
+The Phase 3 fix (PR #42) and Dependabot PRs #37–#41 are merged; push runs #84–#88 succeeded. `/campusdesk/staging/latest` is `4a13764`; deploy and reproducibility verification are pending.
+
 ### Release manifest
 
 After `publish-images` succeeds, the `release-manifest` job writes a release record for the published commit:
@@ -513,6 +515,8 @@ After `publish-images` succeeds, the `release-manifest` job writes a release rec
 The manifest contains no AWS account identifier. The publisher role needs `ssm:PutParameter` on those two parameter paths; the full IAM statement and the Phase 1 selection rules are recorded in [CI_CD_PHASE_1_DESIGN.md](CI_CD_PHASE_1_DESIGN.md). The deployment workflow now requires and verifies this manifest.
 
 With the Phase 3 attestations, the ECR tag digest is the image **index** digest (image manifest plus provenance and SBOM attestations). The manifest and `release.json` record that digest, and the host pulls `repo@sha256:<index>`; the release-selection rules and the host revision-label check are unchanged.
+
+The pre-fix `be6c69d…` release was produced by the old existing-tag path; if its smoke step was skipped, treat it as untested and do not use it as a rollback target until it is re-tested.
 
 ### Immutable-tag reruns
 
