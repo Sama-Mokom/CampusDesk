@@ -205,7 +205,7 @@ jobs:
 
       - name: Upload backend application file hashes
         if: ${{ inputs.file_hash_label != '' }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: file-hashes-${{ inputs.file_hash_label }}-backend
           path: ${{ runner.temp }}/backend.sha256
@@ -426,7 +426,7 @@ jobs:
 
       - name: Upload frontend application file hashes
         if: ${{ inputs.file_hash_label != '' }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: file-hashes-${{ inputs.file_hash_label }}-frontend
           path: ${{ runner.temp }}/frontend.sha256
