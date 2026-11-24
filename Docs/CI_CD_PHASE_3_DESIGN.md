@@ -2,7 +2,7 @@
 
 **Last reviewed:** 24 November 2026
 
-**Status:** Implemented on `ci/reproducible-builds`; PR validation pending.
+**Status:** Implemented on `ci/reproducible-builds`; the first push exposed a missing `ecr:GetDownloadUrlForLayer` permission and an existing-tag smoke gap. The fix is on `ci/fix-ecr-smoke`; IAM application and re-validation are pending.
 
 **Scope:** [Frontend/Dockerfile](../Frontend/Dockerfile), [campusdesk/Dockerfile](../campusdesk/Dockerfile), [.github/workflows/build-images.yml](../.github/workflows/build-images.yml), [.github/workflows/verify-reproducibility.yml](../.github/workflows/verify-reproducibility.yml), [.github/dependabot.yml](../.github/dependabot.yml), and the CI documentation.
 
@@ -95,6 +95,10 @@ The `digest` comes from the build step (`docker/build-push-action` output) and i
 
 If the smoke test fails, the job fails, `release-manifest` is skipped, and the immutable SHA tag remains but no release is deployable. A fix requires a new commit. This is the documented quarantine rule; the release manifest remains the deployment gate.
 
+If the immutable tag already exists, the build step is skipped, but the existing digest is pulled and smoke-tested before the manifest is written. A rerun therefore cannot publish an image that never passed.
+
+The publisher role needs `ecr:GetDownloadUrlForLayer` on both repositories (in addition to `ecr:BatchGetImage`) because the smoke test pulls the pushed layers from ECR. This is a Phase 3 IAM prerequisite.
+
 The PR path keeps `push: false`, `load: true`, no attestations, and no ECR access.
 
 ## 6. Reproducibility workflow
@@ -168,6 +172,7 @@ Deferred to Phase 5. Phase 3 removes the optional Phase 3 scan task and adds a P
 - `docker buildx imagetools inspect <ecr>/<repo>:<sha>` shows both **Provenance** and **SBOM**.
 - The release manifest and `release.json` digests match the ECR tags.
 - The smoke test uses the pushed digest, and the recorded digest equals the tested digest.
+- An existing immutable tag is pulled and smoke-tested before the release manifest is written.
 - The PR path still makes no ECR call, no OIDC assumption, and no attestations.
 - The deploy of the release SHA succeeds with the index digest and the record verifies.
 
@@ -179,13 +184,15 @@ Deferred to Phase 5. Phase 3 removes the optional Phase 3 scan task and adds a P
 4. Run `docker buildx imagetools inspect` on both images; confirm Provenance and SBOM.
 5. Deploy the merge SHA normally; verify the manifest, the record, and the running revision label.
 6. Dispatch `verify-reproducibility.yml` for the merge SHA; confirm the compare job passes.
-7. Optionally rerun CI for the same SHA to confirm the existing-tag path still reuses the digest.
+7. Optionally rerun CI for the same SHA to confirm the existing-tag path pulls and smoke-tests the digest without rebuilding, then reuses it.
 
 ## 13. Risks and decisions
 
 | Risk / decision | Position |
 | --- | --- |
 | Publication before smoke | Accept; the manifest gate prevents deployment, and the immutable tag is inert. The quarantine rule is documented. |
+| Publisher pull permission | The ECR push policy must include `ecr:GetDownloadUrlForLayer` on both repositories; the smoke test pulls the pushed digest. |
+| Existing-tag rerun | The build is skipped, but the existing digest is pulled and smoke-tested before publication. |
 | Index digest vs manifest digest | Verify the ECR tag digest equals the build output, the release manifest, and `release.json`; the host pulls the index. |
 | Base image drift | Dependabot updates pinned digests; the PR build validates every pin. |
 | Apt package drift | Out of scope; documented residual for the backend OS layer. |

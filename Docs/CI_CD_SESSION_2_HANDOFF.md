@@ -491,10 +491,12 @@ For a push to `development`, `publish-images` calls it with `push: true`:
 
 - the existing immutable tag is checked first;
 - if absent, both images are built and pushed with provenance (`mode=max`) and an SBOM, then pulled by digest and smoke-tested;
-- if present, the build and smoke test are skipped and the existing digest is reused; and
+- if present, the build is skipped, but the existing digest is pulled and smoke-tested before it is reused; and
 - `release-manifest` consumes the caller's `backend_digest`/`frontend_digest` outputs.
 
 The images are built from digest-pinned bases, maintained by [Dependabot](../.github/dependabot.yml). The PR and push paths use the same Dockerfiles, labels, and frontend build arguments. A pull request build and its later merge-commit build are intentionally different Git commits, but the recipe is identical.
+
+The publisher role needs `ecr:GetDownloadUrlForLayer` on both repositories for the pushed-digest smoke pull; it already has `ecr:BatchGetImage`.
 
 A separate `Verify reproducibility` workflow ([verify-reproducibility.yml](../.github/workflows/verify-reproducibility.yml)) can be dispatched to build the same commit twice cold and compare the application file hashes; it does not publish or contact AWS.
 
@@ -516,8 +518,8 @@ With the Phase 3 attestations, the ECR tag digest is the image **index** digest 
 
 ECR tag immutability means a rerun cannot overwrite an existing commit-SHA tag. The reusable workflow checks each image with `aws ecr describe-images` before building:
 
-- if the SHA tag exists, publication is skipped successfully;
-- if ECR returns `ImageNotFoundException`, the image is built and pushed; and
+- if the SHA tag exists, the build is skipped, but the existing digest is pulled and smoke-tested before publication; and
+- if ECR returns `ImageNotFoundException`, the image is built, pushed, and smoke-tested; and
 - any other AWS error fails the job.
 
 This made workflow reruns safe after the first successful publication.
@@ -579,9 +581,12 @@ The repository-scoped actions are:
 - `ecr:BatchGetImage`
 - `ecr:CompleteLayerUpload`
 - `ecr:DescribeImages`
+- `ecr:GetDownloadUrlForLayer`
 - `ecr:InitiateLayerUpload`
 - `ecr:PutImage`
 - `ecr:UploadLayerPart`
+
+`ecr:GetDownloadUrlForLayer` is required by the Phase 3 pushed-digest smoke test, which pulls the release image from ECR after publication. Its absence failed the first Phase 3 push with a `GetDownloadUrlForLayer` authorization error; add it to the two repository ARNs.
 
 The Phase 1 release-manifest job additionally needs:
 

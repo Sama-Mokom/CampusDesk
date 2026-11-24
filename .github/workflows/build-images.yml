@@ -126,26 +126,31 @@ jobs:
             org.opencontainers.image.created=${{ steps.meta.outputs.created }}
 
       - name: Compute smoke-test image
-        if: ${{ !inputs.push || steps.image.outputs.exists == 'false' }}
         id: smoke-ref
         shell: bash
         env:
           PUSH: ${{ inputs.push }}
+          EXISTS: ${{ steps.image.outputs.exists }}
+          EXISTING_DIGEST: ${{ steps.image.outputs.digest }}
+          BUILD_DIGEST: ${{ steps.build.outputs.digest }}
           LOCAL_TAG: ${{ steps.meta.outputs.tag }}
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           REPOSITORY: ${{ vars.ECR_BACKEND_REPOSITORY }}
-          DIGEST: ${{ steps.build.outputs.digest }}
         run: |
           set -euo pipefail
 
           if [[ "$PUSH" == "true" ]]; then
-            echo "image=${REGISTRY}/${REPOSITORY}@${DIGEST}" >> "$GITHUB_OUTPUT"
+            if [[ "$EXISTS" == "true" ]]; then
+              digest="$EXISTING_DIGEST"
+            else
+              digest="$BUILD_DIGEST"
+            fi
+            echo "image=${REGISTRY}/${REPOSITORY}@${digest}" >> "$GITHUB_OUTPUT"
           else
             echo "image=${LOCAL_TAG}" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Smoke-test backend image
-        if: ${{ !inputs.push || steps.image.outputs.exists == 'false' }}
         shell: bash
         env:
           PUSH: ${{ inputs.push }}
@@ -348,26 +353,31 @@ jobs:
             org.opencontainers.image.created=${{ steps.meta.outputs.created }}
 
       - name: Compute smoke-test image
-        if: ${{ !inputs.push || steps.image.outputs.exists == 'false' }}
         id: smoke-ref
         shell: bash
         env:
           PUSH: ${{ inputs.push }}
+          EXISTS: ${{ steps.image.outputs.exists }}
+          EXISTING_DIGEST: ${{ steps.image.outputs.digest }}
+          BUILD_DIGEST: ${{ steps.build.outputs.digest }}
           LOCAL_TAG: ${{ steps.meta.outputs.tag }}
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           REPOSITORY: ${{ vars.ECR_FRONTEND_REPOSITORY }}
-          DIGEST: ${{ steps.build.outputs.digest }}
         run: |
           set -euo pipefail
 
           if [[ "$PUSH" == "true" ]]; then
-            echo "image=${REGISTRY}/${REPOSITORY}@${DIGEST}" >> "$GITHUB_OUTPUT"
+            if [[ "$EXISTS" == "true" ]]; then
+              digest="$EXISTING_DIGEST"
+            else
+              digest="$BUILD_DIGEST"
+            fi
+            echo "image=${REGISTRY}/${REPOSITORY}@${digest}" >> "$GITHUB_OUTPUT"
           else
             echo "image=${LOCAL_TAG}" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Smoke-test frontend image
-        if: ${{ !inputs.push || steps.image.outputs.exists == 'false' }}
         shell: bash
         env:
           PUSH: ${{ inputs.push }}
