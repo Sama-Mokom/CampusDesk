@@ -2,7 +2,7 @@
 
 **Last reviewed:** 24 November 2026
 
-**Status:** ✅ Phase 0 closed on staging (20 November 2026). ✅ Phase 1 verified on staging (21 November 2026). ✅ Phase 2 verified in CI and on staging (23 November 2026). Phase 3's first push exposed a missing ECR pull permission; the fix is on `ci/fix-ecr-smoke`; IAM application and re-validation are pending.
+**Status:** ✅ Phase 0 closed on staging (20 November 2026). ✅ Phase 1 verified on staging (21 November 2026). ✅ Phase 2 verified in CI and on staging (23 November 2026). Phase 3's first push exposed a missing ECR pull permission; the fix is open as PR #42, the IAM permission is applied, and merge/re-validation is pending.
 
 **Scope:** [.github/workflows/ci.yml](../.github/workflows/ci.yml), [.github/workflows/deploy-staging.yml](../.github/workflows/deploy-staging.yml), [Frontend/Dockerfile](../Frontend/Dockerfile), [campusdesk/Dockerfile](../campusdesk/Dockerfile), [compose.yaml](../compose.yaml), [compose.staging.yaml](../compose.staging.yaml), the host deployment script, and the related documentation.
 
@@ -17,7 +17,7 @@ This document records five defects found while investigating the 18 November 202
 | 0 — Instrument and guard | ✅ Closed 20 November 2026; staging acceptance verified, two environment-only checks documented |
 | 1 — Release selection guard | ✅ Verified 21 November 2026; five acceptance checks documented as not exercised |
 | 2 — One build recipe | ✅ Verified 23 November 2026; three checks documented as not exercised |
-| 3 — Reproducible release builds | 🚧 Fix on `ci/fix-ecr-smoke`; IAM `GetDownloadUrlForLayer` pending |
+| 3 — Reproducible release builds | 🚧 Fix PR #42 open; IAM applied; merge/re-validation pending |
 | 4 — Runtime configuration | Not started |
 | 5 — End-to-end release verification | Not started |
 
@@ -453,7 +453,7 @@ Each phase is one pull request (or two if a host-script change must be reviewed 
 - [x] Add `.github/dependabot.yml` for the Docker and GitHub Actions ecosystems.
 - [x] Add `verify-reproducibility.yml` (manual dispatch) comparing two cold builds of the same commit.
 - [x] Add the pushed-digest smoke test; an existing tag is pulled and smoke-tested before publication.
-- [ ] Add `ecr:GetDownloadUrlForLayer` to the publisher role's repository actions (manual AWS change).
+- [x] Add `ecr:GetDownloadUrlForLayer` to the publisher role's repository actions (applied 24 November 2026).
 
 **Vulnerability scanning:** deferred to Phase 5 (`trivy`/`grype` on the pushed digest).
 
@@ -474,7 +474,7 @@ Each phase is one pull request (or two if a host-script change must be reviewed 
 
 **Effort / dependencies:** ~1–2 days. Depends on Phase 2 (single build path).
 
-**Progress (24 November 2026):** implemented on `ci/reproducible-builds` — pinned bases with an explicit composer stage, Option A attestations (`mode=max` + SBOM) with a pushed-digest smoke test, the `verify-reproducibility` dispatch, Dependabot, and the Model A documentation. The first push built and pushed both images, then failed at the smoke-test pull because the publisher role lacks `ecr:GetDownloadUrlForLayer`. The `ci/fix-ecr-smoke` follow-up adds that permission requirement and smoke-tests existing tags before reuse. IAM application and re-validation are pending.
+**Progress (24 November 2026):** implemented on `ci/reproducible-builds` — pinned bases with an explicit composer stage, Option A attestations (`mode=max` + SBOM) with a pushed-digest smoke test, the `verify-reproducibility` dispatch, Dependabot, and the Model A documentation. The first push built and pushed both images, then failed at the smoke-test pull because the publisher role lacked `ecr:GetDownloadUrlForLayer`. PR #42 adds the permission requirement and smoke-tests existing tags before reuse; the IAM permission is now applied. Merge and re-validation are pending.
 
 ---
 
