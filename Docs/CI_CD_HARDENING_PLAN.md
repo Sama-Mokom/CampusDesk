@@ -2,7 +2,7 @@
 
 **Last reviewed:** 24 November 2026
 
-**Status:** ✅ Phase 0 closed on staging (20 November 2026). ✅ Phase 1 verified on staging (21 November 2026). ✅ Phase 2 verified in CI and on staging (23 November 2026). Phase 3 is implemented on `ci/reproducible-builds`; PR validation is pending.
+**Status:** ✅ Phase 0 closed on staging (20 November 2026). ✅ Phase 1 verified on staging (21 November 2026). ✅ Phase 2 verified in CI and on staging (23 November 2026). Phase 3's first push exposed a missing ECR pull permission; the fix is on `ci/fix-ecr-smoke`; IAM application and re-validation are pending.
 
 **Scope:** [.github/workflows/ci.yml](../.github/workflows/ci.yml), [.github/workflows/deploy-staging.yml](../.github/workflows/deploy-staging.yml), [Frontend/Dockerfile](../Frontend/Dockerfile), [campusdesk/Dockerfile](../campusdesk/Dockerfile), [compose.yaml](../compose.yaml), [compose.staging.yaml](../compose.staging.yaml), the host deployment script, and the related documentation.
 
@@ -17,7 +17,7 @@ This document records five defects found while investigating the 18 November 202
 | 0 — Instrument and guard | ✅ Closed 20 November 2026; staging acceptance verified, two environment-only checks documented |
 | 1 — Release selection guard | ✅ Verified 21 November 2026; five acceptance checks documented as not exercised |
 | 2 — One build recipe | ✅ Verified 23 November 2026; three checks documented as not exercised |
-| 3 — Reproducible release builds | 🚧 Implemented on `ci/reproducible-builds`; PR validation pending |
+| 3 — Reproducible release builds | 🚧 Fix on `ci/fix-ecr-smoke`; IAM `GetDownloadUrlForLayer` pending |
 | 4 — Runtime configuration | Not started |
 | 5 — End-to-end release verification | Not started |
 
@@ -452,6 +452,8 @@ Each phase is one pull request (or two if a host-script change must be reviewed 
 - [x] Record the digests in `release.json` (the index digest; already required by Phase 1).
 - [x] Add `.github/dependabot.yml` for the Docker and GitHub Actions ecosystems.
 - [x] Add `verify-reproducibility.yml` (manual dispatch) comparing two cold builds of the same commit.
+- [x] Add the pushed-digest smoke test; an existing tag is pulled and smoke-tested before publication.
+- [ ] Add `ecr:GetDownloadUrlForLayer` to the publisher role's repository actions (manual AWS change).
 
 **Vulnerability scanning:** deferred to Phase 5 (`trivy`/`grype` on the pushed digest).
 
@@ -462,6 +464,7 @@ Each phase is one pull request (or two if a host-script change must be reviewed 
 - [ ] `docker buildx imagetools inspect <image>` shows both the provenance and SBOM attestations.
 - [ ] `release.json` digests match the images that were actually pushed.
 - [ ] The smoke test runs on the pushed digest and the recorded digest equals the tested digest.
+- [ ] An existing immutable tag is pulled and smoke-tested before the release manifest is written.
 - [ ] The PR path still builds both images with no ECR call, no OIDC, and no attestations.
 - [ ] The deploy of the release SHA succeeds with the index digest and the record verifies.
 
@@ -471,7 +474,7 @@ Each phase is one pull request (or two if a host-script change must be reviewed 
 
 **Effort / dependencies:** ~1–2 days. Depends on Phase 2 (single build path).
 
-**Progress (24 November 2026):** implemented on `ci/reproducible-builds` — pinned bases with an explicit composer stage, Option A attestations (`mode=max` + SBOM) with a pushed-digest smoke test, the `verify-reproducibility` dispatch, Dependabot, and the Model A documentation. PR validation is pending.
+**Progress (24 November 2026):** implemented on `ci/reproducible-builds` — pinned bases with an explicit composer stage, Option A attestations (`mode=max` + SBOM) with a pushed-digest smoke test, the `verify-reproducibility` dispatch, Dependabot, and the Model A documentation. The first push built and pushed both images, then failed at the smoke-test pull because the publisher role lacks `ecr:GetDownloadUrlForLayer`. The `ci/fix-ecr-smoke` follow-up adds that permission requirement and smoke-tests existing tags before reuse. IAM application and re-validation are pending.
 
 ---
 
