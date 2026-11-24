@@ -496,7 +496,7 @@ For a push to `development`, `publish-images` calls it with `push: true`:
 
 The images are built from digest-pinned bases, maintained by [Dependabot](../.github/dependabot.yml). The PR and push paths use the same Dockerfiles, labels, and frontend build arguments. A pull request build and its later merge-commit build are intentionally different Git commits, but the recipe is identical.
 
-The publisher role needs `ecr:GetDownloadUrlForLayer` on both repositories for the pushed-digest smoke pull; it already has `ecr:BatchGetImage`.
+The publisher role has `ecr:GetDownloadUrlForLayer` on both repositories for the pushed-digest smoke pull (added 24 November 2026), in addition to `ecr:BatchGetImage`.
 
 A separate `Verify reproducibility` workflow ([verify-reproducibility.yml](../.github/workflows/verify-reproducibility.yml)) can be dispatched to build the same commit twice cold and compare the application file hashes; it does not publish or contact AWS.
 
