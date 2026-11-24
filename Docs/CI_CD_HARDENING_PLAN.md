@@ -1,8 +1,8 @@
 # CampusDesk — CI/CD Hardening Plan
 
-**Last reviewed:** 21 November 2026
+**Last reviewed:** 24 November 2026
 
-**Status:** ✅ Phase 0 closed on staging (20 November 2026). ✅ Phase 1 verified on staging (21 November 2026). ✅ Phase 2 verified in CI and on staging (23 November 2026); three checks are documented as not exercised. Phase 3 is next.
+**Status:** ✅ Phase 0 closed on staging (20 November 2026). ✅ Phase 1 verified on staging (21 November 2026). ✅ Phase 2 verified in CI and on staging (23 November 2026). Phase 3 is implemented on `ci/reproducible-builds`; PR validation is pending.
 
 **Scope:** [.github/workflows/ci.yml](../.github/workflows/ci.yml), [.github/workflows/deploy-staging.yml](../.github/workflows/deploy-staging.yml), [Frontend/Dockerfile](../Frontend/Dockerfile), [campusdesk/Dockerfile](../campusdesk/Dockerfile), [compose.yaml](../compose.yaml), [compose.staging.yaml](../compose.staging.yaml), the host deployment script, and the related documentation.
 
@@ -17,7 +17,7 @@ This document records five defects found while investigating the 18 November 202
 | 0 — Instrument and guard | ✅ Closed 20 November 2026; staging acceptance verified, two environment-only checks documented |
 | 1 — Release selection guard | ✅ Verified 21 November 2026; five acceptance checks documented as not exercised |
 | 2 — One build recipe | ✅ Verified 23 November 2026; three checks documented as not exercised |
-| 3 — Reproducible release builds | Next |
+| 3 — Reproducible release builds | 🚧 Implemented on `ci/reproducible-builds`; PR validation pending |
 | 4 — Runtime configuration | Not started |
 | 5 — End-to-end release verification | Not started |
 
@@ -446,24 +446,32 @@ Each phase is one pull request (or two if a host-script change must be reviewed 
 
 **Tasks:**
 
-- [ ] Digest-pin every base image in both Dockerfiles (`node:22-alpine@sha256:…`, `php:8.3-apache@sha256:…`, `nginx:alpine@sha256:…`, `composer:2@sha256:…`).
-- [ ] Add `provenance: true` and `sbom: true` to the release build.
-- [ ] Document Model A (release build = development push build; PR build = validation) in `CI-CD.md`.
-- [ ] Record the digests in `release.json` (already required by Phase 1).
-- [ ] Optional, only if capacity allows: image vulnerability scan in the release path.
+- [x] Digest-pin every base image in both Dockerfiles (`node:22-alpine@sha256:…`, `php:8.3-apache@sha256:…`, `nginx:alpine@sha256:…`, `composer:2@sha256:…`), including an explicit composer stage.
+- [x] Add `provenance: mode=max` and `sbom: true` to the release build.
+- [x] Document Model A (release build = development push build; PR build = validation) in `CI-CD.md`.
+- [x] Record the digests in `release.json` (the index digest; already required by Phase 1).
+- [x] Add `.github/dependabot.yml` for the Docker and GitHub Actions ecosystems.
+- [x] Add `verify-reproducibility.yml` (manual dispatch) comparing two cold builds of the same commit.
+
+**Vulnerability scanning:** deferred to Phase 5 (`trivy`/`grype` on the pushed digest).
 
 **Acceptance tests:**
 
-- [ ] Every `FROM` line contains `@sha256:`.
-- [ ] Two builds of the same commit produce identical application file hashes (`sha256sum /usr/share/nginx/html/index.html` and the `index-*.js` asset).
-- [ ] `docker buildx imagetools inspect <image>` shows the provenance attestation.
+- [ ] Every external image reference is pinned: every `FROM` and external `COPY --from` has `@sha256:` (the composer reference is now a pinned stage).
+- [ ] Two dispatched builds of the same commit produce identical frontend file hashes (`sha256sum /usr/share/nginx/html/index.html` and the `index-*.js` asset) and identical backend application file hashes.
+- [ ] `docker buildx imagetools inspect <image>` shows both the provenance and SBOM attestations.
 - [ ] `release.json` digests match the images that were actually pushed.
+- [ ] The smoke test runs on the pushed digest and the recorded digest equals the tested digest.
+- [ ] The PR path still builds both images with no ECR call, no OIDC, and no attestations.
+- [ ] The deploy of the release SHA succeeds with the index digest and the record verifies.
 
 **Out of scope:** bit-for-bit identical image digests (timestamps and layer ordering are outside scope).
 
 **Rollback:** revert the Dockerfiles; labels and provenance are additive.
 
 **Effort / dependencies:** ~1–2 days. Depends on Phase 2 (single build path).
+
+**Progress (24 November 2026):** implemented on `ci/reproducible-builds` — pinned bases with an explicit composer stage, Option A attestations (`mode=max` + SBOM) with a pushed-digest smoke test, the `verify-reproducibility` dispatch, Dependabot, and the Model A documentation. PR validation is pending.
 
 ---
 
@@ -508,6 +516,7 @@ Each phase is one pull request (or two if a host-script change must be reviewed 
 - [ ] Expose the frontend build SHA in `meta[name="app-build"]` and `window.__APP_CONFIG__.buildSha`.
 - [ ] Add a deploy verification step: query `/api/version` through the host and compare with `RELEASE_SHA`; fail the deploy on mismatch.
 - [ ] Replace the hardcoded summary lines with the verified SHA and digests.
+- [ ] Scan the pushed release digest with Trivy or Grype and record the report.
 - [ ] Update `CI_CD_SESSION_2_HANDOFF.md`, `CI-CD.md`, and `KNOWN_ISSUES.md` (stale dev server entry).
 - [ ] Exercise the rollback and key-rotation runbooks once end to end.
 
@@ -516,6 +525,7 @@ Each phase is one pull request (or two if a host-script change must be reviewed 
 - [ ] `curl -fsS http://127.0.0.1:8080/api/version` on the host returns the deployed SHA.
 - [ ] A deploy whose runtime SHA does not match the requested SHA fails the workflow with a clear message.
 - [ ] The SPA's `meta[name="app-build"]` matches the same SHA.
+- [ ] The release vulnerability scan completes and its report is recorded.
 - [ ] The rollback runbook and the key-rotation runbook have both been executed successfully.
 - [ ] The summary contains only verified facts.
 

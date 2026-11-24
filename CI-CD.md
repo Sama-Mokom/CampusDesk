@@ -1,6 +1,6 @@
 # CampusDesk CI/CD and Operations Status
 
-**Last reviewed:** 9 October 2026
+**Last reviewed:** 24 November 2026
 
 This file is the entry point for the CampusDesk CI/CD work. Detailed implementation records live under `Docs/`.
 
@@ -10,9 +10,19 @@ Phase 1's release-selection design — release manifests, normal/idempotent/roll
 
 Phase 2's one-build-recipe design is in [Docs/CI_CD_PHASE_2_DESIGN.md](Docs/CI_CD_PHASE_2_DESIGN.md). Both the PR validation path and the development publication path call the same reusable workflow, [build-images.yml](.github/workflows/build-images.yml).
 
+Phase 3's reproducible-build design is in [Docs/CI_CD_PHASE_3_DESIGN.md](Docs/CI_CD_PHASE_3_DESIGN.md). Base images are pinned by digest, release images carry provenance and SBOM, and a separate dispatch verifies application-file reproducibility.
+
 ## Image publication model
 
-Pull-request runs build both images only to validate the Dockerfiles; those images are never published. A push to `development`, including a merged pull request, runs the publish jobs, which build and push the release images tagged with the pushed commit SHA. Deployment resolves those tags to immutable digests. The hardening plan records why this model is being tightened.
+Pull-request runs build both images only to validate the Dockerfiles; those images are never published. A push to `development`, including a merged pull request, runs the publish jobs, which build and push the release images tagged with the pushed commit SHA. Release images are built from digest-pinned bases and carry build provenance (with build arguments and materials) and an SBOM. Deployment resolves those tags to immutable digests. The hardening plan records why this model is being tightened.
+
+### Model A: build once per development commit
+
+- The release identity is the `development` commit SHA.
+- A pull request build validates the recipe and never publishes.
+- A `development` push builds that commit once, publishes the images with provenance and SBOM, and writes the release manifest.
+- Deployments consume the manifest and pull the recorded digests; they never rebuild.
+- A PR merge ref and its merge commit are different SHAs by design; the recipe is identical.
 
 Deployments now require a published release manifest. A normal deployment must use the current `development` tip and the latest published release; re-deploying the current release is idempotent; a rollback requires `allow_previous_release` plus a reason and a target older than the deployed release. The operator procedure is in the handoff guide.
 
