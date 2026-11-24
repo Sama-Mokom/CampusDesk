@@ -2,7 +2,7 @@
 
 **Last reviewed:** 24 November 2026
 
-**Status:** ✅ Phase 0 closed on staging (20 November 2026). ✅ Phase 1 verified on staging (21 November 2026). ✅ Phase 2 verified in CI and on staging (23 November 2026). Phase 3's fix and dependency updates are merged; `4a13764` is the latest release. Deploy and reproducibility verification are pending.
+**Status:** ✅ Phase 0 closed on staging (20 November 2026). ✅ Phase 1 verified on staging (21 November 2026). ✅ Phase 2 verified in CI and on staging (23 November 2026). ✅ Phase 3 verified in CI and on staging (24 November 2026); the existing-tag rerun is documented as not exercised. Phase 4 is next.
 
 **Scope:** [.github/workflows/ci.yml](../.github/workflows/ci.yml), [.github/workflows/deploy-staging.yml](../.github/workflows/deploy-staging.yml), [Frontend/Dockerfile](../Frontend/Dockerfile), [campusdesk/Dockerfile](../campusdesk/Dockerfile), [compose.yaml](../compose.yaml), [compose.staging.yaml](../compose.staging.yaml), the host deployment script, and the related documentation.
 
@@ -17,8 +17,8 @@ This document records five defects found while investigating the 18 November 202
 | 0 — Instrument and guard | ✅ Closed 20 November 2026; staging acceptance verified, two environment-only checks documented |
 | 1 — Release selection guard | ✅ Verified 21 November 2026; five acceptance checks documented as not exercised |
 | 2 — One build recipe | ✅ Verified 23 November 2026; three checks documented as not exercised |
-| 3 — Reproducible release builds | 🚧 Verification in progress; latest `4a13764`; deploy/reproducibility pending |
-| 4 — Runtime configuration | Not started |
+| 3 — Reproducible release builds | ✅ Verified 24 November 2026; existing-tag check documented as not exercised |
+| 4 — Runtime configuration | Next |
 | 5 — End-to-end release verification | Not started |
 
 ---
@@ -461,14 +461,14 @@ Each phase is one pull request (or two if a host-script change must be reviewed 
 **Acceptance tests:**
 
 - [x] Every external image reference is pinned: every `FROM` and external `COPY --from` has `@sha256:` (the composer reference is now a pinned stage).
-- [ ] Two dispatched builds of the same commit produce identical frontend file hashes (`sha256sum /usr/share/nginx/html/index.html` and the `index-*.js` asset) and identical backend application file hashes.
-- [ ] `docker buildx imagetools inspect <image>` shows both the provenance and SBOM attestations.
-- [ ] `release.json` digests match the images that were actually pushed.
+- [x] Two dispatched builds of the same commit produce identical frontend file hashes (`sha256sum /usr/share/nginx/html/index.html` and the `index-*.js` asset) and identical backend application file hashes.
+- [x] `docker buildx imagetools inspect <image>` shows both the provenance and SBOM attestations.
+- [x] `release.json` digests match the images that were actually pushed.
 - [x] The smoke test runs on the pushed digest and the recorded digest equals the tested digest.
 - [ ] An existing immutable tag is pulled and smoke-tested before publication (the fix is active, but the existing-tag path has not yet been exercised).
 - [x] The PR path still builds both images with no ECR call, no OIDC, and no attestations.
 - [x] The build-push-action 7, setup-buildx 4, artifact action 7/8, and Node 26 updates pass a release push.
-- [ ] The deploy of the release SHA succeeds with the index digest and the record verifies.
+- [x] The deploy of the release SHA succeeds with the index digest and the record verifies.
 
 **Out of scope:** bit-for-bit identical image digests (timestamps and layer ordering are outside scope).
 
@@ -476,7 +476,11 @@ Each phase is one pull request (or two if a host-script change must be reviewed 
 
 **Effort / dependencies:** ~1–2 days. Depends on Phase 2 (single build path).
 
-**Progress (24 November 2026):** implemented on `ci/reproducible-builds` — pinned bases with an explicit composer stage, Option A attestations (`mode=max` + SBOM) with a pushed-digest smoke test, the `verify-reproducibility` dispatch, Dependabot, and the Model A documentation. The first push exposed a missing `ecr:GetDownloadUrlForLayer` permission; the policy is now updated, and PR #42 makes existing tags smoke-tested before reuse. PR #42 and Dependabot PRs #37–#41 are merged; push runs #84–#88 succeeded, including Node 26 and the action majors. `/campusdesk/staging/latest` is `4a13764`. Remaining: `imagetools` Provenance/SBOM verification, deploy of `4a13764`, and the reproducibility dispatch.
+**Progress (24 November 2026):** implemented on `ci/reproducible-builds` — pinned bases with an explicit composer stage, Option A attestations (`mode=max` + SBOM) with a pushed-digest smoke test, the `verify-reproducibility` dispatch, Dependabot, and the Model A documentation. PR #42 and Dependabot PRs #37–#41 are merged; push runs #84–#88 succeeded. `b4c8659` was deployed as `normal` with latest matched, previous `0b8e9ef`, the release manifest verified, SSM success, and the deployment record verified.
+
+The `4a13764` images' attestation manifests contain both the SPDX SBOM and the SLSA v1 provenance layers; the image index digests match `backend.digest`/`frontend.digest`. `Verify reproducibility` run #1 passed on `b4c8659` with eight artifacts and matching backend/frontend file hashes.
+
+**Not exercised:** the existing-tag pull/smoke path. The fix is active; a rerun of a completed push would exercise it without rebuilding.
 
 The pre-fix `be6c69d…` release was produced by the old existing-tag path; if its smoke step was skipped, treat it as untested and do not use it as a rollback target until it is re-tested.
 

@@ -502,7 +502,7 @@ A separate `Verify reproducibility` workflow ([verify-reproducibility.yml](../.g
 
 Verified 23 November 2026: PR #34 / CI #69 built both images with no ECR access; merge `0b8e9ef` / CI #70 published both images and the manifest; the deployment of `0b8e9ef` verified the manifest and the deployment record.
 
-The Phase 3 fix (PR #42) and Dependabot PRs #37–#41 are merged; push runs #84–#88 succeeded. `/campusdesk/staging/latest` is `4a13764`; deploy and reproducibility verification are pending.
+The Phase 3 fix (PR #42) and Dependabot PRs #37–#41 are merged; push runs #84–#88 succeeded. Phase 3 is verified: `b4c8659` was deployed as `normal` with the release manifest and record verified; the `4a13764` images showed SPDX and SLSA v1 attestation layers; `Verify reproducibility` run #1 passed. The existing-tag rerun is documented as not exercised.
 
 ### Release manifest
 
