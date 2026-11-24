@@ -2,7 +2,7 @@
 
 **Coverage:** Local Docker foundation completed 25 September 2026 through Session Manager interactive-access and port-forward validation completed 12 October 2026
 
-**Last reviewed and updated:** 12 October 2026
+**Last reviewed and updated:** 24 November 2026
 
 **Repository branches:** `development` remains the deployment integration target; the account-security change sequence was prepared on `valib`. Recovery automation and its validation record were merged by PR #20 at merge commit `989ca54`.
 
@@ -490,11 +490,13 @@ For pull requests and manual non-push runs, `validate-images` calls it with `pus
 For a push to `development`, `publish-images` calls it with `push: true`:
 
 - the existing immutable tag is checked first;
-- if absent, both images are built, smoke-tested, and pushed;
-- if present, the build is skipped and the existing digest is reused; and
+- if absent, both images are built and pushed with provenance (`mode=max`) and an SBOM, then pulled by digest and smoke-tested;
+- if present, the build and smoke test are skipped and the existing digest is reused; and
 - `release-manifest` consumes the caller's `backend_digest`/`frontend_digest` outputs.
 
-The PR and push paths use the same Dockerfiles, labels, and frontend build arguments. A pull request build and its later merge-commit build are intentionally different Git commits, but the recipe is identical.
+The images are built from digest-pinned bases, maintained by [Dependabot](../.github/dependabot.yml). The PR and push paths use the same Dockerfiles, labels, and frontend build arguments. A pull request build and its later merge-commit build are intentionally different Git commits, but the recipe is identical.
+
+A separate `Verify reproducibility` workflow ([verify-reproducibility.yml](../.github/workflows/verify-reproducibility.yml)) can be dispatched to build the same commit twice cold and compare the application file hashes; it does not publish or contact AWS.
 
 Verified 23 November 2026: PR #34 / CI #69 built both images with no ECR access; merge `0b8e9ef` / CI #70 published both images and the manifest; the deployment of `0b8e9ef` verified the manifest and the deployment record.
 
@@ -507,6 +509,8 @@ After `publish-images` succeeds, the `release-manifest` job writes a release rec
 - the artefact `release-<sha>` containing the same manifest.
 
 The manifest contains no AWS account identifier. The publisher role needs `ssm:PutParameter` on those two parameter paths; the full IAM statement and the Phase 1 selection rules are recorded in [CI_CD_PHASE_1_DESIGN.md](CI_CD_PHASE_1_DESIGN.md). The deployment workflow now requires and verifies this manifest.
+
+With the Phase 3 attestations, the ECR tag digest is the image **index** digest (image manifest plus provenance and SBOM attestations). The manifest and `release.json` record that digest, and the host pulls `repo@sha256:<index>`; the release-selection rules and the host revision-label check are unchanged.
 
 ### Immutable-tag reruns
 

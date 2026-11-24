@@ -11,6 +11,11 @@ on:
         description: Image tag and OCI revision
         required: true
         type: string
+      file_hash_label:
+        description: Optional label for reproducibility file-hash artifacts
+        required: false
+        type: string
+        default: ""
     outputs:
       backend_digest:
         description: Digest of the published backend image
@@ -103,12 +108,16 @@ jobs:
 
       - name: Build backend image
         if: ${{ !inputs.push || steps.image.outputs.exists == 'false' }}
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: ./campusdesk
           file: ./campusdesk/Dockerfile
-          load: true
-          push: false
+          load: ${{ !inputs.push }}
+          push: ${{ inputs.push }}
+          provenance: ${{ inputs.push && 'mode=max' || 'false' }}
+          sbom: ${{ inputs.push }}
+          no-cache: ${{ inputs.file_hash_label != '' }}
           tags: ${{ steps.meta.outputs.tag }}
           labels: |
             org.opencontainers.image.revision=${{ inputs.image_tag }}
@@ -116,13 +125,37 @@ jobs:
             org.opencontainers.image.version=${{ inputs.image_tag }}
             org.opencontainers.image.created=${{ steps.meta.outputs.created }}
 
+      - name: Compute smoke-test image
+        if: ${{ !inputs.push || steps.image.outputs.exists == 'false' }}
+        id: smoke-ref
+        shell: bash
+        env:
+          PUSH: ${{ inputs.push }}
+          LOCAL_TAG: ${{ steps.meta.outputs.tag }}
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY: ${{ vars.ECR_BACKEND_REPOSITORY }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$PUSH" == "true" ]]; then
+            echo "image=${REGISTRY}/${REPOSITORY}@${DIGEST}" >> "$GITHUB_OUTPUT"
+          else
+            echo "image=${LOCAL_TAG}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Smoke-test backend image
         if: ${{ !inputs.push || steps.image.outputs.exists == 'false' }}
         shell: bash
         env:
-          IMAGE: ${{ steps.meta.outputs.tag }}
+          PUSH: ${{ inputs.push }}
+          IMAGE: ${{ steps.smoke-ref.outputs.image }}
         run: |
           set -euo pipefail
+
+          if [[ "$PUSH" == "true" ]]; then
+            docker pull "$IMAGE"
+          fi
 
           app_key='base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA='
           container_id="$(
@@ -153,6 +186,26 @@ jobs:
 
           echo "Backend smoke test passed."
 
+      - name: Compute backend application file hashes
+        if: ${{ inputs.file_hash_label != '' }}
+        shell: bash
+        env:
+          IMAGE: ${{ steps.smoke-ref.outputs.image }}
+        run: |
+          set -euo pipefail
+          docker run --rm "$IMAGE" \
+            sha256sum artisan composer.lock vendor/composer/installed.php \
+            | sort > "${RUNNER_TEMP}/backend.sha256"
+          cat "${RUNNER_TEMP}/backend.sha256"
+
+      - name: Upload backend application file hashes
+        if: ${{ inputs.file_hash_label != '' }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: file-hashes-${{ inputs.file_hash_label }}-backend
+          path: ${{ runner.temp }}/backend.sha256
+          retention-days: 7
+
       - name: Publish backend image
         if: ${{ inputs.push }}
         id: publish
@@ -160,7 +213,7 @@ jobs:
         env:
           EXISTS: ${{ steps.image.outputs.exists }}
           EXISTING_DIGEST: ${{ steps.image.outputs.digest }}
-          IMAGE: ${{ steps.meta.outputs.tag }}
+          BUILD_DIGEST: ${{ steps.build.outputs.digest }}
           REPOSITORY: ${{ vars.ECR_BACKEND_REPOSITORY }}
           IMAGE_TAG: ${{ inputs.image_tag }}
         run: |
@@ -170,7 +223,6 @@ jobs:
             digest="$EXISTING_DIGEST"
             echo "Backend image already exists; reusing its digest."
           else
-            docker push "$IMAGE"
             digest="$(
               aws ecr describe-images \
                 --repository-name "$REPOSITORY" \
@@ -178,6 +230,10 @@ jobs:
                 --query 'imageDetails[0].imageDigest' \
                 --output text
             )"
+            if [[ -n "$BUILD_DIGEST" && "$digest" != "$BUILD_DIGEST" ]]; then
+              echo "The ECR digest ${digest} does not match the build digest ${BUILD_DIGEST}."
+              exit 1
+            fi
           fi
 
           if [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
@@ -271,12 +327,16 @@ jobs:
 
       - name: Build frontend image
         if: ${{ !inputs.push || steps.image.outputs.exists == 'false' }}
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: ./Frontend
           file: ./Frontend/Dockerfile
-          load: true
-          push: false
+          load: ${{ !inputs.push }}
+          push: ${{ inputs.push }}
+          provenance: ${{ inputs.push && 'mode=max' || 'false' }}
+          sbom: ${{ inputs.push }}
+          no-cache: ${{ inputs.file_hash_label != '' }}
           tags: ${{ steps.meta.outputs.tag }}
           build-args: |
             VITE_API_URL=/api
@@ -287,13 +347,37 @@ jobs:
             org.opencontainers.image.version=${{ inputs.image_tag }}
             org.opencontainers.image.created=${{ steps.meta.outputs.created }}
 
+      - name: Compute smoke-test image
+        if: ${{ !inputs.push || steps.image.outputs.exists == 'false' }}
+        id: smoke-ref
+        shell: bash
+        env:
+          PUSH: ${{ inputs.push }}
+          LOCAL_TAG: ${{ steps.meta.outputs.tag }}
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY: ${{ vars.ECR_FRONTEND_REPOSITORY }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$PUSH" == "true" ]]; then
+            echo "image=${REGISTRY}/${REPOSITORY}@${DIGEST}" >> "$GITHUB_OUTPUT"
+          else
+            echo "image=${LOCAL_TAG}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Smoke-test frontend image
         if: ${{ !inputs.push || steps.image.outputs.exists == 'false' }}
         shell: bash
         env:
-          IMAGE: ${{ steps.meta.outputs.tag }}
+          PUSH: ${{ inputs.push }}
+          IMAGE: ${{ steps.smoke-ref.outputs.image }}
         run: |
           set -euo pipefail
+
+          if [[ "$PUSH" == "true" ]]; then
+            docker pull "$IMAGE"
+          fi
 
           container_id="$(docker run -d --rm -p 127.0.0.1::80 "$IMAGE")"
           trap 'docker rm -f "$container_id" >/dev/null 2>&1 || true' EXIT
@@ -318,6 +402,26 @@ jobs:
 
           echo "Frontend smoke test passed."
 
+      - name: Compute frontend application file hashes
+        if: ${{ inputs.file_hash_label != '' }}
+        shell: bash
+        env:
+          IMAGE: ${{ steps.smoke-ref.outputs.image }}
+        run: |
+          set -euo pipefail
+          docker run --rm "$IMAGE" \
+            sh -c 'sha256sum /usr/share/nginx/html/index.html /usr/share/nginx/html/assets/index-*.js' \
+            | sort > "${RUNNER_TEMP}/frontend.sha256"
+          cat "${RUNNER_TEMP}/frontend.sha256"
+
+      - name: Upload frontend application file hashes
+        if: ${{ inputs.file_hash_label != '' }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: file-hashes-${{ inputs.file_hash_label }}-frontend
+          path: ${{ runner.temp }}/frontend.sha256
+          retention-days: 7
+
       - name: Publish frontend image
         if: ${{ inputs.push }}
         id: publish
@@ -325,7 +429,7 @@ jobs:
         env:
           EXISTS: ${{ steps.image.outputs.exists }}
           EXISTING_DIGEST: ${{ steps.image.outputs.digest }}
-          IMAGE: ${{ steps.meta.outputs.tag }}
+          BUILD_DIGEST: ${{ steps.build.outputs.digest }}
           REPOSITORY: ${{ vars.ECR_FRONTEND_REPOSITORY }}
           IMAGE_TAG: ${{ inputs.image_tag }}
         run: |
@@ -335,7 +439,6 @@ jobs:
             digest="$EXISTING_DIGEST"
             echo "Frontend image already exists; reusing its digest."
           else
-            docker push "$IMAGE"
             digest="$(
               aws ecr describe-images \
                 --repository-name "$REPOSITORY" \
@@ -343,6 +446,10 @@ jobs:
                 --query 'imageDetails[0].imageDigest' \
                 --output text
             )"
+            if [[ -n "$BUILD_DIGEST" && "$digest" != "$BUILD_DIGEST" ]]; then
+              echo "The ECR digest ${digest} does not match the build digest ${BUILD_DIGEST}."
+              exit 1
+            fi
           fi
 
           if [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then

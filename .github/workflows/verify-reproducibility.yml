@@ -1,0 +1,55 @@
+name: Verify reproducibility
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-a:
+    name: Build A
+    uses: ./.github/workflows/build-images.yml
+    with:
+      push: false
+      image_tag: ${{ github.sha }}
+      file_hash_label: a
+
+  build-b:
+    name: Build B
+    uses: ./.github/workflows/build-images.yml
+    with:
+      push: false
+      image_tag: ${{ github.sha }}
+      file_hash_label: b
+
+  compare:
+    name: Compare file hashes
+    needs:
+      - build-a
+      - build-b
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+
+    steps:
+      - name: Download file-hash artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: file-hashes-*
+          path: hashes
+
+      - name: Compare application file hashes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          find hashes -type f -print | sort
+          diff -u \
+            hashes/file-hashes-a-frontend/frontend.sha256 \
+            hashes/file-hashes-b-frontend/frontend.sha256
+          diff -u \
+            hashes/file-hashes-a-backend/backend.sha256 \
+            hashes/file-hashes-b-backend/backend.sha256
+          echo "Application file hashes match."
