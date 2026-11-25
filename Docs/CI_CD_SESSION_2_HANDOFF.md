@@ -537,13 +537,13 @@ No image rebuild or image tag change is required. `REVERB_APP_SECRET` remains ho
 
 The backend image bakes `APP_BUILD_SHA` (the release commit) and `APP_BUILD_TIME` (the commit timestamp, not the wall-clock build time). `GET /api/version` returns both values publicly with `Cache-Control: no-store`.
 
-The frontend bakes the same SHA into `meta[name="app-build"]` and into the runtime `config.js` as `buildSha`. The host deploy script's `verify_runtime_sha` compares `/api/version`, the frontend `config.js`, and the SPA meta with `RELEASE_SHA`; it fails the deploy on any mismatch. `release.json` records `build_sha`, `build_time`, `frontend_build_sha`, and `frontend_meta_sha`.
+The frontend bakes the same SHA into `meta[name="app-build"]` and into the runtime `config.js` as `buildSha`. The host deploy script's `verify_runtime_sha` compares `/api/version`, the frontend `config.js`, and the SPA meta with `RELEASE_SHA`; it fails the deploy on any mismatch. `release.json` records `build_sha`, `build_time`, `frontend_build_sha`, `frontend_meta_sha`, and `scan_status`.
 
-The deployment summary uses only values from verified step and host outputs: the manifest status, SSM status, runtime `/api/version`, frontend build/meta, and deployment record.
+The deployment summary uses only values from verified step and host outputs: the manifest status, scan status/report, SSM status, runtime `/api/version`, frontend build/meta, host scan status, and deployment record.
 
 PR A verified 25 November 2026 on `099e16`: `/api/version` returned the SHA built `2026-11-25T15:29:50+01:00`; `config.js` and the SPA meta matched; the summary showed the runtime/frontend identity; the record verified.
 
-A separate Trivy `scan-release` job (PR B) scans both published index digests before `release-manifest`; the report is the `release-scan-<sha>` artifact, and the manifest records the scan status.
+A separate Trivy `scan-release` job scans both published index digests before `release-manifest`. Its table and SARIF reports are the `release-scan-<sha>` artifact; the manifest records `scan.status` and `scan.report_artifact`; the host reads the manifest and records `scan_status`; releases published before the scan are `not-recorded` for rollback.
 
 **Version endpoint check:**
 

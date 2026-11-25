@@ -159,6 +159,14 @@ jobs:
             exit 1
           fi
 
+          scan_status="$(jq -r '.scan.status // "not-recorded"' <<< "$manifest")"
+          scan_report="$(jq -r '.scan.report_artifact // ""' <<< "$manifest")"
+
+          if [[ "$scan_status" != "passed" && "$scan_status" != "not-recorded" ]]; then
+            echo "The release manifest's scan status is '${scan_status}', expected 'passed'."
+            exit 1
+          fi
+
           if ! latest_sha="$(aws ssm get-parameter \
             --name /campusdesk/staging/latest \
             --query Parameter.Value \
@@ -201,6 +209,8 @@ jobs:
             echo "latest_sha=$latest_sha"
             echo "last_deployed_sha=$last_deployed_sha"
             echo "manifest_status=verified"
+            echo "scan_status=$scan_status"
+            echo "scan_report=$scan_report"
           } >> "$GITHUB_OUTPUT"
 
           echo "Release manifest verified; latest=${latest_sha}, deployed=${last_deployed_sha}."
@@ -400,6 +410,10 @@ jobs:
                   grep -oE 'frontend_meta_sha=[0-9a-f]{40}' <<< "$standard_output" |
                     head -n1 | cut -d= -f2 || true
                 )"
+                scan_status="$(
+                  grep -oE 'scan_status=[a-z-]+' <<< "$standard_output" |
+                    head -n1 | cut -d= -f2 || true
+                )"
 
                 [[ "$runtime_sha" == "$RELEASE_SHA" ]] || {
                   echo "The host reported runtime_sha='${runtime_sha}', expected ${RELEASE_SHA}."
@@ -417,6 +431,10 @@ jobs:
                   echo "The host reported frontend_meta_sha='${frontend_meta_sha}', expected ${RELEASE_SHA}."
                   exit 1
                 }
+                [[ "$scan_status" == "passed" || "$scan_status" == "not-recorded" ]] || {
+                  echo "The host reported scan_status='${scan_status}'."
+                  exit 1
+                }
 
                 {
                   echo "ssm_status=Success"
@@ -424,6 +442,7 @@ jobs:
                   echo "runtime_build_time=$runtime_build_time"
                   echo "frontend_build_sha=$frontend_build_sha"
                   echo "frontend_meta_sha=$frontend_meta_sha"
+                  echo "scan_status=$scan_status"
                 } >> "$GITHUB_OUTPUT"
 
                 echo "Deployment completed successfully."
@@ -490,12 +509,15 @@ jobs:
           BACKEND_DIGEST: ${{ steps.images.outputs.backend_digest }}
           FRONTEND_DIGEST: ${{ steps.images.outputs.frontend_digest }}
           MANIFEST_STATUS: ${{ steps.images.outputs.manifest_status }}
+          SCAN_STATUS: ${{ steps.images.outputs.scan_status }}
+          SCAN_REPORT: ${{ steps.images.outputs.scan_report }}
           SELECTION_MODE: ${{ steps.selection.outputs.mode }}
           LATEST_SHA: ${{ steps.images.outputs.latest_sha }}
           LAST_DEPLOYED_SHA: ${{ steps.images.outputs.last_deployed_sha }}
           REASON: ${{ inputs.reason }}
           RECORD_STATUS: ${{ steps.record.outputs.record_status }}
           SSM_STATUS: ${{ steps.wait.outputs.ssm_status }}
+          HOST_SCAN_STATUS: ${{ steps.wait.outputs.scan_status }}
           RUNTIME_SHA: ${{ steps.wait.outputs.runtime_sha }}
           RUNTIME_BUILD_TIME: ${{ steps.wait.outputs.runtime_build_time }}
           FRONTEND_BUILD_SHA: ${{ steps.wait.outputs.frontend_build_sha }}
@@ -517,6 +539,8 @@ jobs:
             echo "- Backend digest: \`$BACKEND_DIGEST\`"
             echo "- Frontend digest: \`$FRONTEND_DIGEST\`"
             echo "- Release manifest: \`$MANIFEST_STATUS\`; images match ECR"
+            echo "- Release scan: \`$SCAN_STATUS\` (report \`$SCAN_REPORT\`)"
+            echo "- Host scan status: \`$HOST_SCAN_STATUS\`"
             echo "- SSM deployment: \`$SSM_STATUS\`"
             echo "- Runtime /api/version: \`$RUNTIME_SHA\` (built \`$RUNTIME_BUILD_TIME\`)"
             echo "- Frontend build: \`$FRONTEND_BUILD_SHA\` (meta \`$FRONTEND_META_SHA\`)"

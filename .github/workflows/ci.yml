@@ -124,11 +124,129 @@ jobs:
       push: true
       image_tag: ${{ github.sha }}
 
+  scan-release:
+    name: Scan release images
+    if: github.event_name == 'push' && github.ref == 'refs/heads/development'
+    needs:
+      - publish-images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    permissions:
+      contents: read
+      id-token: write
+
+    outputs:
+      scan_status: ${{ steps.gate.outputs.scan_status }}
+      report_artifact: release-scan-${{ github.sha }}
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          allowed-account-ids: ${{ vars.AWS_ACCOUNT_ID }}
+          mask-aws-account-id: true
+          role-session-name: CampusDeskReleaseScan
+
+      - name: Log in to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Scan backend image (table)
+        id: backend_table
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          image-ref: ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.ECR_BACKEND_REPOSITORY }}@${{ needs.publish-images.outputs.backend_digest }}
+          scan-type: image
+          format: table
+          output: trivy-backend.txt
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: os,library
+          scanners: vuln
+
+      - name: Scan backend image (SARIF)
+        if: always()
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          image-ref: ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.ECR_BACKEND_REPOSITORY }}@${{ needs.publish-images.outputs.backend_digest }}
+          scan-type: image
+          format: sarif
+          output: trivy-backend.sarif
+          severity: CRITICAL,HIGH
+          exit-code: '0'
+          ignore-unfixed: true
+          vuln-type: os,library
+          scanners: vuln
+
+      - name: Scan frontend image (table)
+        id: frontend_table
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          image-ref: ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.ECR_FRONTEND_REPOSITORY }}@${{ needs.publish-images.outputs.frontend_digest }}
+          scan-type: image
+          format: table
+          output: trivy-frontend.txt
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: os,library
+          scanners: vuln
+
+      - name: Scan frontend image (SARIF)
+        if: always()
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          image-ref: ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.ECR_FRONTEND_REPOSITORY }}@${{ needs.publish-images.outputs.frontend_digest }}
+          scan-type: image
+          format: sarif
+          output: trivy-frontend.sarif
+          severity: CRITICAL,HIGH
+          exit-code: '0'
+          ignore-unfixed: true
+          vuln-type: os,library
+          scanners: vuln
+
+      - name: Upload scan reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-scan-${{ github.sha }}
+          path: |
+            trivy-backend.txt
+            trivy-backend.sarif
+            trivy-frontend.txt
+            trivy-frontend.sarif
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: Enforce Trivy gate
+        id: gate
+        if: always()
+        shell: bash
+        env:
+          BACKEND_OUTCOME: ${{ steps.backend_table.outcome }}
+          FRONTEND_OUTCOME: ${{ steps.frontend_table.outcome }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$BACKEND_OUTCOME" != "success" || "$FRONTEND_OUTCOME" != "success" ]]; then
+            echo "Trivy reported CRITICAL/HIGH findings; the release manifest will not be published."
+            exit 1
+          fi
+
+          echo "scan_status=passed" >> "$GITHUB_OUTPUT"
+
   release-manifest:
     name: Publish release manifest
     if: github.event_name == 'push' && github.ref == 'refs/heads/development'
     needs:
       - publish-images
+      - scan-release
     runs-on: ubuntu-24.04
     timeout-minutes: 10
 
@@ -162,6 +280,8 @@ jobs:
           FRONTEND_REPOSITORY: ${{ vars.ECR_FRONTEND_REPOSITORY }}
           BACKEND_DIGEST: ${{ needs.publish-images.outputs.backend_digest }}
           FRONTEND_DIGEST: ${{ needs.publish-images.outputs.frontend_digest }}
+          SCAN_STATUS: ${{ needs.scan-release.outputs.scan_status }}
+          SCAN_REPORT: ${{ needs.scan-release.outputs.report_artifact }}
         run: |
           set -euo pipefail
 
@@ -192,6 +312,8 @@ jobs:
             --arg backend_digest "$BACKEND_DIGEST" \
             --arg frontend_repository "$FRONTEND_REPOSITORY" \
             --arg frontend_digest "$FRONTEND_DIGEST" \
+            --arg scan_status "$SCAN_STATUS" \
+            --arg scan_report "$SCAN_REPORT" \
             '{
               schema: 1,
               sha: $sha,
@@ -208,6 +330,10 @@ jobs:
                 repository: $frontend_repository,
                 tag: $sha,
                 digest: $frontend_digest
+              },
+              scan: {
+                status: $scan_status,
+                report_artifact: $scan_report
               }
             }' > release-manifest.json
 
@@ -265,6 +391,8 @@ jobs:
         env:
           RELEASE_SHA: ${{ github.sha }}
           LATEST_UPDATED: ${{ steps.publish.outputs.latest_updated }}
+          SCAN_STATUS: ${{ needs.scan-release.outputs.scan_status }}
+          SCAN_REPORT: ${{ needs.scan-release.outputs.report_artifact }}
         run: |
           set -euo pipefail
 
@@ -274,6 +402,7 @@ jobs:
             echo "- Release: \`$RELEASE_SHA\`"
             echo "- Manifest parameter: \`/campusdesk/releases/$RELEASE_SHA\`"
             echo "- Latest parameter updated: \`$LATEST_UPDATED\`"
+            echo "- Scan: \`$SCAN_STATUS\` (artifact \`$SCAN_REPORT\`)"
             echo
             echo '```json'
             cat release-manifest.json

@@ -27,6 +27,7 @@ runtime_build_sha=""
 runtime_build_time=""
 frontend_build_sha=""
 frontend_meta_sha=""
+scan_status=""
 
 previous_release_sha="unknown"
 action=""
@@ -267,6 +268,7 @@ write_release_record() {
         printf '  "build_time": "%s",\n' "$runtime_build_time"
         printf '  "frontend_build_sha": "%s",\n' "$frontend_build_sha"
         printf '  "frontend_meta_sha": "%s",\n' "$frontend_meta_sha"
+        printf '  "scan_status": "%s",\n' "$scan_status"
         printf '  "previous_release_sha": "%s",\n' "$previous_release_sha"
         printf '  "action": "%s",\n' "$action"
         printf '  "migration_step_completed": %s,\n' "$migration_step_completed"
@@ -409,6 +411,30 @@ verify_runtime_sha() {
         die "Frontend app-build meta '${frontend_meta_sha}' does not match release ${release_sha}"
 
     log "runtime_sha=${runtime_build_sha} runtime_build_time=${runtime_build_time} frontend_build_sha=${frontend_build_sha} frontend_meta_sha=${frontend_meta_sha}"
+}
+
+read_scan_status() {
+    local manifest
+
+    manifest="$(
+        aws ssm get-parameter \
+            --region "$AWS_REGION" \
+            --name "/campusdesk/releases/${release_sha}" \
+            --query Parameter.Value \
+            --output text 2>/dev/null
+    )" ||
+        die "Could not read the release manifest for ${release_sha}"
+
+    scan_status="$(
+        sed -n 's/.*"scan"[^{]*{[^}]*"status"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' <<< "$manifest"
+    )"
+
+    [[ -n "$scan_status" ]] || scan_status="not-recorded"
+
+    [[ "$scan_status" == "passed" || "$scan_status" == "not-recorded" ]] ||
+        die "Release ${release_sha} has scan status '${scan_status}'"
+
+    log "scan_status=${scan_status}"
 }
 
 wait_for_service() {
@@ -589,6 +615,7 @@ if [[ "$recorded_release_matches" == "true" && "$running_release_matches" == "tr
     smoke_test
     verify_frontend_config
     verify_runtime_sha
+    read_scan_status
 
     action="noop"
 
@@ -691,6 +718,7 @@ wait_for_service frontend running 120
 smoke_test
 verify_frontend_config
 verify_runtime_sha
+read_scan_status
 
 write_state \
     "${STATE_DIR}/current-release.env" \

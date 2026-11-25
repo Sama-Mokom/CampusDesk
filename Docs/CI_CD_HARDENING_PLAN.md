@@ -2,7 +2,7 @@
 
 **Last reviewed:** 25 November 2026
 
-**Status:** ✅ Phase 0 closed on staging (20 November 2026). ✅ Phase 1 verified on staging (21 November 2026). ✅ Phase 2 verified in CI and on staging (23 November 2026). ✅ Phase 3 verified in CI and on staging (24 November 2026). ✅ Phase 4 verified on staging (25 November 2026). Phase 5 PR A is verified on staging (25 November 2026); PR B scan, the negative mismatch test, and the runbooks are pending. Delete the unused `VITE_REVERB_APP_KEY` repository variable.
+**Status:** ✅ Phase 0 closed on staging (20 November 2026). ✅ Phase 1 verified on staging (21 November 2026). ✅ Phase 2 verified in CI and on staging (23 November 2026). ✅ Phase 3 verified in CI and on staging (24 November 2026). ✅ Phase 4 verified on staging (25 November 2026). Phase 5 PR A is verified on staging (25 November 2026); PR B is implemented on `ci/release-scan`; scan/manifest verification, the negative mismatch test, and the runbooks are pending. Delete the unused `VITE_REVERB_APP_KEY` repository variable.
 
 **Scope:** [.github/workflows/ci.yml](../.github/workflows/ci.yml), [.github/workflows/deploy-staging.yml](../.github/workflows/deploy-staging.yml), [Frontend/Dockerfile](../Frontend/Dockerfile), [campusdesk/Dockerfile](../campusdesk/Dockerfile), [compose.yaml](../compose.yaml), [compose.staging.yaml](../compose.staging.yaml), the host deployment script, and the related documentation.
 
@@ -19,7 +19,7 @@ This document records five defects found while investigating the 18 November 202
 | 2 — One build recipe | ✅ Verified 23 November 2026; three checks documented as not exercised |
 | 3 — Reproducible release builds | ✅ Verified 24 November 2026; existing-tag check documented as not exercised |
 | 4 — Runtime configuration | ✅ Verified 25 November 2026; repository-variable cleanup pending |
-| 5 — End-to-end release verification | 🚧 PR A verified; PR B scan pending |
+| 5 — End-to-end release verification | 🚧 PR B implemented; scan/manifest + runbooks pending |
 
 ---
 
@@ -550,7 +550,7 @@ The Browser console showed two extension/content-script `runtime.lastError` mess
 - [x] Expose the frontend build SHA in `meta[name="app-build"]` and `window.__APP_CONFIG__.buildSha`.
 - [x] Add a host `verify_runtime_sha` check: compare `/api/version`, the frontend config, and the SPA meta with `RELEASE_SHA`; fail on mismatch.
 - [x] Replace the hardcoded summary lines with step outputs and the host's verified runtime identity.
-- [ ] Add the Trivy `scan-release` job and release-manifest scan status (PR B).
+- [x] Add the Trivy `scan-release` job and release-manifest scan status (PR B).
 - [ ] Update `CI_CD_SESSION_2_HANDOFF.md`, `CI-CD.md`, and `KNOWN_ISSUES.md` (stale dev server entry).
 - [ ] Exercise the rollback and key-rotation runbooks once end to end.
 
@@ -569,7 +569,11 @@ The Browser console showed two extension/content-script `runtime.lastError` mess
 
 **Effort / dependencies:** ~1 day. Depends on Phases 1 and 4.
 
-**Progress (25 November 2026):** PR A verified on staging — `099e16` deployed as `normal`; latest matched; previous `8c8fed`; `/api/version` returned `099e16` built `2026-11-25T15:29:50+01:00`; the frontend `config.js` and SPA meta reported the same SHA; the deployment summary showed the runtime and frontend identity; the record verified. The host script hash is `990cf92c8887e7f4f7d29517c667264b5d5803767c20d05455d448ef12e5255d`. PR B (Trivy scan), the negative mismatch test, and the runbook exercises remain.
+**Progress (25 November 2026):** PR A verified on staging — `099e16` deployed as `normal`; latest matched; previous `8c8fed`; `/api/version` returned `099e16` built `2026-11-25T15:29:50+01:00`; the frontend `config.js` and SPA meta reported the same SHA; the deployment summary showed the runtime and frontend identity; the record verified. The host script hash is `990cf92c8887e7f4f7d29517c667264b5d5803767c20d05455d448ef12e5255d`.
+
+PR B is implemented on `ci/release-scan`: a Trivy `scan-release` job scans both pushed digests (table + SARIF, CRITICAL/HIGH, `ignore-unfixed`), the release manifest records `scan.status`/`scan.report_artifact`, the deployment summary shows the scan and host status, the host writes `scan_status` to `release.json`, and pre-scan releases are `not-recorded` for rollback. Scan/manifest verification, the negative mismatch test, and the runbook exercises remain.
+
+The PR B host script hash is `d25a69729dd05db13c41ee0902d0056af44587b3e9dcbc5b9e7fbcc82fbff6a7`; reinstall it before deploying the PR B release.
 
 ---
 
