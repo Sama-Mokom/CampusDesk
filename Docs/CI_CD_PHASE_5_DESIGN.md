@@ -2,7 +2,7 @@
 
 **Last reviewed:** 25 November 2026
 
-**Status:** PR A verified on staging (`099e16`); PR B (Trivy scan) and the negative/runbook checks are pending.
+**Status:** PR A verified on staging (`099e16`); PR B (Trivy scan) implemented on `ci/release-scan`; scan/manifest verification and the negative/runbook checks are pending.
 
 **Scope:** [campusdesk/Dockerfile](../campusdesk/Dockerfile), [campusdesk/config/app.php](../campusdesk/config/app.php), [campusdesk/routes/api.php](../campusdesk/routes/api.php), [Frontend/Dockerfile](../Frontend/Dockerfile), [Frontend/index.html](../Frontend/index.html), [Frontend/docker/40-generate-config.sh](../Frontend/docker/40-generate-config.sh), [.github/workflows/build-images.yml](../.github/workflows/build-images.yml), [.github/workflows/deploy-staging.yml](../.github/workflows/deploy-staging.yml), [ops/staging/campusdesk-deploy.sh](../ops/staging/campusdesk-deploy.sh), and the CI documentation.
 
@@ -135,9 +135,14 @@ The `created` OCI label remains the wall-clock build time; the application build
 - `build_sha`;
 - `build_time`;
 - `frontend_build_sha`;
-- `frontend_meta_sha`.
+- `frontend_meta_sha`;
+- `scan_status` (read from the release manifest; `not-recorded` for pre-scan releases).
 
 The failure message identifies which identity source disagreed.
+
+### Release scan status
+
+The host reads `/campusdesk/releases/<sha>` through its SSM role, validates `scan.status` is `passed` or `not-recorded`, and logs `scan_status=...`. The deploy workflow parses the host output and shows it alongside the manifest scan status and report artifact.
 
 ### Negative test
 
@@ -158,6 +163,8 @@ and exposes them as step outputs. The summary replaces static claims with:
 
 - `Release manifest` status from the `Resolve release manifest` step (`manifest_status=verified`);
 - `SSM deployment` status from the wait step (`ssm_status=Success`);
+- `Release scan` status and report artifact from the manifest;
+- host scan status from the host output;
 - runtime `/api/version` SHA and commit time;
 - frontend build SHA and meta SHA;
 - deployment record status;
@@ -179,6 +186,8 @@ A separate `scan-release` job in `ci.yml`:
 - output `scan_status=passed`;
 - `release-manifest` changes to `needs: [publish-images, scan-release]`.
 
+Both table scans run with `continue-on-error`; the SARIF scans and the artifact upload run with `always()`, and a final gate step fails the job if either table scan found findings. This preserves both reports even when one image fails.
+
 The release manifest records:
 
 ```json
@@ -188,7 +197,9 @@ The release manifest records:
 }
 ```
 
-The manifest and `release.json` record the status. A failed scan leaves the pushed tag inert and skips the manifest, matching the Phase 3 quarantine rule. The full report still lists unfixed findings.
+The deployment summary shows the manifest scan status and the artifact. The host reads the same manifest through its SSM role and writes `scan_status` into `release.json`; the deploy workflow parses it from the host output.
+
+A failed scan leaves the pushed tag inert and skips the manifest, matching the Phase 3 quarantine rule. Releases published before this job have no `scan` field; the deploy treats them as `not-recorded` so the rollback runbook can still target them.
 
 ## 7. Runbooks and docs
 
@@ -204,7 +215,8 @@ Update the handoff, CI-CD, and KNOWN_ISSUES:
 - `curl -fsS http://127.0.0.1:8080/api/version` on the host returns the deployed SHA and commit timestamp.
 - The SPA's `meta[name="app-build"]` and `window.__APP_CONFIG__.buildSha` match the same SHA.
 - A deploy whose `/api/version` build SHA differs from `RELEASE_SHA` fails with a clear host-script error.
-- The release scan runs on both images; the report artifact exists; the manifest records `scan.status`.
+- The release scan runs on both images; the report artifact exists; the manifest records `scan.status`; the host records `scan_status`.
+- Pre-scan releases deploy as `scan_status=not-recorded` so the rollback runbook still works.
 - The deployment summary contains only verified step outputs; no static “verified” lines.
 - The rollback and key-rotation runbooks are executed and recorded.
 - The Phase 3 reproducibility check still passes; the build SHA is deterministic and the build time is the commit timestamp.
@@ -221,7 +233,7 @@ Update the handoff, CI-CD, and KNOWN_ISSUES:
 
 **PR B — release scan**
 
-- `scan-release`, Trivy, artifact, manifest scan status, summary;
+- `scan-release`, Trivy, artifact, manifest scan status, host `scan_status`, summary;
 - docs.
 
 The runbook exercises and KNOWN_ISSUES cleanup can land with PR B or a small follow-up.
@@ -237,7 +249,8 @@ The runbook exercises and KNOWN_ISSUES cleanup can land with PR B or a small fol
 | Summary | Only verified step/host outputs; remove static claims |
 | Scan gate | Trivy CRITICAL/HIGH with `ignore-unfixed`; report all severities |
 | Scan ordering | Before the manifest; failure leaves an inert tag and no manifest |
-| Manifest schema | Add `scan` status; keep existing SHA/digest fields |
-| `release.json` | Add runtime build identity and scan status |
+| Pre-scan releases | No `scan` field; deploy as `not-recorded` for rollback |
+| Manifest schema | Add `scan` status/report; keep existing SHA/digest fields |
+| `release.json` | Add runtime build identity and `scan_status` |
 | Runbooks | Exercise rollback and key rotation once |
 | Stale dev-server entry | Fold into resolved history |

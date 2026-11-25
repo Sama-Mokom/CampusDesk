@@ -34,7 +34,7 @@ The frontend image contains no Reverb key. The Nginx entrypoint writes `/usr/sha
 
 ### Release verification and scan
 
-The backend image bakes `APP_BUILD_SHA` and the commit-timestamp `APP_BUILD_TIME`; `GET /api/version` returns both. The frontend bakes its build SHA into `meta[name="app-build"]` and `config.js` (`buildSha`). The host deploy script compares all three with `RELEASE_SHA` and writes the verified identity to `release.json`. The deployment summary uses only verified step and host outputs. A separate Trivy job gates the release manifest on CRITICAL/HIGH findings (PR B).
+The backend image bakes `APP_BUILD_SHA` and the commit-timestamp `APP_BUILD_TIME`; `GET /api/version` returns both. The frontend bakes its build SHA into `meta[name="app-build"]` and `config.js` (`buildSha`). The host deploy script compares all three with `RELEASE_SHA` and writes the verified identity to `release.json`. The deployment summary uses only verified step and host outputs. A separate Trivy `scan-release` job gates the release manifest on CRITICAL/HIGH findings, uploads `release-scan-<sha>`, records `scan.status` in the manifest, and the host records `scan_status`; pre-scan releases are treated as `not-recorded` for rollback.
 
 Deployments now require a published release manifest. A normal deployment must use the current `development` tip and the latest published release; re-deploying the current release is idempotent; a rollback requires `allow_previous_release` plus a reason and a target older than the deployed release. The operator procedure is in the handoff guide.
 
