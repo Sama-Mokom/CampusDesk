@@ -2,7 +2,7 @@
 
 **Coverage:** Local Docker foundation completed 25 September 2026 through Session Manager interactive-access and port-forward validation completed 12 October 2026
 
-**Last reviewed and updated:** 24 November 2026
+**Last reviewed and updated:** 25 November 2026
 
 **Repository branches:** `development` remains the deployment integration target; the account-security change sequence was prepared on `valib`. Recovery automation and its validation record were merged by PR #20 at merge commit `989ca54`.
 
@@ -504,6 +504,29 @@ Verified 23 November 2026: PR #34 / CI #69 built both images with no ECR access;
 
 The Phase 3 fix (PR #42) and Dependabot PRs #37–#41 are merged; push runs #84–#88 succeeded. Phase 3 is verified: `b4c8659` was deployed as `normal` with the release manifest and record verified; the `4a13764` images showed SPDX and SLSA v1 attestation layers; `Verify reproducibility` run #1 passed. The existing-tag rerun is documented as not exercised.
 
+### Runtime Reverb configuration
+
+The frontend image contains no Reverb key. `Frontend/docker/40-generate-config.sh` runs from the nginx `/docker-entrypoint.d/` directory, writes `/usr/share/nginx/html/config.js` from the container's `REVERB_APP_KEY` using `jq`, and `index.html` loads it before the app bundle. `config.js` is served with `Cache-Control: no-store`.
+
+The same image can run locally and in staging with different keys. The host `/opt/campusdesk/.env.staging` is the single source for the frontend, backend, Reverb, and workers. The host deploy script's `verify_frontend_config` compares the generated `.reverbAppKey` to the host key and checks the no-store header before writing the release record.
+
+The `VITE_REVERB_APP_KEY` repository variable is no longer used by the workflow. Delete it after the runtime-config release is verified; the local `Frontend/.env` can keep a development value for the Vite fallback.
+
+### Reverb key rotation
+
+1. Change `REVERB_APP_KEY` in `/opt/campusdesk/.env.staging`.
+2. Recreate the affected services:
+   ```bash
+   docker compose --env-file /opt/campusdesk/.env.staging \
+     --file /opt/campusdesk/compose.staging.yaml \
+     up -d --no-deps --force-recreate reverb backend worker realtime-worker frontend
+   ```
+3. Confirm the frontend entrypoint wrote the new key to `/usr/share/nginx/html/config.js`.
+4. Reload the SPA and confirm a WebSocket connects with the new key.
+5. Record the rotation in the staging operations log.
+
+No image rebuild or image tag change is required. `REVERB_APP_SECRET` remains host-only and is out of scope for this procedure.
+
 ### Release manifest
 
 After `publish-images` succeeds, the `release-manifest` job writes a release record for the published commit:
@@ -568,7 +591,8 @@ The workflow uses repository variables:
 - `AWS_ACCOUNT_ID`
 - `ECR_BACKEND_REPOSITORY`
 - `ECR_FRONTEND_REPOSITORY`
-- `VITE_REVERB_APP_KEY` (non-secret; removed when Phase 4 moves realtime configuration to runtime)
+
+The `VITE_REVERB_APP_KEY` variable is no longer used by the workflow; delete it after the runtime-config release is verified.
 
 No permanent AWS access-key pair is required by the workflow.
 
@@ -948,7 +972,8 @@ The root-owned script is `/usr/local/sbin/campusdesk-deploy`, mode `0750`. It is
 - runs `php artisan migrate --force` exactly once using the new backend;
 - recreates backend, worker, and frontend;
 - waits for database/backend health and worker/frontend running state;
-- smoke-tests frontend HTTP `200` and unauthenticated `/api/user` JSON `401`; and
+- smoke-tests frontend HTTP `200` and unauthenticated `/api/user` JSON `401`;
+- verifies the generated frontend `config.js` matches the host `REVERB_APP_KEY` and is served with `Cache-Control: no-store`; and
 - writes the release SHA to `/campusdesk/staging/last-deployed-sha`.
 
 If both requested digest references are already deployed **and the running containers match**, the script runs health and smoke checks only and rewrites the release record and the SSM deployed SHA. If the recorded references match but the running containers do not, it recreates instead of no-op'ing. The verified repeat deployment completed without pulling images, running migrations, recreating containers, or opening a maintenance window.

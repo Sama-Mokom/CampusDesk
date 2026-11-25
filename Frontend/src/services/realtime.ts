@@ -70,8 +70,14 @@ export class RealtimeManager {
     }
 
     if (!this.echo) {
-      this.echo = this.echoFactory()
-      this.bindReconnect()
+      try {
+        this.echo = this.echoFactory()
+        this.bindReconnect()
+      } catch (error) {
+        console.warn('Realtime unavailable:', error)
+        this.echo = null
+        return
+      }
     }
 
     // Subscribe to new channels

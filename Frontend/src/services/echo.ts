@@ -6,6 +6,7 @@ import api from './api'
 declare global {
   interface Window {
     Pusher?: typeof Pusher
+    __APP_CONFIG__?: { reverbAppKey?: string }
   }
 }
 
@@ -85,10 +86,13 @@ export function getEchoConfig(overrides?: EchoOptionsOverride) {
       ? Number(import.meta.env.VITE_REVERB_PORT)
       : fallbackPort)
 
-  const appKey =
-    overrides?.appKey?.trim() ||
-    import.meta.env.VITE_REVERB_APP_KEY?.trim() ||
-    'campusdesk-key'
+  const runtimeAppKey =
+    typeof window !== 'undefined'
+      ? window.__APP_CONFIG__?.reverbAppKey?.trim()
+      : undefined
+
+  const buildAppKey = import.meta.env.VITE_REVERB_APP_KEY?.trim()
+  const appKey = overrides?.appKey?.trim() || runtimeAppKey || buildAppKey || ''
 
   return {
     broadcaster: 'reverb' as const,
@@ -104,5 +108,11 @@ export function getEchoConfig(overrides?: EchoOptionsOverride) {
 }
 
 export function createEchoInstance(overrides?: EchoOptionsOverride): Echo<'reverb'> {
-  return new Echo(getEchoConfig(overrides))
+  const config = getEchoConfig(overrides)
+
+  if (!config.key) {
+    throw new Error('Reverb app key is not configured')
+  }
+
+  return new Echo(config)
 }

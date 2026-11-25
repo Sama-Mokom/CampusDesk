@@ -1,10 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { User } from '@/types'
 import api from '../api'
-import { createCustomAuthorizer, getEchoConfig } from '../echo'
+import { createCustomAuthorizer, createEchoInstance, getEchoConfig } from '../echo'
+import { RealtimeManager } from '../realtime'
 
 describe('Echo Configuration and Sanctum Authorizer', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    delete window.__APP_CONFIG__
   })
 
   it('creates default configuration for Reverb', () => {
@@ -23,19 +26,52 @@ describe('Echo Configuration and Sanctum Authorizer', () => {
     expect(typeof config.authorizer).toBe('function')
   })
 
-  it('falls back to "campusdesk-key" when appKey override is absent and env variable is missing or empty', () => {
+  it('prefers the runtime config key over the build environment', () => {
     const originalEnvKey = import.meta.env.VITE_REVERB_APP_KEY
     try {
+      ;(import.meta.env as any).VITE_REVERB_APP_KEY = 'build-key'
+      window.__APP_CONFIG__ = { reverbAppKey: 'runtime-key' }
+      expect(getEchoConfig().key).toBe('runtime-key')
+    } finally {
+      ;(import.meta.env as any).VITE_REVERB_APP_KEY = originalEnvKey
+      delete window.__APP_CONFIG__
+    }
+  })
+
+  it('falls back to the build environment and never invents a key', () => {
+    const originalEnvKey = import.meta.env.VITE_REVERB_APP_KEY
+    try {
+      ;(import.meta.env as any).VITE_REVERB_APP_KEY = 'build-key'
+      expect(getEchoConfig().key).toBe('build-key')
+
       ;(import.meta.env as any).VITE_REVERB_APP_KEY = ''
-      const configEmpty = getEchoConfig()
-      expect(configEmpty.key).toBe('campusdesk-key')
+      expect(getEchoConfig().key).toBe('')
 
       delete (import.meta.env as any).VITE_REVERB_APP_KEY
-      const configUndefined = getEchoConfig()
-      expect(configUndefined.key).toBe('campusdesk-key')
+      expect(getEchoConfig().key).toBe('')
     } finally {
       ;(import.meta.env as any).VITE_REVERB_APP_KEY = originalEnvKey
     }
+  })
+
+  it('throws a clear error when an Echo instance is created without a key', () => {
+    const originalEnvKey = import.meta.env.VITE_REVERB_APP_KEY
+    try {
+      ;(import.meta.env as any).VITE_REVERB_APP_KEY = ''
+      expect(() => createEchoInstance()).toThrow('Reverb app key is not configured')
+    } finally {
+      ;(import.meta.env as any).VITE_REVERB_APP_KEY = originalEnvKey
+    }
+  })
+
+  it('keeps the SPA usable when realtime cannot initialize', () => {
+    const manager = new RealtimeManager(() => {
+      throw new Error('Reverb app key is not configured')
+    })
+
+    expect(() =>
+      manager.syncUser({ id: 1, role: 'student' } as User)
+    ).not.toThrow()
   })
 
   it('bypasses window.location.port when running on Vite dev port 5173 and defaults to Reverb port 8085', () => {

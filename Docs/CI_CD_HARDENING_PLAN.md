@@ -1,8 +1,8 @@
 # CampusDesk — CI/CD Hardening Plan
 
-**Last reviewed:** 24 November 2026
+**Last reviewed:** 25 November 2026
 
-**Status:** ✅ Phase 0 closed on staging (20 November 2026). ✅ Phase 1 verified on staging (21 November 2026). ✅ Phase 2 verified in CI and on staging (23 November 2026). ✅ Phase 3 verified in CI and on staging (24 November 2026); the existing-tag rerun is documented as not exercised. Phase 4 is next.
+**Status:** ✅ Phase 0 closed on staging (20 November 2026). ✅ Phase 1 verified on staging (21 November 2026). ✅ Phase 2 verified in CI and on staging (23 November 2026). ✅ Phase 3 verified in CI and on staging (24 November 2026). Phase 4 is implemented on `feat/runtime-reverb-key`; host reinstall and staging verification are pending.
 
 **Scope:** [.github/workflows/ci.yml](../.github/workflows/ci.yml), [.github/workflows/deploy-staging.yml](../.github/workflows/deploy-staging.yml), [Frontend/Dockerfile](../Frontend/Dockerfile), [campusdesk/Dockerfile](../campusdesk/Dockerfile), [compose.yaml](../compose.yaml), [compose.staging.yaml](../compose.staging.yaml), the host deployment script, and the related documentation.
 
@@ -18,7 +18,7 @@ This document records five defects found while investigating the 18 November 202
 | 1 — Release selection guard | ✅ Verified 21 November 2026; five acceptance checks documented as not exercised |
 | 2 — One build recipe | ✅ Verified 23 November 2026; three checks documented as not exercised |
 | 3 — Reproducible release builds | ✅ Verified 24 November 2026; existing-tag check documented as not exercised |
-| 4 — Runtime configuration | Next |
+| 4 — Runtime configuration | 🚧 Implemented on `feat/runtime-reverb-key`; host reinstall + verification pending |
 | 5 — End-to-end release verification | Not started |
 
 ---
@@ -490,15 +490,19 @@ The pre-fix `be6c69d…` release was produced by the old existing-tag path; if i
 
 **Goal:** make the image environment-agnostic so one artefact can be promoted and rotation cannot silently break realtime.
 
+**Design:** [CI_CD_PHASE_4_DESIGN.md](CI_CD_PHASE_4_DESIGN.md).
+
 **Tasks:**
 
-- [ ] Add an nginx entrypoint that writes `/usr/share/nginx/html/config.js` from container environment (`REVERB_APP_KEY`, and any other environment-specific public values).
-- [ ] Load `config.js` before the app bundle in `Frontend/index.html`.
-- [ ] Change [echo.ts:88-91](../Frontend/src/services/echo.ts#L88-L91) to prefer `window.__APP_CONFIG__` and fall back to `import.meta.env` for local development.
-- [ ] Serve `config.js` with `Cache-Control: no-store`; keep the existing SPA fallback behaviour.
-- [ ] Remove `VITE_REVERB_APP_KEY` from the Dockerfile, the reusable workflow, and `compose.yaml`; keep `VITE_API_URL`.
-- [ ] Write the rotation runbook: change host env → restart `reverb`, `backend`, `worker`, `realtime-worker` → verify a websocket connects.
-- [ ] Until runtime config ships, add a deploy preflight that compares the host `REVERB_APP_KEY` with the value baked into the image and fails on mismatch.
+- [x] Add an nginx entrypoint that writes `/usr/share/nginx/html/config.js` from container environment (`REVERB_APP_KEY`, using `jq`).
+- [x] Load `config.js` before the app bundle in `Frontend/index.html`.
+- [x] Change [echo.ts:88-91](../Frontend/src/services/echo.ts#L88-L91) to prefer `window.__APP_CONFIG__` and fall back to `import.meta.env` for local development.
+- [x] Serve `config.js` with `Cache-Control: no-store`; keep the SPA fallback behaviour.
+- [x] Remove `VITE_REVERB_APP_KEY` from the Dockerfile, the reusable workflow, and `compose.yaml`; keep `VITE_API_URL`.
+- [x] Write the rotation runbook: change host env → recreate `reverb`, `backend`, `worker`, `realtime-worker`, `frontend` → verify a websocket connects.
+- [x] Replace the baked-key preflight with a post-start host check that the generated `config.js` matches the host key and is served no-store.
+- [x] Add graceful SPA degradation when `config.js` is missing (Echo factory throws; realtime disabled).
+- [x] Add Echo/config tests for runtime precedence, build fallback, and no-key behavior.
 
 **Acceptance tests:**
 
@@ -513,6 +517,8 @@ The pre-fix `be6c69d…` release was produced by the old existing-tag path; if i
 **Rollback:** restore the build-arg path; the `echo.ts` fallback keeps local development working either way.
 
 **Effort / dependencies:** ~1–2 days. Depends on Phase 2 (single build path) and Phase 0 (deploy preflight output).
+
+**Progress (25 November 2026):** implemented on `feat/runtime-reverb-key` — key-free frontend image, nginx `config.js` entrypoint with `jq`, no-store config/index, runtime Echo precedence with graceful degradation, Compose/host key wiring, and the post-start host check. Host reinstall, staging rotation, and verification are pending.
 
 ---
 

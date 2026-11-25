@@ -231,6 +231,9 @@ services:
     pull_policy: never
     restart: unless-stopped
 
+    environment:
+      REVERB_APP_KEY: ${REVERB_APP_KEY:?REVERB_APP_KEY must be set}
+
     ports:
       - "127.0.0.1:8080:80"
 

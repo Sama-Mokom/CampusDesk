@@ -1,6 +1,6 @@
 # CampusDesk CI/CD and Operations Status
 
-**Last reviewed:** 24 November 2026
+**Last reviewed:** 25 November 2026
 
 This file is the entry point for the CampusDesk CI/CD work. Detailed implementation records live under `Docs/`.
 
@@ -11,6 +11,8 @@ Phase 1's release-selection design — release manifests, normal/idempotent/roll
 Phase 2's one-build-recipe design is in [Docs/CI_CD_PHASE_2_DESIGN.md](Docs/CI_CD_PHASE_2_DESIGN.md). Both the PR validation path and the development publication path call the same reusable workflow, [build-images.yml](.github/workflows/build-images.yml).
 
 Phase 3's reproducible-build design is in [Docs/CI_CD_PHASE_3_DESIGN.md](Docs/CI_CD_PHASE_3_DESIGN.md). Base images are pinned by digest, release images carry provenance and SBOM, and a separate dispatch verifies application-file reproducibility.
+
+Phase 4's runtime Reverb design is in [Docs/CI_CD_PHASE_4_DESIGN.md](Docs/CI_CD_PHASE_4_DESIGN.md). The frontend image is key-free; an Nginx entrypoint writes `/config.js` from the container environment. Key rotation recreates the containers without rebuilding the image.
 
 ## Image publication model
 
@@ -23,6 +25,10 @@ Pull-request runs build both images only to validate the Dockerfiles; those imag
 - A `development` push builds that commit once, publishes the images with provenance and SBOM, and writes the release manifest.
 - Deployments consume the manifest and pull the recorded digests; they never rebuild.
 - A PR merge ref and its merge commit are different SHAs by design; the recipe is identical.
+
+### Runtime Reverb configuration
+
+The frontend image contains no Reverb key. The Nginx entrypoint writes `/usr/share/nginx/html/config.js` from the container's `REVERB_APP_KEY`; `index.html` loads it before the app bundle, and `config.js` is served with `Cache-Control: no-store`. The host `/opt/campusdesk/.env.staging` is the single source for the frontend, backend, Reverb, and workers. Rotating the key requires recreating those containers, not rebuilding the image.
 
 Deployments now require a published release manifest. A normal deployment must use the current `development` tip and the latest published release; re-deploying the current release is idempotent; a rollback requires `allow_previous_release` plus a reason and a target older than the deployed release. The operator procedure is in the handoff guide.
 
