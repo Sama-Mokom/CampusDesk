@@ -15,6 +15,10 @@ return [
 
     'name' => env('APP_NAME', 'Laravel'),
 
+    'build_sha' => env('APP_BUILD_SHA', 'unknown'),
+
+    'build_time' => env('APP_BUILD_TIME', 'unknown'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Environment

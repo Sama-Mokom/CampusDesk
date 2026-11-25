@@ -14,6 +14,8 @@ Phase 3's reproducible-build design is in [Docs/CI_CD_PHASE_3_DESIGN.md](Docs/CI
 
 Phase 4's runtime Reverb design is in [Docs/CI_CD_PHASE_4_DESIGN.md](Docs/CI_CD_PHASE_4_DESIGN.md). The frontend image is key-free; an Nginx entrypoint writes `/config.js` from the container environment. Key rotation recreates the containers without rebuilding the image.
 
+Phase 5's end-to-end release verification design is in [Docs/CI_CD_PHASE_5_DESIGN.md](Docs/CI_CD_PHASE_5_DESIGN.md). The backend bakes its build SHA and commit timestamp; `/api/version`, the SPA meta, and `config.js` expose the same identity; the host verifies them before recording the deployment. A separate Trivy job scans the published images before the release manifest.
+
 ## Image publication model
 
 Pull-request runs build both images only to validate the Dockerfiles; those images are never published. A push to `development`, including a merged pull request, runs the publish jobs, which build and push the release images tagged with the pushed commit SHA. Release images are built from digest-pinned bases and carry build provenance (with build arguments and materials) and an SBOM. Deployment resolves those tags to immutable digests. The hardening plan records why this model is being tightened.
@@ -29,6 +31,10 @@ Pull-request runs build both images only to validate the Dockerfiles; those imag
 ### Runtime Reverb configuration
 
 The frontend image contains no Reverb key. The Nginx entrypoint writes `/usr/share/nginx/html/config.js` from the container's `REVERB_APP_KEY`; `index.html` loads it before the app bundle, and `config.js` is served with `Cache-Control: no-store`. The host `/opt/campusdesk/.env.staging` is the single source for the frontend, backend, Reverb, and workers. Rotating the key requires recreating those containers, not rebuilding the image.
+
+### Release verification and scan
+
+The backend image bakes `APP_BUILD_SHA` and the commit-timestamp `APP_BUILD_TIME`; `GET /api/version` returns both. The frontend bakes its build SHA into `meta[name="app-build"]` and `config.js` (`buildSha`). The host deploy script compares all three with `RELEASE_SHA` and writes the verified identity to `release.json`. The deployment summary uses only verified step and host outputs. A separate Trivy job gates the release manifest on CRITICAL/HIGH findings (PR B).
 
 Deployments now require a published release manifest. A normal deployment must use the current `development` tip and the latest published release; re-deploying the current release is idempotent; a rollback requires `allow_previous_release` plus a reason and a target older than the deployed release. The operator procedure is in the handoff guide.
 

@@ -533,6 +533,24 @@ The `VITE_REVERB_APP_KEY` repository variable is no longer used by the workflow.
 
 No image rebuild or image tag change is required. `REVERB_APP_SECRET` remains host-only and is out of scope for this procedure.
 
+### Release identity and scan
+
+The backend image bakes `APP_BUILD_SHA` (the release commit) and `APP_BUILD_TIME` (the commit timestamp, not the wall-clock build time). `GET /api/version` returns both values publicly with `Cache-Control: no-store`.
+
+The frontend bakes the same SHA into `meta[name="app-build"]` and into the runtime `config.js` as `buildSha`. The host deploy script's `verify_runtime_sha` compares `/api/version`, the frontend `config.js`, and the SPA meta with `RELEASE_SHA`; it fails the deploy on any mismatch. `release.json` records `build_sha`, `build_time`, `frontend_build_sha`, and `frontend_meta_sha`.
+
+The deployment summary uses only values from verified step and host outputs: the manifest status, SSM status, runtime `/api/version`, frontend build/meta, and deployment record.
+
+A separate Trivy `scan-release` job (PR B) scans both published index digests before `release-manifest`; the report is the `release-scan-<sha>` artifact, and the manifest records the scan status.
+
+**Version endpoint check:**
+
+```bash
+curl -fsS http://127.0.0.1:8080/api/version
+```
+
+It must return the deployed `build_sha` and `build_time`; the host script enforces this on every deploy.
+
 ### Release manifest
 
 After `publish-images` succeeds, the `release-manifest` job writes a release record for the published commit:

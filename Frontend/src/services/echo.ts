@@ -6,7 +6,7 @@ import api from './api'
 declare global {
   interface Window {
     Pusher?: typeof Pusher
-    __APP_CONFIG__?: { reverbAppKey?: string }
+    __APP_CONFIG__?: { reverbAppKey?: string; buildSha?: string }
   }
 }
 
