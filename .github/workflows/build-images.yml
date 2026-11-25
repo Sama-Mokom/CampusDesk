@@ -388,7 +388,14 @@ jobs:
             docker pull "$IMAGE"
           fi
 
-          container_id="$(docker run -d --rm -p 127.0.0.1::80 "$IMAGE")"
+          smoke_key='smoke-test-key'
+
+          container_id="$(
+            docker run -d --rm \
+              -e REVERB_APP_KEY="$smoke_key" \
+              -p 127.0.0.1::80 \
+              "$IMAGE"
+          )"
           trap 'docker rm -f "$container_id" >/dev/null 2>&1 || true' EXIT
 
           port="$(docker port "$container_id" 80 | head -n1 | awk -F: '{print $NF}')"
@@ -405,6 +412,20 @@ jobs:
 
           if [[ "$code" != "200" ]]; then
             echo "Frontend smoke test returned HTTP ${code}."
+            docker logs "$container_id" || true
+            exit 1
+          fi
+
+          config_body="$(curl -fsS "http://127.0.0.1:${port}/config.js")"
+          if ! grep -Fq "\"reverbAppKey\":\"${smoke_key}\"" <<< "$config_body"; then
+            echo "Frontend config.js did not contain the smoke-test Reverb key."
+            docker logs "$container_id" || true
+            exit 1
+          fi
+
+          config_headers="$(curl -fsSI "http://127.0.0.1:${port}/config.js")"
+          if ! grep -qi '^Cache-Control:.*no-store' <<< "$config_headers"; then
+            echo "Frontend config.js was cacheable."
             docker logs "$container_id" || true
             exit 1
           fi
