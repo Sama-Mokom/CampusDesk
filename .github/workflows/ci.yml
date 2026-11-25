@@ -156,7 +156,7 @@ jobs:
       - name: Scan backend image (table)
         id: backend_table
         continue-on-error: true
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.ECR_BACKEND_REPOSITORY }}@${{ needs.publish-images.outputs.backend_digest }}
           scan-type: image
@@ -170,7 +170,7 @@ jobs:
 
       - name: Scan backend image (SARIF)
         if: always()
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.ECR_BACKEND_REPOSITORY }}@${{ needs.publish-images.outputs.backend_digest }}
           scan-type: image
@@ -185,7 +185,7 @@ jobs:
       - name: Scan frontend image (table)
         id: frontend_table
         continue-on-error: true
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.ECR_FRONTEND_REPOSITORY }}@${{ needs.publish-images.outputs.frontend_digest }}
           scan-type: image
@@ -199,7 +199,7 @@ jobs:
 
       - name: Scan frontend image (SARIF)
         if: always()
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.ECR_FRONTEND_REPOSITORY }}@${{ needs.publish-images.outputs.frontend_digest }}
           scan-type: image
