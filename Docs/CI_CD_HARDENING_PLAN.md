@@ -2,7 +2,7 @@
 
 **Last reviewed:** 25 November 2026
 
-**Status:** ✅ Phase 0 closed on staging (20 November 2026). ✅ Phase 1 verified on staging (21 November 2026). ✅ Phase 2 verified in CI and on staging (23 November 2026). ✅ Phase 3 verified in CI and on staging (24 November 2026). Phase 4 is implemented on `feat/runtime-reverb-key`; host reinstall and staging verification are pending.
+**Status:** ✅ Phase 0 closed on staging (20 November 2026). ✅ Phase 1 verified on staging (21 November 2026). ✅ Phase 2 verified in CI and on staging (23 November 2026). ✅ Phase 3 verified in CI and on staging (24 November 2026). ✅ Phase 4 verified on staging (25 November 2026); delete the unused `VITE_REVERB_APP_KEY` repository variable. Phase 5 is next.
 
 **Scope:** [.github/workflows/ci.yml](../.github/workflows/ci.yml), [.github/workflows/deploy-staging.yml](../.github/workflows/deploy-staging.yml), [Frontend/Dockerfile](../Frontend/Dockerfile), [campusdesk/Dockerfile](../campusdesk/Dockerfile), [compose.yaml](../compose.yaml), [compose.staging.yaml](../compose.staging.yaml), the host deployment script, and the related documentation.
 
@@ -18,8 +18,8 @@ This document records five defects found while investigating the 18 November 202
 | 1 — Release selection guard | ✅ Verified 21 November 2026; five acceptance checks documented as not exercised |
 | 2 — One build recipe | ✅ Verified 23 November 2026; three checks documented as not exercised |
 | 3 — Reproducible release builds | ✅ Verified 24 November 2026; existing-tag check documented as not exercised |
-| 4 — Runtime configuration | 🚧 Implemented on `feat/runtime-reverb-key`; host reinstall + verification pending |
-| 5 — End-to-end release verification | Not started |
+| 4 — Runtime configuration | ✅ Verified 25 November 2026; repository-variable cleanup pending |
+| 5 — End-to-end release verification | Next |
 
 ---
 
@@ -503,14 +503,16 @@ The pre-fix `be6c69d…` release was produced by the old existing-tag path; if i
 - [x] Replace the baked-key preflight with a post-start host check that the generated `config.js` matches the host key and is served no-store.
 - [x] Add graceful SPA degradation when `config.js` is missing (Echo factory throws; realtime disabled).
 - [x] Add Echo/config tests for runtime precedence, build fallback, and no-key behavior.
+- [x] Install the updated `compose.staging.yaml` and host deployment script on the staging host.
+- [ ] Delete the unused `VITE_REVERB_APP_KEY` repository variable.
 
 **Acceptance tests:**
 
-- [ ] Rotating `REVERB_APP_KEY` in `/opt/campusdesk/.env.staging` and recreating the containers keeps realtime working with no image rebuild.
-- [ ] `curl -sI http://127.0.0.1:8080/config.js` returns `200` and `Cache-Control: no-store`.
-- [ ] The same image runs locally and in staging with different keys.
-- [ ] `grep -rn "campusdesk-key" .github/ Frontend/Dockerfile compose.yaml` returns no matches (examples and docs may still show a placeholder).
-- [ ] The SPA still boots when `config.js` is missing (fallback path).
+- [x] Rotating `REVERB_APP_KEY` in `/opt/campusdesk/.env.staging` and recreating the containers keeps realtime working with no image rebuild.
+- [x] `curl -sI http://127.0.0.1:8080/config.js` returns `200` and `Cache-Control: no-store`.
+- [x] The same image runs locally and in staging with different keys.
+- [x] `grep -rn "campusdesk-key" .github/ Frontend/Dockerfile compose.yaml` returns no matches (examples and docs may still show a placeholder).
+- [x] The SPA still boots when `config.js` is missing (fallback path).
 
 **Out of scope:** rotating the Reverb app secret (host-only, never in the image).
 
@@ -518,7 +520,20 @@ The pre-fix `be6c69d…` release was produced by the old existing-tag path; if i
 
 **Effort / dependencies:** ~1–2 days. Depends on Phase 2 (single build path) and Phase 0 (deploy preflight output).
 
-**Progress (25 November 2026):** implemented on `feat/runtime-reverb-key` — key-free frontend image, nginx `config.js` entrypoint with `jq`, no-store config/index, runtime Echo precedence with graceful degradation, Compose/host key wiring, and the post-start host check. Host reinstall, staging rotation, and verification are pending.
+**Progress (25 November 2026):** implemented on `feat/runtime-reverb-key` — key-free frontend image, nginx `config.js` entrypoint with `jq`, no-store config/index, runtime Echo precedence with graceful degradation, Compose/host key wiring, and the post-start host check. The first deploy of `8c8fed` failed because the staging host Compose lacked the frontend `REVERB_APP_KEY`; installing the reviewed `compose.staging.yaml` and host script fixed it, and the redeploy succeeded.
+
+**Verification (25 November 2026):**
+
+- `8c8fed` deployed as `normal`; latest matched; previous `b4c8659`; release manifest verified; SSM success; deployment record verified.
+- The staging app key was rotated to `campusdesk-461a0bb9080ea6190e64dbfba3dee31d` (public client key; the app secret is separate), and `reverb`, `backend`, `worker`, `realtime-worker`, and `frontend` were recreated. No image rebuild occurred; the frontend image remained `473224a08684`.
+- `config.js` served the new key with HTTP `200` and `Cache-Control: no-store`.
+- The browser WebSocket returned `101 Switching Protocols`, subscribed to `private-users.621`, received a `request.created` event, and exchanged ping/pong frames.
+- The same staging image, run with `local-check-key` on port `8081`, served that different key with `no-store`, proving the image is key-free.
+- The hardcoded-key grep is empty for `.github/`, `Frontend/Dockerfile`, and `compose.yaml`; the Echo tests cover the missing-`config.js` fallback.
+
+The Browser console showed two extension/content-script `runtime.lastError` messages; they are not application errors. The WebSocket subscription and event prove the app's realtime path works.
+
+**Cleanup:** delete the now-unused `VITE_REVERB_APP_KEY` repository variable.
 
 ---
 

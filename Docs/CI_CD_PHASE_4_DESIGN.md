@@ -2,7 +2,7 @@
 
 **Last reviewed:** 25 November 2026
 
-**Status:** Implemented on `feat/runtime-reverb-key`; PR validation pending.
+**Status:** ✅ Verified 25 November 2026 — `8c8fed` deployed; key rotated to `campusdesk-461a0bb9080ea6190e64dbfba3dee31d`; WebSocket and same-image checks passed. Phase 5 is next.
 
 **Scope:** [Frontend/Dockerfile](../Frontend/Dockerfile), [Frontend/docker/nginx.conf](../Frontend/docker/nginx.conf), the new frontend entrypoint, [Frontend/index.html](../Frontend/index.html), [Frontend/src/services/echo.ts](../Frontend/src/services/echo.ts), [Frontend/src/services/realtime.ts](../Frontend/src/services/realtime.ts), [compose.yaml](../compose.yaml), [compose.staging.yaml](../compose.staging.yaml), [.github/workflows/build-images.yml](../.github/workflows/build-images.yml), [ops/staging/campusdesk-deploy.sh](../ops/staging/campusdesk-deploy.sh), and the CI documentation.
 
@@ -247,6 +247,8 @@ No image rebuild, no image tag change.
 - The frontend image contains no build-time key: `docker run --rm <image> grep -R "campusdesk-key" /usr/share/nginx/html` returns nothing.
 - The Echo tests cover runtime precedence, build fallback, no-key failure, and graceful realtime degradation.
 
+**Verification (25 November 2026):** `8c8fed` deployed as `normal` with the release manifest and record verified. The staging key was rotated to `campusdesk-461a0bb9080ea6190e64dbfba3dee31d` (public client key; the app secret is separate), all five services were recreated, and the frontend image stayed `473224a08684`. `config.js` served the new key with `200` and `no-store`; the browser WebSocket returned `101`, subscribed to `private-users.621`, received a `request.created` event, and exchanged ping/pong. The same image with `local-check-key` on port `8081` served that different key. The browser console's `runtime.lastError` messages are extension noise, not application errors.
+
 ## 12. Rollout and PR
 
 One PR, `feat/runtime-reverb-key`:
@@ -261,7 +263,7 @@ One PR, `feat/runtime-reverb-key`:
 After merge:
 
 1. The new image is built without the key.
-2. Reinstall the host script; deploy the merge SHA.
+2. Install the reviewed `compose.staging.yaml` on the host; reinstall the host script; deploy the merge SHA. The workflow deploys images, not Compose, so the host Compose update is a required reviewed host change.
 3. Rotate the key once to prove no rebuild is needed.
 4. Delete `VITE_REVERB_APP_KEY` after the rollback window.
 

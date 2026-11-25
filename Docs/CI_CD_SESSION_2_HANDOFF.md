@@ -510,6 +510,12 @@ The frontend image contains no Reverb key. `Frontend/docker/40-generate-config.s
 
 The same image can run locally and in staging with different keys. The host `/opt/campusdesk/.env.staging` is the single source for the frontend, backend, Reverb, and workers. The host deploy script's `verify_frontend_config` compares the generated `.reverbAppKey` to the host key and checks the no-store header before writing the release record.
 
+The Phase 4 `compose.staging.yaml` frontend `REVERB_APP_KEY` environment is a host configuration change: the deployment workflow deploys images, not Compose. Install the reviewed `compose.staging.yaml` on the host before deploying a key-free frontend image, then reinstall the host script.
+
+The current staging app key is `campusdesk-461a0bb9080ea6190e64dbfba3dee31d` (public client key; the app secret is separate and never in the image).
+
+Verified 25 November 2026: `8c8fed` deployed as `normal` with the release manifest and record verified; the key was rotated and the five services recreated with no image rebuild; `config.js` served the new key with `200` and `no-store`; the browser WebSocket returned `101`, subscribed to `private-users.621`, and received a `request.created` event; the same image with `local-check-key` on port `8081` served the different key.
+
 The `VITE_REVERB_APP_KEY` repository variable is no longer used by the workflow. Delete it after the runtime-config release is verified; the local `Frontend/.env` can keep a development value for the Vite fallback.
 
 ### Reverb key rotation
