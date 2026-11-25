@@ -2,7 +2,7 @@
 
 **Last reviewed:** 25 November 2026
 
-**Status:** PR A implemented on `feat/release-identity`; PR B (release scan) pending.
+**Status:** PR A verified on staging (`099e16`); PR B (Trivy scan) and the negative/runbook checks are pending.
 
 **Scope:** [campusdesk/Dockerfile](../campusdesk/Dockerfile), [campusdesk/config/app.php](../campusdesk/config/app.php), [campusdesk/routes/api.php](../campusdesk/routes/api.php), [Frontend/Dockerfile](../Frontend/Dockerfile), [Frontend/index.html](../Frontend/index.html), [Frontend/docker/40-generate-config.sh](../Frontend/docker/40-generate-config.sh), [.github/workflows/build-images.yml](../.github/workflows/build-images.yml), [.github/workflows/deploy-staging.yml](../.github/workflows/deploy-staging.yml), [ops/staging/campusdesk-deploy.sh](../ops/staging/campusdesk-deploy.sh), and the CI documentation.
 

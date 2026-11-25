@@ -541,6 +541,8 @@ The frontend bakes the same SHA into `meta[name="app-build"]` and into the runti
 
 The deployment summary uses only values from verified step and host outputs: the manifest status, SSM status, runtime `/api/version`, frontend build/meta, and deployment record.
 
+PR A verified 25 November 2026 on `099e16`: `/api/version` returned the SHA built `2026-11-25T15:29:50+01:00`; `config.js` and the SPA meta matched; the summary showed the runtime/frontend identity; the record verified.
+
 A separate Trivy `scan-release` job (PR B) scans both published index digests before `release-manifest`; the report is the `release-scan-<sha>` artifact, and the manifest records the scan status.
 
 **Version endpoint check:**
