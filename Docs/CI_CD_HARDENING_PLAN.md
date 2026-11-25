@@ -2,7 +2,7 @@
 
 **Last reviewed:** 25 November 2026
 
-**Status:** ✅ Phase 0 closed on staging (20 November 2026). ✅ Phase 1 verified on staging (21 November 2026). ✅ Phase 2 verified in CI and on staging (23 November 2026). ✅ Phase 3 verified in CI and on staging (24 November 2026). ✅ Phase 4 verified on staging (25 November 2026); delete the unused `VITE_REVERB_APP_KEY` repository variable. Phase 5 is next.
+**Status:** ✅ Phase 0 closed on staging (20 November 2026). ✅ Phase 1 verified on staging (21 November 2026). ✅ Phase 2 verified in CI and on staging (23 November 2026). ✅ Phase 3 verified in CI and on staging (24 November 2026). ✅ Phase 4 verified on staging (25 November 2026). Phase 5 PR A is implemented on `feat/release-identity`; PR B scan and verification are pending. Delete the unused `VITE_REVERB_APP_KEY` repository variable.
 
 **Scope:** [.github/workflows/ci.yml](../.github/workflows/ci.yml), [.github/workflows/deploy-staging.yml](../.github/workflows/deploy-staging.yml), [Frontend/Dockerfile](../Frontend/Dockerfile), [campusdesk/Dockerfile](../campusdesk/Dockerfile), [compose.yaml](../compose.yaml), [compose.staging.yaml](../compose.staging.yaml), the host deployment script, and the related documentation.
 
@@ -19,7 +19,7 @@ This document records five defects found while investigating the 18 November 202
 | 2 — One build recipe | ✅ Verified 23 November 2026; three checks documented as not exercised |
 | 3 — Reproducible release builds | ✅ Verified 24 November 2026; existing-tag check documented as not exercised |
 | 4 — Runtime configuration | ✅ Verified 25 November 2026; repository-variable cleanup pending |
-| 5 — End-to-end release verification | Next |
+| 5 — End-to-end release verification | 🚧 PR A implemented; PR B scan pending |
 
 ---
 
@@ -541,14 +541,16 @@ The Browser console showed two extension/content-script `runtime.lastError` mess
 
 **Goal:** prove, on every deploy, that the running application is the requested commit.
 
+**Design:** [CI_CD_PHASE_5_DESIGN.md](CI_CD_PHASE_5_DESIGN.md).
+
 **Tasks:**
 
-- [ ] Bake `APP_BUILD_SHA` and `APP_BUILD_TIME` into the backend image.
-- [ ] Add `GET /api/version` returning both values (public, no secrets).
-- [ ] Expose the frontend build SHA in `meta[name="app-build"]` and `window.__APP_CONFIG__.buildSha`.
-- [ ] Add a deploy verification step: query `/api/version` through the host and compare with `RELEASE_SHA`; fail the deploy on mismatch.
-- [ ] Replace the hardcoded summary lines with the verified SHA and digests.
-- [ ] Scan the pushed release digest with Trivy or Grype and record the report.
+- [x] Bake `APP_BUILD_SHA` and the commit-timestamp `APP_BUILD_TIME` into the backend image.
+- [x] Add `GET /api/version` returning both values (public, no secrets).
+- [x] Expose the frontend build SHA in `meta[name="app-build"]` and `window.__APP_CONFIG__.buildSha`.
+- [x] Add a host `verify_runtime_sha` check: compare `/api/version`, the frontend config, and the SPA meta with `RELEASE_SHA`; fail on mismatch.
+- [x] Replace the hardcoded summary lines with step outputs and the host's verified runtime identity.
+- [ ] Add the Trivy `scan-release` job and release-manifest scan status (PR B).
 - [ ] Update `CI_CD_SESSION_2_HANDOFF.md`, `CI-CD.md`, and `KNOWN_ISSUES.md` (stale dev server entry).
 - [ ] Exercise the rollback and key-rotation runbooks once end to end.
 
@@ -566,6 +568,8 @@ The Browser console showed two extension/content-script `runtime.lastError` mess
 **Rollback:** make the verification step warn-only if it proves too strict; the endpoint is additive.
 
 **Effort / dependencies:** ~1 day. Depends on Phases 1 and 4.
+
+**Progress (25 November 2026):** PR A implemented on `feat/release-identity` — backend `APP_BUILD_SHA`/commit-timestamp `APP_BUILD_TIME`, public `/api/version`, frontend `meta[name="app-build"]`/`window.__APP_CONFIG__.buildSha`, host `verify_runtime_sha`, `release.json` identity fields, and the deployment summary from verified step/host outputs. The version endpoint test passes. PR B (Trivy scan) and staging verification are next.
 
 ---
 

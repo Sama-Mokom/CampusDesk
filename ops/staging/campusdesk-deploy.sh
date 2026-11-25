@@ -23,6 +23,10 @@ readonly LOCK_FILE="/run/lock/campusdesk-deploy.lock"
 release_sha=""
 backend_image=""
 frontend_image=""
+runtime_build_sha=""
+runtime_build_time=""
+frontend_build_sha=""
+frontend_meta_sha=""
 
 previous_release_sha="unknown"
 action=""
@@ -259,6 +263,10 @@ write_release_record() {
         printf '  "release_sha": "%s",\n' "$release_sha"
         printf '  "backend_digest": "%s",\n' "$backend_digest"
         printf '  "frontend_digest": "%s",\n' "$frontend_digest"
+        printf '  "build_sha": "%s",\n' "$runtime_build_sha"
+        printf '  "build_time": "%s",\n' "$runtime_build_time"
+        printf '  "frontend_build_sha": "%s",\n' "$frontend_build_sha"
+        printf '  "frontend_meta_sha": "%s",\n' "$frontend_meta_sha"
         printf '  "previous_release_sha": "%s",\n' "$previous_release_sha"
         printf '  "action": "%s",\n' "$action"
         printf '  "migration_step_completed": %s,\n' "$migration_step_completed"
@@ -350,6 +358,57 @@ verify_frontend_config() {
         die "Frontend runtime configuration is cacheable"
 
     log "Frontend runtime configuration matches the staging Reverb key."
+}
+
+verify_runtime_sha() {
+    local version_json
+    local frontend_config
+    local index_html
+
+    version_json="$(
+        curl --silent --show-error --fail http://127.0.0.1:8080/api/version
+    )" ||
+        die "The runtime version endpoint is unavailable"
+
+    runtime_build_sha="$(
+        sed -n 's/.*"build_sha"[[:space:]]*:[[:space:]]*"\([0-9a-f]\{40\}\)".*/\1/p' <<< "$version_json"
+    )"
+    runtime_build_time="$(
+        sed -n 's/.*"build_time"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' <<< "$version_json"
+    )"
+
+    [[ "$runtime_build_sha" == "$release_sha" ]] ||
+        die "Runtime build SHA '${runtime_build_sha}' does not match release ${release_sha}"
+    [[ -n "$runtime_build_time" ]] ||
+        die "Runtime build time is missing from /api/version"
+
+    frontend_config="$(
+        "${compose[@]}" exec -T frontend cat /usr/share/nginx/html/config.js 2>/dev/null
+    )" ||
+        die "Could not read the frontend runtime configuration"
+
+    frontend_build_sha="$(
+        sed -e 's/^window.__APP_CONFIG__ = //' -e 's/;$//' <<< "$frontend_config" |
+            "${compose[@]}" exec -T frontend jq -r '.buildSha // empty' 2>/dev/null
+    )" ||
+        die "Could not read the frontend build SHA"
+
+    [[ "$frontend_build_sha" == "$release_sha" ]] ||
+        die "Frontend build SHA '${frontend_build_sha}' does not match release ${release_sha}"
+
+    index_html="$(
+        curl --silent --show-error --fail http://127.0.0.1:8080/
+    )" ||
+        die "The frontend page is unavailable"
+
+    frontend_meta_sha="$(
+        sed -n 's/.*<meta name="app-build" content="\([0-9a-f]\{40\}\)".*/\1/p' <<< "$index_html"
+    )"
+
+    [[ "$frontend_meta_sha" == "$release_sha" ]] ||
+        die "Frontend app-build meta '${frontend_meta_sha}' does not match release ${release_sha}"
+
+    log "runtime_sha=${runtime_build_sha} runtime_build_time=${runtime_build_time} frontend_build_sha=${frontend_build_sha} frontend_meta_sha=${frontend_meta_sha}"
 }
 
 wait_for_service() {
@@ -529,6 +588,7 @@ if [[ "$recorded_release_matches" == "true" && "$running_release_matches" == "tr
     wait_for_service frontend running 60
     smoke_test
     verify_frontend_config
+    verify_runtime_sha
 
     action="noop"
 
@@ -630,6 +690,7 @@ wait_for_service frontend running 120
 
 smoke_test
 verify_frontend_config
+verify_runtime_sha
 
 write_state \
     "${STATE_DIR}/current-release.env" \

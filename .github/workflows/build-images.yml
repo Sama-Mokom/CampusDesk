@@ -105,6 +105,7 @@ jobs:
           fi
 
           echo "created=$(date -u '+%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_OUTPUT"
+          echo "commit_time=$(git show -s --format=%cI "$IMAGE_TAG")" >> "$GITHUB_OUTPUT"
 
       - name: Build backend image
         if: ${{ !inputs.push || steps.image.outputs.exists == 'false' }}
@@ -119,6 +120,9 @@ jobs:
           sbom: ${{ inputs.push }}
           no-cache: ${{ inputs.file_hash_label != '' }}
           tags: ${{ steps.meta.outputs.tag }}
+          build-args: |
+            APP_BUILD_SHA=${{ inputs.image_tag }}
+            APP_BUILD_TIME=${{ steps.meta.outputs.commit_time }}
           labels: |
             org.opencontainers.image.revision=${{ inputs.image_tag }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
@@ -329,6 +333,7 @@ jobs:
           fi
 
           echo "created=$(date -u '+%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_OUTPUT"
+          echo "commit_time=$(git show -s --format=%cI "$IMAGE_TAG")" >> "$GITHUB_OUTPUT"
 
       - name: Build frontend image
         if: ${{ !inputs.push || steps.image.outputs.exists == 'false' }}
@@ -345,6 +350,8 @@ jobs:
           tags: ${{ steps.meta.outputs.tag }}
           build-args: |
             VITE_API_URL=/api
+            VITE_APP_BUILD_SHA=${{ inputs.image_tag }}
+            APP_BUILD_SHA=${{ inputs.image_tag }}
           labels: |
             org.opencontainers.image.revision=${{ inputs.image_tag }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}

@@ -200,6 +200,7 @@ jobs:
             echo "frontend_digest=$frontend_digest"
             echo "latest_sha=$latest_sha"
             echo "last_deployed_sha=$last_deployed_sha"
+            echo "manifest_status=verified"
           } >> "$GITHUB_OUTPUT"
 
           echo "Release manifest verified; latest=${latest_sha}, deployed=${last_deployed_sha}."
@@ -319,6 +320,7 @@ jobs:
         env:
           COMMAND_ID: ${{ steps.command.outputs.command_id }}
           STAGING_INSTANCE_ID: ${{ vars.STAGING_INSTANCE_ID }}
+          RELEASE_SHA: ${{ inputs.commit_sha }}
         run: |
           set -euo pipefail
 
@@ -377,6 +379,53 @@ jobs:
             case "$command_status" in
               Success)
                 print_command_output "$invocation"
+
+                standard_output="$(
+                  jq -r '.StandardOutputContent // empty' <<< "$invocation"
+                )"
+
+                runtime_sha="$(
+                  grep -oE 'runtime_sha=[0-9a-f]{40}' <<< "$standard_output" |
+                    head -n1 | cut -d= -f2 || true
+                )"
+                runtime_build_time="$(
+                  grep -oE 'runtime_build_time=[^[:space:]]+' <<< "$standard_output" |
+                    head -n1 | cut -d= -f2- || true
+                )"
+                frontend_build_sha="$(
+                  grep -oE 'frontend_build_sha=[0-9a-f]{40}' <<< "$standard_output" |
+                    head -n1 | cut -d= -f2 || true
+                )"
+                frontend_meta_sha="$(
+                  grep -oE 'frontend_meta_sha=[0-9a-f]{40}' <<< "$standard_output" |
+                    head -n1 | cut -d= -f2 || true
+                )"
+
+                [[ "$runtime_sha" == "$RELEASE_SHA" ]] || {
+                  echo "The host reported runtime_sha='${runtime_sha}', expected ${RELEASE_SHA}."
+                  exit 1
+                }
+                [[ -n "$runtime_build_time" ]] || {
+                  echo "The host reported no runtime build time."
+                  exit 1
+                }
+                [[ "$frontend_build_sha" == "$RELEASE_SHA" ]] || {
+                  echo "The host reported frontend_build_sha='${frontend_build_sha}', expected ${RELEASE_SHA}."
+                  exit 1
+                }
+                [[ "$frontend_meta_sha" == "$RELEASE_SHA" ]] || {
+                  echo "The host reported frontend_meta_sha='${frontend_meta_sha}', expected ${RELEASE_SHA}."
+                  exit 1
+                }
+
+                {
+                  echo "ssm_status=Success"
+                  echo "runtime_sha=$runtime_sha"
+                  echo "runtime_build_time=$runtime_build_time"
+                  echo "frontend_build_sha=$frontend_build_sha"
+                  echo "frontend_meta_sha=$frontend_meta_sha"
+                } >> "$GITHUB_OUTPUT"
+
                 echo "Deployment completed successfully."
                 exit 0
                 ;;
@@ -440,11 +489,17 @@ jobs:
           WORKFLOW_REF: ${{ github.ref }}
           BACKEND_DIGEST: ${{ steps.images.outputs.backend_digest }}
           FRONTEND_DIGEST: ${{ steps.images.outputs.frontend_digest }}
+          MANIFEST_STATUS: ${{ steps.images.outputs.manifest_status }}
           SELECTION_MODE: ${{ steps.selection.outputs.mode }}
           LATEST_SHA: ${{ steps.images.outputs.latest_sha }}
           LAST_DEPLOYED_SHA: ${{ steps.images.outputs.last_deployed_sha }}
           REASON: ${{ inputs.reason }}
           RECORD_STATUS: ${{ steps.record.outputs.record_status }}
+          SSM_STATUS: ${{ steps.wait.outputs.ssm_status }}
+          RUNTIME_SHA: ${{ steps.wait.outputs.runtime_sha }}
+          RUNTIME_BUILD_TIME: ${{ steps.wait.outputs.runtime_build_time }}
+          FRONTEND_BUILD_SHA: ${{ steps.wait.outputs.frontend_build_sha }}
+          FRONTEND_META_SHA: ${{ steps.wait.outputs.frontend_meta_sha }}
         run: |
           set -euo pipefail
 
@@ -461,8 +516,10 @@ jobs:
             fi
             echo "- Backend digest: \`$BACKEND_DIGEST\`"
             echo "- Frontend digest: \`$FRONTEND_DIGEST\`"
-            echo "- Release manifest: verified; images match ECR"
-            echo "- SSM deployment: Success"
+            echo "- Release manifest: \`$MANIFEST_STATUS\`; images match ECR"
+            echo "- SSM deployment: \`$SSM_STATUS\`"
+            echo "- Runtime /api/version: \`$RUNTIME_SHA\` (built \`$RUNTIME_BUILD_TIME\`)"
+            echo "- Frontend build: \`$FRONTEND_BUILD_SHA\` (meta \`$FRONTEND_META_SHA\`)"
             echo "- Deployment record: \`$RECORD_STATUS\`"
             echo "- Host release record: \`/opt/campusdesk/release.json\`"
             echo

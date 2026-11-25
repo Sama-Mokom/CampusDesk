@@ -15,6 +15,15 @@ use App\Http\Controllers\RequestStageController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
+Route::get('/version', function () {
+    return response()
+        ->json([
+            'build_sha' => config('app.build_sha'),
+            'build_time' => config('app.build_time'),
+        ])
+        ->header('Cache-Control', 'no-store');
+});
+
 Route::middleware(['auth:sanctum', 'active_account'])->get('/user', function (Request $request) {
     return $request->user()->loadMissing(['studentProfile', 'staffProfile.departments']);
 });
