@@ -2,7 +2,7 @@
 
 **Last reviewed:** 25 November 2026
 
-**Status:** ✅ Phase 0 closed on staging (20 November 2026). ✅ Phase 1 verified on staging (21 November 2026). ✅ Phase 2 verified in CI and on staging (23 November 2026). ✅ Phase 3 verified in CI and on staging (24 November 2026). ✅ Phase 4 verified on staging (25 November 2026). Phase 5 PR A is implemented on `feat/release-identity`; PR B scan and verification are pending. Delete the unused `VITE_REVERB_APP_KEY` repository variable.
+**Status:** ✅ Phase 0 closed on staging (20 November 2026). ✅ Phase 1 verified on staging (21 November 2026). ✅ Phase 2 verified in CI and on staging (23 November 2026). ✅ Phase 3 verified in CI and on staging (24 November 2026). ✅ Phase 4 verified on staging (25 November 2026). Phase 5 PR A is verified on staging (25 November 2026); PR B scan, the negative mismatch test, and the runbooks are pending. Delete the unused `VITE_REVERB_APP_KEY` repository variable.
 
 **Scope:** [.github/workflows/ci.yml](../.github/workflows/ci.yml), [.github/workflows/deploy-staging.yml](../.github/workflows/deploy-staging.yml), [Frontend/Dockerfile](../Frontend/Dockerfile), [campusdesk/Dockerfile](../campusdesk/Dockerfile), [compose.yaml](../compose.yaml), [compose.staging.yaml](../compose.staging.yaml), the host deployment script, and the related documentation.
 
@@ -19,7 +19,7 @@ This document records five defects found while investigating the 18 November 202
 | 2 — One build recipe | ✅ Verified 23 November 2026; three checks documented as not exercised |
 | 3 — Reproducible release builds | ✅ Verified 24 November 2026; existing-tag check documented as not exercised |
 | 4 — Runtime configuration | ✅ Verified 25 November 2026; repository-variable cleanup pending |
-| 5 — End-to-end release verification | 🚧 PR A implemented; PR B scan pending |
+| 5 — End-to-end release verification | 🚧 PR A verified; PR B scan pending |
 
 ---
 
@@ -556,12 +556,12 @@ The Browser console showed two extension/content-script `runtime.lastError` mess
 
 **Acceptance tests:**
 
-- [ ] `curl -fsS http://127.0.0.1:8080/api/version` on the host returns the deployed SHA.
+- [x] `curl -fsS http://127.0.0.1:8080/api/version` on the host returns the deployed SHA.
 - [ ] A deploy whose runtime SHA does not match the requested SHA fails the workflow with a clear message.
-- [ ] The SPA's `meta[name="app-build"]` matches the same SHA.
+- [x] The SPA's `meta[name="app-build"]` matches the same SHA.
 - [ ] The release vulnerability scan completes and its report is recorded.
 - [ ] The rollback runbook and the key-rotation runbook have both been executed successfully.
-- [ ] The summary contains only verified facts.
+- [x] The summary contains only verified facts.
 
 **Out of scope:** dashboards, alerting, canary or blue/green deployment.
 
@@ -569,7 +569,7 @@ The Browser console showed two extension/content-script `runtime.lastError` mess
 
 **Effort / dependencies:** ~1 day. Depends on Phases 1 and 4.
 
-**Progress (25 November 2026):** PR A implemented on `feat/release-identity` — backend `APP_BUILD_SHA`/commit-timestamp `APP_BUILD_TIME`, public `/api/version`, frontend `meta[name="app-build"]`/`window.__APP_CONFIG__.buildSha`, host `verify_runtime_sha`, `release.json` identity fields, and the deployment summary from verified step/host outputs. The version endpoint test passes. PR B (Trivy scan) and staging verification are next.
+**Progress (25 November 2026):** PR A verified on staging — `099e16` deployed as `normal`; latest matched; previous `8c8fed`; `/api/version` returned `099e16` built `2026-11-25T15:29:50+01:00`; the frontend `config.js` and SPA meta reported the same SHA; the deployment summary showed the runtime and frontend identity; the record verified. The host script hash is `990cf92c8887e7f4f7d29517c667264b5d5803767c20d05455d448ef12e5255d`. PR B (Trivy scan), the negative mismatch test, and the runbook exercises remain.
 
 ---
 
