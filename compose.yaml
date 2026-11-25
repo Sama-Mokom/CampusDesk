@@ -71,7 +71,7 @@ services:
       REALTIME_REPLAY_HISTORICAL_BACKLOG: ${REALTIME_REPLAY_HISTORICAL_BACKLOG:-true}
 
       REVERB_APP_ID: ${REVERB_APP_ID:-campusdesk}
-      REVERB_APP_KEY: ${REVERB_APP_KEY:-campusdesk-key}
+      REVERB_APP_KEY: ${REVERB_APP_KEY:?REVERB_APP_KEY must be set}
       REVERB_APP_SECRET: ${REVERB_APP_SECRET:-campusdesk-secret}
       REVERB_HOST: reverb
       REVERB_PORT: "8085"
@@ -164,9 +164,11 @@ services:
       context: ./Frontend
       args:
         VITE_API_URL: /api
-        VITE_REVERB_APP_KEY: ${REVERB_APP_KEY:-campusdesk-key}
 
     image: campusdesk-frontend:local
+
+    environment:
+      REVERB_APP_KEY: ${REVERB_APP_KEY:?REVERB_APP_KEY must be set}
 
     ports:
       - "8080:80"

@@ -323,6 +323,35 @@ smoke_test() {
         die "API smoke test returned HTTP ${api_status}"
 }
 
+verify_frontend_config() {
+    local expected_key
+    local actual_key
+    local headers
+
+    expected_key="$(read_env_value REVERB_APP_KEY "$ENV_FILE")"
+
+    [[ -n "$expected_key" ]] ||
+        die "REVERB_APP_KEY is missing from the staging environment"
+
+    actual_key="$(
+        "${compose[@]}" exec -T frontend sh -c \
+            'sed -e "s/^window.__APP_CONFIG__ = //" -e "s/;$//" /usr/share/nginx/html/config.js | jq -r .reverbAppKey' \
+            2>/dev/null
+    )" ||
+        die "Could not read the frontend runtime configuration"
+
+    [[ "$actual_key" == "$expected_key" ]] ||
+        die "Frontend runtime Reverb key does not match the staging environment"
+
+    headers="$(curl --silent --show-error --head http://127.0.0.1:8080/config.js)" ||
+        die "Frontend runtime configuration is not served"
+
+    grep -qi '^Cache-Control:.*no-store' <<< "$headers" ||
+        die "Frontend runtime configuration is cacheable"
+
+    log "Frontend runtime configuration matches the staging Reverb key."
+}
+
 wait_for_service() {
     local service="$1"
     local expected="$2"
@@ -499,6 +528,7 @@ if [[ "$recorded_release_matches" == "true" && "$running_release_matches" == "tr
     wait_for_service worker running 60
     wait_for_service frontend running 60
     smoke_test
+    verify_frontend_config
 
     action="noop"
 
@@ -599,6 +629,7 @@ wait_for_service worker running 120
 wait_for_service frontend running 120
 
 smoke_test
+verify_frontend_config
 
 write_state \
     "${STATE_DIR}/current-release.env" \

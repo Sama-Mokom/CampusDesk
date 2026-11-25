@@ -345,7 +345,6 @@ jobs:
           tags: ${{ steps.meta.outputs.tag }}
           build-args: |
             VITE_API_URL=/api
-            VITE_REVERB_APP_KEY=${{ vars.VITE_REVERB_APP_KEY }}
           labels: |
             org.opencontainers.image.revision=${{ inputs.image_tag }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
