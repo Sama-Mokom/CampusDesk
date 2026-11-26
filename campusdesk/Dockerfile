@@ -12,6 +12,11 @@ RUN apt-get update \
     && a2enmod rewrite \
     && rm -rf /var/lib/apt/lists/*
 
+# Pull the Debian fix for libzstd1 (CVE-2026-124851) from the base image archive.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libzstd1 \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY --from=composer /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
