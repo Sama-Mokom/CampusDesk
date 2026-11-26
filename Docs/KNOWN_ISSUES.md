@@ -1,6 +1,6 @@
 # CampusDesk — Known Issues, Root Causes & Preventive Guidance
 
-**Last reviewed:** 18 November 2026
+**Last reviewed:** 26 November 2026
 
 This document is a knowledge base of every significant bug encountered during development, its root cause, and its resolution. Future agents should read this before touching related code to avoid repeating the same mistakes.
 
@@ -21,20 +21,6 @@ This document is a knowledge base of every significant bug encountered during de
 **Prevention:** Never compose Tailwind class names with template literals. If a class is selected at runtime, include every full class name literally in source or a tested constant map. See [THEME_REFINEMENT.md](THEME_REFINEMENT.md) and ADR-14.
 
 **Status:** ✅ RESOLVED — all tone classes are present in the compiled CSS and verified in the browser.
-
----
-
-### ✅ RESOLVED — Scoped `@apply` Token Classes Broke the Dev Stylesheet
-
-**Symptom:** The staff unclaimed queue could not be opened. Vite showed “The `border-subtle` class does not exist” at `StaffCaseCard.vue` line 124. While that stylesheet was failing, the theme dropdown appeared transparent, the sidebar lost its background, badges lost their tone rules and shell borders looked inconsistent.
-
-**Root cause:** Scoped SFC styles used `@apply border-subtle bg-surface-card text-muted`. Those are semantic classes generated from the Tailwind config. A dev server started before the token/config change kept the previous config cached, so `@apply` could not resolve the new classes and the CSS pipeline failed.
-
-**Fix:** Scoped styles in `StaffCaseCard.vue` and `StaffCaseWorkspace.vue` now declare colours with explicit CSS variables (`border-color: var(--border-subtle)`, `background-color: var(--surface-card)`) and use `@apply` only for core layout utilities. The theme and notification popovers also set explicit opaque token backgrounds.
-
-**Prevention:** Do not use custom token classes inside scoped `@apply`. Use `var(--token)` for colours. Restart the Vite dev server after changing `tailwind.config.js` to discard a stale PostCSS config.
-
-**Status:** ✅ RESOLVED — both scoped styles return HTTP 200 in Vite dev; staff queue and cases render in dark and light.
 
 ---
 
@@ -164,6 +150,20 @@ export type DegreeType = 'BACHELOR' | 'CERTIFICATE' | 'MASTER' | 'PHD'
 ---
 
 ## 🟡 RESOLVED BUGS (historical — read before touching related code)
+
+---
+
+### ✅ RESOLVED — Scoped `@apply` Token Classes Broke the Dev Stylesheet
+
+**Symptom:** The staff unclaimed queue could not be opened. Vite showed “The `border-subtle` class does not exist” at `StaffCaseCard.vue` line 124. While that stylesheet was failing, the theme dropdown appeared transparent, the sidebar lost its background, badges lost their tone rules and shell borders looked inconsistent.
+
+**Root cause:** Scoped SFC styles used `@apply border-subtle bg-surface-card text-muted`. Those are semantic classes generated from the Tailwind config. A dev server started before the token/config change kept the previous config cached, so `@apply` could not resolve the new classes and the CSS pipeline failed.
+
+**Fix:** Scoped styles in `StaffCaseCard.vue` and `StaffCaseWorkspace.vue` now declare colours with explicit CSS variables (`border-color: var(--border-subtle)`, `background-color: var(--surface-card)`) and use `@apply` only for core layout utilities. The theme and notification popovers also set explicit opaque token backgrounds.
+
+**Prevention:** Do not use custom token classes inside scoped `@apply`. Use `var(--token)` for colours. Restart the Vite dev server after changing `tailwind.config.js` to discard a stale PostCSS config.
+
+**Status:** ✅ RESOLVED — both scoped styles return HTTP 200 in Vite dev; staff queue and cases render in dark and light.
 
 ---
 

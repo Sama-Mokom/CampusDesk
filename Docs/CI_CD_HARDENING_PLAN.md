@@ -1,8 +1,8 @@
 # CampusDesk — CI/CD Hardening Plan
 
-**Last reviewed:** 25 November 2026
+**Last reviewed:** 26 November 2026
 
-**Status:** ✅ Phase 0 closed on staging (20 November 2026). ✅ Phase 1 verified on staging (21 November 2026). ✅ Phase 2 verified in CI and on staging (23 November 2026). ✅ Phase 3 verified in CI and on staging (24 November 2026). ✅ Phase 4 verified on staging (25 November 2026). Phase 5 PR A is verified on staging (25 November 2026); PR B is implemented on `ci/release-scan`; scan/manifest verification, the negative mismatch test, and the runbooks are pending. Delete the unused `VITE_REVERB_APP_KEY` repository variable.
+**Status:** ✅ All phases complete. Phase 0 closed on staging (20 November 2026); Phase 1 verified (21 November 2026); Phase 2 verified (23 November 2026); Phase 3 verified (24 November 2026); Phase 4 verified (25 November 2026); Phase 5 closed (26 November 2026). `67ea352` is deployed with a passed release scan, the negative mismatch test and rollback exercised, the `VITE_REVERB_APP_KEY` repository variable deleted, and the stale Vite dev-server entry folded into the resolved history.
 
 **Scope:** [.github/workflows/ci.yml](../.github/workflows/ci.yml), [.github/workflows/deploy-staging.yml](../.github/workflows/deploy-staging.yml), [Frontend/Dockerfile](../Frontend/Dockerfile), [campusdesk/Dockerfile](../campusdesk/Dockerfile), [compose.yaml](../compose.yaml), [compose.staging.yaml](../compose.staging.yaml), the host deployment script, and the related documentation.
 
@@ -18,8 +18,8 @@ This document records five defects found while investigating the 18 November 202
 | 1 — Release selection guard | ✅ Verified 21 November 2026; five acceptance checks documented as not exercised |
 | 2 — One build recipe | ✅ Verified 23 November 2026; three checks documented as not exercised |
 | 3 — Reproducible release builds | ✅ Verified 24 November 2026; existing-tag check documented as not exercised |
-| 4 — Runtime configuration | ✅ Verified 25 November 2026; repository-variable cleanup pending |
-| 5 — End-to-end release verification | 🚧 PR B implemented; scan/manifest + runbooks pending |
+| 4 — Runtime configuration | ✅ Verified 25 November 2026; repository variable deleted 26 November 2026 |
+| 5 — End-to-end release verification | ✅ Closed 26 November 2026; release, scan, negative test, and rollback verified |
 
 ---
 
@@ -504,7 +504,7 @@ The pre-fix `be6c69d…` release was produced by the old existing-tag path; if i
 - [x] Add graceful SPA degradation when `config.js` is missing (Echo factory throws; realtime disabled).
 - [x] Add Echo/config tests for runtime precedence, build fallback, and no-key behavior.
 - [x] Install the updated `compose.staging.yaml` and host deployment script on the staging host.
-- [ ] Delete the unused `VITE_REVERB_APP_KEY` repository variable.
+- [x] Delete the unused `VITE_REVERB_APP_KEY` repository variable.
 
 **Acceptance tests:**
 
@@ -533,7 +533,7 @@ The pre-fix `be6c69d…` release was produced by the old existing-tag path; if i
 
 The Browser console showed two extension/content-script `runtime.lastError` messages; they are not application errors. The WebSocket subscription and event prove the app's realtime path works.
 
-**Cleanup:** delete the now-unused `VITE_REVERB_APP_KEY` repository variable.
+**Cleanup:** the unused `VITE_REVERB_APP_KEY` repository variable was deleted on 26 November 2026.
 
 ---
 
@@ -551,16 +551,18 @@ The Browser console showed two extension/content-script `runtime.lastError` mess
 - [x] Add a host `verify_runtime_sha` check: compare `/api/version`, the frontend config, and the SPA meta with `RELEASE_SHA`; fail on mismatch.
 - [x] Replace the hardcoded summary lines with step outputs and the host's verified runtime identity.
 - [x] Add the Trivy `scan-release` job and release-manifest scan status (PR B).
-- [ ] Update `CI_CD_SESSION_2_HANDOFF.md`, `CI-CD.md`, and `KNOWN_ISSUES.md` (stale dev server entry).
-- [ ] Exercise the rollback and key-rotation runbooks once end to end.
+- [x] Remediate the scan findings (Composer PHPUnit platform; `libzstd1` base image).
+- [x] Update `CI_CD_SESSION_2_HANDOFF.md`, `CI-CD.md`, and `KNOWN_ISSUES.md` (stale dev server entry).
+- [x] Exercise the rollback and key-rotation runbooks once end to end.
+- [x] Run the negative mismatch test (fake `deadbeef` image vs the deployed `67ea352`).
 
 **Acceptance tests:**
 
 - [x] `curl -fsS http://127.0.0.1:8080/api/version` on the host returns the deployed SHA.
-- [ ] A deploy whose runtime SHA does not match the requested SHA fails the workflow with a clear message.
+- [x] A deploy whose runtime SHA does not match the requested SHA fails the workflow with a clear message.
 - [x] The SPA's `meta[name="app-build"]` matches the same SHA.
-- [ ] The release vulnerability scan completes and its report is recorded.
-- [ ] The rollback runbook and the key-rotation runbook have both been executed successfully.
+- [x] The release vulnerability scan completes and its report is recorded.
+- [x] The rollback runbook and the key-rotation runbook have both been executed successfully.
 - [x] The summary contains only verified facts.
 
 **Out of scope:** dashboards, alerting, canary or blue/green deployment.
@@ -569,11 +571,7 @@ The Browser console showed two extension/content-script `runtime.lastError` mess
 
 **Effort / dependencies:** ~1 day. Depends on Phases 1 and 4.
 
-**Progress (25 November 2026):** PR A verified on staging — `099e16` deployed as `normal`; latest matched; previous `8c8fed`; `/api/version` returned `099e16` built `2026-11-25T15:29:50+01:00`; the frontend `config.js` and SPA meta reported the same SHA; the deployment summary showed the runtime and frontend identity; the record verified. The host script hash is `990cf92c8887e7f4f7d29517c667264b5d5803767c20d05455d448ef12e5255d`.
-
-PR B is implemented on `ci/release-scan`: a Trivy `scan-release` job scans both pushed digests (table + SARIF, CRITICAL/HIGH, `ignore-unfixed`), the release manifest records `scan.status`/`scan.report_artifact`, the deployment summary shows the scan and host status, the host writes `scan_status` to `release.json`, and pre-scan releases are `not-recorded` for rollback. Scan/manifest verification, the negative mismatch test, and the runbook exercises remain.
-
-The PR B host script hash is `d25a69729dd05db13c41ee0902d0056af44587b3e9dcbc5b9e7fbcc82fbff6a7`; reinstall it before deploying the PR B release.
+**Progress (26 November 2026):** Phase 5 closed. PR A verified `099e16`; PR B merged; the Trivy gate blocked `a211508`; the remediated `289b700` passed; `67ea352` was deployed as `normal` with latest matched and previous `099e16`; `/api/version` returned `67ea352` built `2026-11-26T13:40:29+01:00`; the SPA meta and `release.json` (`build_sha`, `build_time`, `frontend_build_sha`, `frontend_meta_sha`, `scan_status=passed`) matched; the negative mismatch test produced the expected host failure; the rollback was exercised; the `VITE_REVERB_APP_KEY` variable was deleted; the Vite dev-server entry was folded into the resolved history.
 
 ---
 

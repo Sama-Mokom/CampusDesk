@@ -1,6 +1,6 @@
 # CampusDesk CI/CD and Operations Status
 
-**Last reviewed:** 25 November 2026
+**Last reviewed:** 26 November 2026
 
 This file is the entry point for the CampusDesk CI/CD work. Detailed implementation records live under `Docs/`.
 
@@ -13,6 +13,8 @@ Phase 2's one-build-recipe design is in [Docs/CI_CD_PHASE_2_DESIGN.md](Docs/CI_C
 Phase 3's reproducible-build design is in [Docs/CI_CD_PHASE_3_DESIGN.md](Docs/CI_CD_PHASE_3_DESIGN.md). Base images are pinned by digest, release images carry provenance and SBOM, and a separate dispatch verifies application-file reproducibility.
 
 Phase 4's runtime Reverb design is in [Docs/CI_CD_PHASE_4_DESIGN.md](Docs/CI_CD_PHASE_4_DESIGN.md). The frontend image is key-free; an Nginx entrypoint writes `/config.js` from the container environment. Key rotation recreates the containers without rebuilding the image.
+
+Phase 5's end-to-end release verification design is in [Docs/CI_CD_PHASE_5_DESIGN.md](Docs/CI_CD_PHASE_5_DESIGN.md). The backend bakes its build SHA and commit time; `/api/version`, the SPA meta, and `config.js` expose the same identity; the host verifies them before recording the deployment. A separate Trivy job scans the published images before the release manifest. Phase 5 is closed.
 
 Phase 5's end-to-end release verification design is in [Docs/CI_CD_PHASE_5_DESIGN.md](Docs/CI_CD_PHASE_5_DESIGN.md). The backend bakes its build SHA and commit timestamp; `/api/version`, the SPA meta, and `config.js` expose the same identity; the host verifies them before recording the deployment. A separate Trivy job scans the published images before the release manifest.
 
@@ -34,7 +36,7 @@ The frontend image contains no Reverb key. The Nginx entrypoint writes `/usr/sha
 
 ### Release verification and scan
 
-The backend image bakes `APP_BUILD_SHA` and the commit-timestamp `APP_BUILD_TIME`; `GET /api/version` returns both. The frontend bakes its build SHA into `meta[name="app-build"]` and `config.js` (`buildSha`). The host deploy script compares all three with `RELEASE_SHA` and writes the verified identity to `release.json`. The deployment summary uses only verified step and host outputs. A separate Trivy `scan-release` job gates the release manifest on CRITICAL/HIGH findings, uploads `release-scan-<sha>`, records `scan.status` in the manifest, and the host records `scan_status`; pre-scan releases are treated as `not-recorded` for rollback.
+The backend image bakes `APP_BUILD_SHA` and the commit-timestamp `APP_BUILD_TIME`; `GET /api/version` returns both. The frontend bakes its build SHA into `meta[name="app-build"]` and `config.js` (`buildSha`). The host deploy script compares all three with `RELEASE_SHA` and writes the verified identity to `release.json`. The deployment summary uses only verified step and host outputs. A separate Trivy `scan-release` job gates the release manifest on CRITICAL/HIGH findings, uploads `release-scan-<sha>`, records `scan.status` in the manifest, and the host records `scan_status`; pre-scan releases are treated as `not-recorded` for rollback. The gate blocked `a211508`; the remediated `67ea352` passed and is deployed. Phase 5 is closed.
 
 Deployments now require a published release manifest. A normal deployment must use the current `development` tip and the latest published release; re-deploying the current release is idempotent; a rollback requires `allow_previous_release` plus a reason and a target older than the deployed release. The operator procedure is in the handoff guide.
 

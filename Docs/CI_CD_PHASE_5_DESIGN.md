@@ -1,8 +1,8 @@
 # CampusDesk — Phase 5: End-to-End Release Verification
 
-**Last reviewed:** 25 November 2026
+**Last reviewed:** 26 November 2026
 
-**Status:** PR A verified on staging (`099e16`); PR B (Trivy scan) implemented on `ci/release-scan`; scan/manifest verification and the negative/runbook checks are pending.
+**Status:** ✅ Closed 26 November 2026 — `67ea352` deployed; release scan passed; negative mismatch test and rollback exercised; `VITE_REVERB_APP_KEY` deleted; `KNOWN_ISSUES` stale Vite entry folded into the resolved history.
 
 **Scope:** [campusdesk/Dockerfile](../campusdesk/Dockerfile), [campusdesk/config/app.php](../campusdesk/config/app.php), [campusdesk/routes/api.php](../campusdesk/routes/api.php), [Frontend/Dockerfile](../Frontend/Dockerfile), [Frontend/index.html](../Frontend/index.html), [Frontend/docker/40-generate-config.sh](../Frontend/docker/40-generate-config.sh), [.github/workflows/build-images.yml](../.github/workflows/build-images.yml), [.github/workflows/deploy-staging.yml](../.github/workflows/deploy-staging.yml), [ops/staging/campusdesk-deploy.sh](../ops/staging/campusdesk-deploy.sh), and the CI documentation.
 

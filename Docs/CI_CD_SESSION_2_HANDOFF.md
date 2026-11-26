@@ -2,7 +2,7 @@
 
 **Coverage:** Local Docker foundation completed 25 September 2026 through Session Manager interactive-access and port-forward validation completed 12 October 2026
 
-**Last reviewed and updated:** 25 November 2026
+**Last reviewed and updated:** 26 November 2026
 
 **Repository branches:** `development` remains the deployment integration target; the account-security change sequence was prepared on `valib`. Recovery automation and its validation record were merged by PR #20 at merge commit `989ca54`.
 
@@ -516,7 +516,7 @@ The current staging app key is `campusdesk-461a0bb9080ea6190e64dbfba3dee31d` (pu
 
 Verified 25 November 2026: `8c8fed` deployed as `normal` with the release manifest and record verified; the key was rotated and the five services recreated with no image rebuild; `config.js` served the new key with `200` and `no-store`; the browser WebSocket returned `101`, subscribed to `private-users.621`, and received a `request.created` event; the same image with `local-check-key` on port `8081` served the different key.
 
-The `VITE_REVERB_APP_KEY` repository variable is no longer used by the workflow. Delete it after the runtime-config release is verified; the local `Frontend/.env` can keep a development value for the Vite fallback.
+The `VITE_REVERB_APP_KEY` repository variable is no longer used by the workflow; it was deleted on 26 November 2026. The local `Frontend/.env` can keep a development value for the Vite fallback.
 
 ### Reverb key rotation
 
@@ -544,6 +544,8 @@ The deployment summary uses only values from verified step and host outputs: the
 PR A verified 25 November 2026 on `099e16`: `/api/version` returned the SHA built `2026-11-25T15:29:50+01:00`; `config.js` and the SPA meta matched; the summary showed the runtime/frontend identity; the record verified.
 
 A separate Trivy `scan-release` job scans both published index digests before `release-manifest`. Its table and SARIF reports are the `release-scan-<sha>` artifact; the manifest records `scan.status` and `scan.report_artifact`; the host reads the manifest and records `scan_status`; releases published before the scan are `not-recorded` for rollback.
+
+Phase 5 closed 26 November 2026: `67ea352` deployed; the release scan and host scan reported `passed`; `/api/version`, the SPA meta, and `release.json` (`scan_status=passed`) matched; the negative mismatch test and rollback were exercised; `VITE_REVERB_APP_KEY` was deleted; the stale Vite entry was folded into the resolved history.
 
 **Version endpoint check:**
 
@@ -618,7 +620,7 @@ The workflow uses repository variables:
 - `ECR_BACKEND_REPOSITORY`
 - `ECR_FRONTEND_REPOSITORY`
 
-The `VITE_REVERB_APP_KEY` variable is no longer used by the workflow; delete it after the runtime-config release is verified.
+The `VITE_REVERB_APP_KEY` variable is no longer used by the workflow; it was deleted on 26 November 2026.
 
 No permanent AWS access-key pair is required by the workflow.
 
