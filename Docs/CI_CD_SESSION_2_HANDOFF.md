@@ -563,7 +563,7 @@ After `publish-images` succeeds, the `release-manifest` job writes a release rec
 - `/campusdesk/staging/latest` — the newest published SHA, updated only when the published commit is the current `development` tip, so a CI re-run cannot move it backwards; and
 - the artefact `release-<sha>` containing the same manifest.
 
-The manifest contains no AWS account identifier. The publisher role needs `ssm:PutParameter` on those two parameter paths; the full IAM statement and the Phase 1 selection rules are recorded in [CI_CD_PHASE_1_DESIGN.md](CI_CD_PHASE_1_DESIGN.md). The deployment workflow now requires and verifies this manifest.
+The manifest contains no AWS account identifier. The publisher role needs `ssm:PutParameter` on those two parameter paths; the full IAM statement and the Phase 1 selection rules are recorded in [Phase 1 design records](CI_CD_HARDENING_PLAN.md#phase-1-design--release-selection-guard). The deployment workflow now requires and verifies this manifest.
 
 With the Phase 3 attestations, the ECR tag digest is the image **index** digest (image manifest plus provenance and SBOM attestations). The manifest and `release.json` record that digest, and the host pulls `repo@sha256:<index>`; the release-selection rules and the host revision-label check are unchanged.
 
@@ -648,7 +648,7 @@ The Phase 1 release-manifest job additionally needs:
 
 - `ssm:PutParameter` on `/campusdesk/releases/*` and `/campusdesk/staging/latest`.
 
-This is not broad ECR or SSM administrator access; the exact statement is in [CI_CD_PHASE_1_DESIGN.md](CI_CD_PHASE_1_DESIGN.md).
+This is not broad ECR or SSM administrator access; the exact statement is in [Phase 1 design records](CI_CD_HARDENING_PLAN.md#phase-1-design--release-selection-guard).
 
 ### EC2 runtime role
 

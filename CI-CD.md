@@ -6,17 +6,15 @@ This file is the entry point for the CampusDesk CI/CD work. Detailed implementat
 
 The active remediation plan is the [CI/CD Hardening Plan](Docs/CI_CD_HARDENING_PLAN.md): it records the five defects found during the November 2026 staging investigation (ancestor-only release validation, duplicated build recipes, no build-once promotion, the hardcoded Reverb key, and release observability) and the phased, testable plan to fix them.
 
-Phase 1's release-selection design — release manifests, normal/idempotent/rollback rules, the IAM split, and the PR sequence — is in [Docs/CI_CD_PHASE_1_DESIGN.md](Docs/CI_CD_PHASE_1_DESIGN.md).
+Phase 1's release-selection design — release manifests, normal/idempotent/rollback rules, the IAM split, and the PR sequence — is in [Phase 1 design records](Docs/CI_CD_HARDENING_PLAN.md#phase-1-design--release-selection-guard).
 
-Phase 2's one-build-recipe design is in [Docs/CI_CD_PHASE_2_DESIGN.md](Docs/CI_CD_PHASE_2_DESIGN.md). Both the PR validation path and the development publication path call the same reusable workflow, [build-images.yml](.github/workflows/build-images.yml).
+Phase 2's one-build-recipe design is in [Phase 2 design records](Docs/CI_CD_HARDENING_PLAN.md#phase-2-design--one-build-recipe). Both the PR validation path and the development publication path call the same reusable workflow, [build-images.yml](.github/workflows/build-images.yml).
 
-Phase 3's reproducible-build design is in [Docs/CI_CD_PHASE_3_DESIGN.md](Docs/CI_CD_PHASE_3_DESIGN.md). Base images are pinned by digest, release images carry provenance and SBOM, and a separate dispatch verifies application-file reproducibility.
+Phase 3's reproducible-build design is in [Phase 3 design records](Docs/CI_CD_HARDENING_PLAN.md#phase-3-design--reproducible-release-builds). Base images are pinned by digest, release images carry provenance and SBOM, and a separate dispatch verifies application-file reproducibility.
 
-Phase 4's runtime Reverb design is in [Docs/CI_CD_PHASE_4_DESIGN.md](Docs/CI_CD_PHASE_4_DESIGN.md). The frontend image is key-free; an Nginx entrypoint writes `/config.js` from the container environment. Key rotation recreates the containers without rebuilding the image.
+Phase 4's runtime Reverb design is in [Phase 4 design records](Docs/CI_CD_HARDENING_PLAN.md#phase-4-design--runtime-reverb-configuration). The frontend image is key-free; an Nginx entrypoint writes `/config.js` from the container environment. Key rotation recreates the containers without rebuilding the image.
 
-Phase 5's end-to-end release verification design is in [Docs/CI_CD_PHASE_5_DESIGN.md](Docs/CI_CD_PHASE_5_DESIGN.md). The backend bakes its build SHA and commit time; `/api/version`, the SPA meta, and `config.js` expose the same identity; the host verifies them before recording the deployment. A separate Trivy job scans the published images before the release manifest. Phase 5 is closed.
-
-Phase 5's end-to-end release verification design is in [Docs/CI_CD_PHASE_5_DESIGN.md](Docs/CI_CD_PHASE_5_DESIGN.md). The backend bakes its build SHA and commit timestamp; `/api/version`, the SPA meta, and `config.js` expose the same identity; the host verifies them before recording the deployment. A separate Trivy job scans the published images before the release manifest.
+Phase 5's end-to-end release verification design is in [Phase 5 design records](Docs/CI_CD_HARDENING_PLAN.md#phase-5-design--end-to-end-release-verification). The backend bakes its build SHA and commit time; `/api/version`, the SPA meta, and `config.js` expose the same identity; the host verifies them before recording the deployment. A separate Trivy job scans the published images before the release manifest. Phase 5 is closed.
 
 ## Image publication model
 
