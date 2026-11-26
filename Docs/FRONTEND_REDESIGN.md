@@ -112,3 +112,4 @@ The work was developed on `development-7`. Implementation commits:
 - `96bc75d` — department and Super Admin oversight, forms and regression tests.
 
 `443d9d9` records the original redesign verification. `6dd0de5` separates the dashboard workflows into nested role pages and includes the updated regression tests; `c533433` records the route map and verification. PR #18 merged the branch into `development` at `7bf5f9e`. No staging deployment was required because the change did not alter backend, deployment, dependency, or lockfile contracts. Issue closure and the remaining browser acceptance checklist are separate from the merge record.
+
