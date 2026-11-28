@@ -181,20 +181,16 @@ cd Frontend
 
 npm install
 
-# Create .env
-cat << 'EOF' > .env
-VITE_API_URL=http://127.0.0.1:8000/api
-VITE_REVERB_APP_KEY=campusdesk-key
-VITE_REVERB_HOST=127.0.0.1
-VITE_REVERB_PORT=8085
-VITE_REVERB_SCHEME=http
-EOF
+# Create .env from the tracked template
+cp .env.example .env
 
 npm run dev
 # → http://localhost:5173
 ```
 
-`.env` is local-only and ignored by Git; `.env.example` is the tracked template. If UI changes do not appear after editing `tailwind.config.js`, the PostCSS config, or the design tokens in `src/style.css`, restart `npm run dev` — Vite keeps the previous config and module graph cached. A stale local dev server, not staging, caused the 18 November 2026 "missing changes" report.
+Use `VITE_API_URL=/api` (the value in `.env.example`). It is the same relative prefix the nginx container proxies to the backend, so development and Docker differ only in origin — never in the request path. Only set an absolute URL when the frontend and backend are served from different origins.
+
+`.env` is local-only and ignored by Git, so it is **not** created by `git pull`. If logins or any other endpoint suddenly return `404` from the Vite port, the usual cause is a missing `Frontend/.env`: a relative request like `/login` then resolves against the frontend origin instead of the backend. Copy the template and restart `npm run dev`; Vite reads `VITE_*` variables at server start. If UI changes do not appear after editing `tailwind.config.js`, the PostCSS config, or the design tokens in `src/style.css`, restart `npm run dev` — Vite keeps the previous config and module graph cached. A stale local dev server, not staging, caused the 18 November 2026 "missing changes" report.
 
 ## Running Tests & Quality Gates
 

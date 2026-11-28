@@ -1,8 +1,22 @@
 import axios from 'axios';
 
+// Every endpoint is served under /api, both by the Vite dev proxy and by the
+// nginx container in front of the backend. Falling back to that same relative
+// prefix keeps requests on the current origin if VITE_API_URL is ever missing,
+// instead of resolving "/login" against the frontend origin and 404-ing.
+const configuredBaseURL = import.meta.env.VITE_API_URL;
+const baseURL = configuredBaseURL || '/api';
+
+if (!configuredBaseURL && import.meta.env.DEV && !import.meta.env.TEST) {
+  console.warn(
+    '[api] VITE_API_URL is not set; defaulting to "/api". ' +
+      'Copy Frontend/.env.example to Frontend/.env to configure it explicitly.'
+  );
+}
+
 // Create the axios instance
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
+  baseURL,
   // The local Laravel development server handles requests serially. The admin
   // dashboard needs several initial API calls, so allow a queued request enough
   // time to reach the server rather than cancelling it after ten seconds.
